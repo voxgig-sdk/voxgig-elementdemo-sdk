@@ -1,0 +1,67 @@
+# Elementcard feature behaviour, as language-neutral cases.
+#
+# This feature comes from the project's OWN sdkgen package (ext/), and these
+# cases prove it the same way the shipped features are proved: the corpus
+# runners read the roster from the corpus itself, so a section added here
+# drives the real generated feature class in every target that has one.
+#
+# The feature is shape-triggered: any single-record result carrying
+# `number`, `symbol`, `name` and `mass` is rendered, which is what makes it
+# corpus-expressible — no case needs to name an entity. The assertion is
+# the client's `_elementcard` record: `count` and the EXACT card string in
+# `last`.
+
+basic: set: [
+
+  {
+    name: 'renders an element-shaped result and records it'
+    feature: [ { name: 'elementcard', active: true } ]
+    res: [ { status: 200, body: {
+      id: 'fe', name: 'Iron', symbol: 'Fe', number: 26, mass: 55.845 } } ]
+    op: [ { op: '#OP1' } ]
+    out: {
+      count: 1
+      last: "+---------+\n|26     Fe|\n|  Iron   |\n| 55.845  |\n+---------+"
+    }
+  }
+
+  {
+    name: 'ignores a result that is not element-shaped'
+    feature: [ { name: 'elementcard', active: true } ]
+    res: [ { status: 200, body: { id: 'x01', name: 'Not An Element' } } ]
+    op: [ { op: '#OP1' } ]
+    out: {
+      count: 0
+      last: ""
+    }
+  }
+
+  {
+    name: 'integral numbers render without a decimal point'
+    feature: [ { name: 'elementcard', active: true } ]
+    res: [ { status: 200, body: {
+      id: 'bk', name: 'Berkelium', symbol: 'Bk', number: 97, mass: 247 } } ]
+    op: [ { op: '#OP1' } ]
+    out: {
+      count: 1
+      last: "+---------+\n|97     Bk|\n|Berkelium|\n|   247   |\n+---------+"
+    }
+  }
+
+  {
+    name: 'every shaped result updates the record'
+    feature: [ { name: 'elementcard', active: true } ]
+    res: [
+      { status: 200, body: {
+        id: 'fe', name: 'Iron', symbol: 'Fe', number: 26, mass: 55.845 } }
+      { status: 200, body: {
+        id: 'au', name: 'Gold', symbol: 'Au', number: 79, mass: 196.97 } }
+    ]
+    op: [ { op: '#OP1' }, { op: '#OP1' } ]
+    out: {
+      count: 2
+      last: "+---------+\n|79     Au|\n|  Gold   |\n| 196.97  |\n+---------+"
+    }
+  }
+
+]

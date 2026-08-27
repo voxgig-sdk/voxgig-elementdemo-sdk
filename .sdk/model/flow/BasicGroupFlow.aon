@@ -1,0 +1,44 @@
+# BasicGroupFlow
+
+main: kit: flow: BasicGroupFlow:
+{
+  entity: "group",
+  kind: "basic",
+  name: "BasicGroupFlow",
+  step: [
+    {
+      op: "list",
+      valid: [
+        {
+          apply: "ItemExists",
+          def: {
+            ref: "group_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      input: {
+        ref: "group_ref01",
+        srcdatavar: "group_ref01_data",
+        suffix: "_dt0"
+      }
+
+      match: {
+        id: "group01"
+      }
+
+      op: "load",
+      valid: [
+        {
+          apply: "TextFieldMark",
+          def: {
+            mark: "Mark01-group_ref01"
+          }
+        }
+      ]
+    }
+  ],
+  "key$": "BasicGroupFlow"
+}

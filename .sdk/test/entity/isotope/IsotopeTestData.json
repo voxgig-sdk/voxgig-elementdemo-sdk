@@ -1,0 +1,65 @@
+{
+  "existing": {
+    "isotope": {
+      "ISOTOPE00": {
+        "abundance": 120,
+        "element_id": "ELEMENT01",
+        "halflife": "s7a",
+        "id": "ISOTOPE00",
+        "mass": 124,
+        "mass_number": "s7d",
+        "mode": "s7e",
+        "name": "s7f",
+        "ok": true,
+        "product": "s81",
+        "stable": true,
+        "steps": "s83"
+      },
+      "ISOTOPE01": {
+        "abundance": 240,
+        "element_id": "ELEMENT01",
+        "halflife": "sf2",
+        "id": "ISOTOPE01",
+        "mass": 244,
+        "mass_number": "sf5",
+        "mode": "sf6",
+        "name": "sf7",
+        "ok": true,
+        "product": "sf9",
+        "stable": true,
+        "steps": "sfb"
+      },
+      "ISOTOPE02": {
+        "abundance": 360,
+        "element_id": "ELEMENT01",
+        "halflife": "s16a",
+        "id": "ISOTOPE02",
+        "mass": 364,
+        "mass_number": "s16d",
+        "mode": "s16e",
+        "name": "s16f",
+        "ok": true,
+        "product": "s171",
+        "stable": true,
+        "steps": "s173"
+      }
+    }
+  },
+  "new": {
+    "isotope": {
+      "isotope_ref01": {
+        "abundance": 480,
+        "element_id": "ELEMENT01",
+        "halflife": "s1e2",
+        "mass": 484,
+        "mass_number": "s1e5",
+        "mode": "s1e6",
+        "name": "s1e7",
+        "ok": true,
+        "product": "s1e9",
+        "stable": true,
+        "steps": "s1eb"
+      }
+    }
+  }
+}

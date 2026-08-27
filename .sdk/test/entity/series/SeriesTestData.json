@@ -1,0 +1,33 @@
+{
+  "existing": {
+    "series": {
+      "SERIES00": {
+        "color": "s28",
+        "description": "s29",
+        "id": "SERIES00",
+        "name": "s2b"
+      },
+      "SERIES01": {
+        "color": "s50",
+        "description": "s51",
+        "id": "SERIES01",
+        "name": "s53"
+      },
+      "SERIES02": {
+        "color": "s78",
+        "description": "s79",
+        "id": "SERIES02",
+        "name": "s7b"
+      }
+    }
+  },
+  "new": {
+    "series": {
+      "series_ref01": {
+        "color": "sa0",
+        "description": "sa1",
+        "name": "sa3"
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# API Information
+
+
+main: {
+  kit: {
+    info: {
+      auth: false
+      description: "The Periodic Table API. Elements, isotopes, groups and series."
+      servers: [
+        {
+          url: "http://localhost:8902"
+        }
+      ]
+      summary: "The Periodic Table API."
+      title: "Periodic Table API"
+      version: "1.0.0"
+    }
+  }
+}
+

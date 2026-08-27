@@ -1,0 +1,35 @@
+# Elementdemo SDK — series operations. GENERATED, do not edit.
+#
+# Arguments are name=value pairs; unknown names become query parameters.
+# Body-carrying operations read the JSON record from stdin. Results are
+# JSON on stdout; errors are JSON on stderr with a non-zero return.
+
+# series list
+elementdemo_series_list() {
+  local _query="" _kv _args
+  for _kv in "$@"; do
+    case "$_kv" in
+      *=*) _query="${_query:+${_query}&}${_kv%%=*}=$(_elementdemo_encode "${_kv#*=}")" ;;
+      *) _elementdemo_error "bad_arg" "series list: arguments are name=value pairs, got: $_kv"; return 2 ;;
+    esac
+  done
+  _args='{}'
+  elementdemo_request GET "/api/series" "" "$_query" "series" "list" "$_args"
+}
+
+# series load
+elementdemo_series_load() {
+  local id=""
+  local _query="" _kv _args
+  for _kv in "$@"; do
+    case "$_kv" in
+      id=*) id="${_kv#id=}" ;;
+      *=*) _query="${_query:+${_query}&}${_kv%%=*}=$(_elementdemo_encode "${_kv#*=}")" ;;
+      *) _elementdemo_error "bad_arg" "series load: arguments are name=value pairs, got: $_kv"; return 2 ;;
+    esac
+  done
+  [ -n "$id" ] || { _elementdemo_error "required" "series load: id is required"; return 2; }
+  _args=$(jq -n --arg id "$id" \
+    '{id: $id} | with_entries(select(.value != ""))')
+  elementdemo_request GET "/api/series/$(_elementdemo_encode "$id")" "" "$_query" "series" "load" "$_args"
+}

@@ -1,0 +1,2010 @@
+{
+  "NAME": "ELEMENTDEMO",
+  "Name": "Elementdemo",
+  "def": "elementdemo-1.0.0-openapi-3.0.0.yaml",
+  "main": {
+    "api": {
+      "entity": {},
+      "guide": {}
+    },
+    "custom": {
+      "plurals": {}
+    },
+    "def": {
+      "desc": ""
+    },
+    "kit": {
+      "author": {
+        "name": "",
+        "url": ""
+      },
+      "config": {
+        "docs_order": [
+          "ts",
+          "py",
+          "php",
+          "go",
+          "rb",
+          "lua"
+        ],
+        "headers": {
+          "content-type": "application/json"
+        },
+        "repr": "auto"
+      },
+      "contributor": {},
+      "docs": {},
+      "entity": {
+        "element": {
+          "active": true,
+          "alias": {
+            "field": {}
+          },
+          "fields": [
+            {
+              "active": true,
+              "name": "block",
+              "req": true,
+              "short": "Orbital block, one of s, p, d, f.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "charge",
+              "req": false,
+              "type": "`$INTEGER`"
+            },
+            {
+              "active": true,
+              "name": "discovered",
+              "req": false,
+              "short": "Year of discovery, absent for elements known since antiquity.",
+              "type": "`$INTEGER`"
+            },
+            {
+              "active": true,
+              "name": "group",
+              "req": false,
+              "short": "Periodic table column, 1 to 18, absent for the f-block.",
+              "type": "`$INTEGER`"
+            },
+            {
+              "active": true,
+              "name": "id",
+              "req": true,
+              "short": "Element identifier, the lowercase symbol.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "ion",
+              "req": false,
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "mass",
+              "req": true,
+              "short": "Standard atomic weight in daltons.",
+              "type": "`$NUMBER`"
+            },
+            {
+              "active": true,
+              "name": "name",
+              "req": true,
+              "short": "Element name.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "number",
+              "req": true,
+              "short": "Atomic number.",
+              "type": "`$INTEGER`"
+            },
+            {
+              "active": true,
+              "name": "ok",
+              "req": false,
+              "type": "`$BOOLEAN`"
+            },
+            {
+              "active": true,
+              "name": "period",
+              "req": true,
+              "short": "Periodic table row, 1 to 7.",
+              "type": "`$INTEGER`"
+            },
+            {
+              "active": true,
+              "name": "phase",
+              "req": false,
+              "short": "Phase at standard temperature and pressure.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "series_id",
+              "req": true,
+              "short": "Chemical series this element belongs to.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "symbol",
+              "req": true,
+              "short": "Chemical symbol.",
+              "type": "`$STRING`"
+            }
+          ],
+          "id": {
+            "field": "id",
+            "name": "id"
+          },
+          "name": "element",
+          "op": {
+            "create": {
+              "input": "data",
+              "name": "create",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "POST",
+                  "orig": "/api/element/{element_id}/ionize",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{id}",
+                    "ionize"
+                  ],
+                  "rename": {
+                    "param": {
+                      "element_id": "id"
+                    }
+                  },
+                  "select": {
+                    "$action": "ionize",
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                },
+                {
+                  "active": true,
+                  "args": {},
+                  "kind": "http",
+                  "method": "POST",
+                  "orig": "/api/element",
+                  "parts": [
+                    "api",
+                    "element"
+                  ],
+                  "select": {},
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "list": {
+              "input": "data",
+              "name": "list",
+              "points": [
+                {
+                  "active": true,
+                  "args": {},
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/element",
+                  "parts": [
+                    "api",
+                    "element"
+                  ],
+                  "select": {},
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "load": {
+              "input": "data",
+              "name": "load",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/element/{element_id}",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "element_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "remove": {
+              "input": "data",
+              "name": "remove",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "DELETE",
+                  "orig": "/api/element/{element_id}",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "element_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "update": {
+              "input": "data",
+              "name": "update",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "PUT",
+                  "orig": "/api/element/{element_id}",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "element_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            }
+          },
+          "relations": {
+            "ancestors": []
+          }
+        },
+        "group": {
+          "active": true,
+          "alias": {
+            "field": {}
+          },
+          "fields": [
+            {
+              "active": true,
+              "name": "cas",
+              "req": true,
+              "short": "CAS group designation.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "id",
+              "req": true,
+              "short": "Group identifier, g1 to g18.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "name",
+              "req": false,
+              "short": "Trivial name, where one exists.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "number",
+              "req": true,
+              "short": "Group number, 1 to 18.",
+              "type": "`$INTEGER`"
+            }
+          ],
+          "id": {
+            "field": "id",
+            "name": "id"
+          },
+          "name": "group",
+          "op": {
+            "list": {
+              "input": "data",
+              "name": "list",
+              "points": [
+                {
+                  "active": true,
+                  "args": {},
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/group",
+                  "parts": [
+                    "api",
+                    "group"
+                  ],
+                  "select": {},
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "load": {
+              "input": "data",
+              "name": "load",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "group_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/group/{group_id}",
+                  "parts": [
+                    "api",
+                    "group",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "group_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            }
+          },
+          "relations": {
+            "ancestors": []
+          }
+        },
+        "isotope": {
+          "active": true,
+          "alias": {
+            "field": {}
+          },
+          "fields": [
+            {
+              "active": true,
+              "name": "abundance",
+              "req": false,
+              "short": "Natural abundance as a fraction, absent for synthetic isotopes.",
+              "type": "`$NUMBER`"
+            },
+            {
+              "active": true,
+              "name": "element_id",
+              "req": true,
+              "short": "Parent element identifier.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "halflife",
+              "req": false,
+              "short": "Half-life, absent for stable isotopes.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "id",
+              "req": true,
+              "short": "Isotope identifier, symbol dash mass number.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "mass",
+              "req": true,
+              "short": "Isotopic mass in daltons.",
+              "type": "`$NUMBER`"
+            },
+            {
+              "active": true,
+              "name": "mass_number",
+              "req": true,
+              "short": "Total protons and neutrons.",
+              "type": "`$INTEGER`"
+            },
+            {
+              "active": true,
+              "name": "mode",
+              "req": false,
+              "short": "Primary decay mode, absent for stable isotopes.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "name",
+              "req": true,
+              "short": "Isotope name.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "ok",
+              "req": false,
+              "type": "`$BOOLEAN`"
+            },
+            {
+              "active": true,
+              "name": "product",
+              "req": false,
+              "short": "Primary decay product isotope, absent for stable isotopes.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "stable",
+              "req": true,
+              "short": "True if the isotope is stable.",
+              "type": "`$BOOLEAN`"
+            },
+            {
+              "active": true,
+              "name": "steps",
+              "req": false,
+              "type": "`$INTEGER`"
+            }
+          ],
+          "id": {
+            "field": "id",
+            "name": "id"
+          },
+          "name": "isotope",
+          "op": {
+            "create": {
+              "input": "data",
+              "name": "create",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "element_id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      },
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "isotope_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "POST",
+                  "orig": "/api/element/{element_id}/isotope/{isotope_id}/decay",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{element_id}",
+                    "isotope",
+                    "{id}",
+                    "decay"
+                  ],
+                  "rename": {
+                    "param": {
+                      "isotope_id": "id"
+                    }
+                  },
+                  "select": {
+                    "$action": "decay",
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                },
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "element_id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "POST",
+                  "orig": "/api/element/{element_id}/isotope",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{element_id}",
+                    "isotope"
+                  ],
+                  "select": {
+                    "exist": [
+                      "element_id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "list": {
+              "input": "data",
+              "name": "list",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "element_id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/element/{element_id}/isotope",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{element_id}",
+                    "isotope"
+                  ],
+                  "select": {
+                    "exist": [
+                      "element_id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "load": {
+              "input": "data",
+              "name": "load",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "element_id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      },
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "isotope_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{element_id}",
+                    "isotope",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "isotope_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "remove": {
+              "input": "data",
+              "name": "remove",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "element_id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      },
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "isotope_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "DELETE",
+                  "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{element_id}",
+                    "isotope",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "isotope_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "update": {
+              "input": "data",
+              "name": "update",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "element_id",
+                        "orig": "element_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      },
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "isotope_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "PUT",
+                  "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+                  "parts": [
+                    "api",
+                    "element",
+                    "{element_id}",
+                    "isotope",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "isotope_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            }
+          },
+          "relations": {
+            "ancestors": [
+              [
+                "element"
+              ]
+            ]
+          }
+        },
+        "series": {
+          "active": true,
+          "alias": {
+            "field": {}
+          },
+          "fields": [
+            {
+              "active": true,
+              "name": "color",
+              "req": true,
+              "short": "Display color used by the element card renderer.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "description",
+              "req": true,
+              "short": "One-line description of the series.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "id",
+              "req": true,
+              "short": "Series identifier.",
+              "type": "`$STRING`"
+            },
+            {
+              "active": true,
+              "name": "name",
+              "req": true,
+              "short": "Series name.",
+              "type": "`$STRING`"
+            }
+          ],
+          "id": {
+            "field": "id",
+            "name": "id"
+          },
+          "name": "series",
+          "op": {
+            "list": {
+              "input": "data",
+              "name": "list",
+              "points": [
+                {
+                  "active": true,
+                  "args": {},
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/series",
+                  "parts": [
+                    "api",
+                    "series"
+                  ],
+                  "select": {},
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            },
+            "load": {
+              "input": "data",
+              "name": "load",
+              "points": [
+                {
+                  "active": true,
+                  "args": {
+                    "params": [
+                      {
+                        "active": true,
+                        "kind": "param",
+                        "name": "id",
+                        "orig": "series_id",
+                        "reqd": true,
+                        "type": "`$STRING`"
+                      }
+                    ]
+                  },
+                  "kind": "http",
+                  "method": "GET",
+                  "orig": "/api/series/{series_id}",
+                  "parts": [
+                    "api",
+                    "series",
+                    "{id}"
+                  ],
+                  "rename": {
+                    "param": {
+                      "series_id": "id"
+                    }
+                  },
+                  "select": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "transform": {
+                    "req": "`reqdata`",
+                    "res": "`body`"
+                  }
+                }
+              ]
+            }
+          },
+          "relations": {
+            "ancestors": []
+          }
+        }
+      },
+      "feature": {
+        "elementcard": {
+          "active": true,
+          "base": "../ext/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "print": false
+            }
+          },
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreRequest": {
+              "active": false,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": true,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "elementcard",
+          "origname": "",
+          "package": "@voxgig-sdk/sdkgen-elementdemo-ext",
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "ASCII periodic-table tile for element-shaped results",
+          "transport": "none",
+          "version": "0.1.0"
+        },
+        "retry": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "factor": 2,
+              "maxDelay": 2000,
+              "minDelay": 50,
+              "retries": 2,
+              "statuses": [
+                408,
+                425,
+                429,
+                500,
+                502,
+                503,
+                504
+              ]
+            }
+          },
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreRequest": {
+              "active": false,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": false,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "retry",
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Automatic retry of transient failures with exponential backoff",
+          "transport": "wrap",
+          "version": "0.0.1"
+        },
+        "test": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false
+            }
+          },
+          "hook": {
+            "GetData": {
+              "active": true,
+              "await": false
+            },
+            "GetMatch": {
+              "active": true,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": true,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": true,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": true,
+              "await": false
+            },
+            "PreRequest": {
+              "active": true,
+              "await": false
+            },
+            "PreResponse": {
+              "active": true,
+              "await": false
+            },
+            "PreResult": {
+              "active": true,
+              "await": false
+            },
+            "PreSpec": {
+              "active": true,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": true,
+              "await": false
+            },
+            "SetMatch": {
+              "active": true,
+              "await": false
+            }
+          },
+          "name": "test",
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "In-memory mock transport for testing without a live server",
+          "transport": "base",
+          "version": "0.0.1"
+        },
+        "timeout": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "ms": 30000
+            }
+          },
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreRequest": {
+              "active": false,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": false,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "timeout",
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Per-request timeout with transport abort",
+          "transport": "wrap",
+          "version": "0.0.1"
+        }
+      },
+      "flow": {
+        "BasicElementFlow": {
+          "active": true,
+          "entity": "element",
+          "key$": "BasicElementFlow",
+          "kind": "basic",
+          "name": "BasicElementFlow",
+          "param": {},
+          "step": [
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "element_ref01"
+              },
+              "match": {},
+              "op": "create",
+              "spec": [],
+              "valid": []
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {},
+              "match": {},
+              "op": "list",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "ItemExists",
+                  "def": {
+                    "ref": "element_ref01"
+                  }
+                }
+              ]
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "element_ref01",
+                "srcdatavar": "element_ref01_data",
+                "suffix": "_up0",
+                "textfield": "block"
+              },
+              "match": {},
+              "op": "update",
+              "spec": [
+                {
+                  "apply": "TextFieldMark",
+                  "def": {
+                    "mark": "Mark01-element_ref01"
+                  }
+                }
+              ],
+              "valid": []
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "element_ref01",
+                "srcdatavar": "element_ref01_data",
+                "suffix": "_dt0"
+              },
+              "match": {
+                "id": "element01"
+              },
+              "op": "load",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "TextFieldMark",
+                  "def": {
+                    "mark": "Mark01-element_ref01"
+                  }
+                }
+              ]
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "element_ref01",
+                "suffix": "_rm0"
+              },
+              "match": {
+                "id": "element01"
+              },
+              "op": "remove",
+              "spec": [],
+              "valid": []
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "suffix": "_rt0"
+              },
+              "match": {},
+              "op": "list",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "ItemNotExists",
+                  "def": {
+                    "ref": "element_ref01"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "BasicGroupFlow": {
+          "active": true,
+          "entity": "group",
+          "key$": "BasicGroupFlow",
+          "kind": "basic",
+          "name": "BasicGroupFlow",
+          "param": {},
+          "step": [
+            {
+              "active": true,
+              "data": {},
+              "input": {},
+              "match": {},
+              "op": "list",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "ItemExists",
+                  "def": {
+                    "ref": "group_ref01"
+                  }
+                }
+              ]
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "group_ref01",
+                "srcdatavar": "group_ref01_data",
+                "suffix": "_dt0"
+              },
+              "match": {
+                "id": "group01"
+              },
+              "op": "load",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "TextFieldMark",
+                  "def": {
+                    "mark": "Mark01-group_ref01"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "BasicIsotopeFlow": {
+          "active": true,
+          "entity": "isotope",
+          "key$": "BasicIsotopeFlow",
+          "kind": "basic",
+          "name": "BasicIsotopeFlow",
+          "param": {},
+          "step": [
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "isotope_ref01"
+              },
+              "match": {
+                "element_id": "element01"
+              },
+              "op": "create",
+              "spec": [],
+              "valid": []
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {},
+              "match": {
+                "element_id": "element01"
+              },
+              "op": "list",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "ItemExists",
+                  "def": {
+                    "ref": "isotope_ref01"
+                  }
+                }
+              ]
+            },
+            {
+              "active": true,
+              "data": {
+                "element_id": "element01"
+              },
+              "input": {
+                "ref": "isotope_ref01",
+                "srcdatavar": "isotope_ref01_data",
+                "suffix": "_up0",
+                "textfield": "halflife"
+              },
+              "match": {},
+              "op": "update",
+              "spec": [
+                {
+                  "apply": "TextFieldMark",
+                  "def": {
+                    "mark": "Mark01-isotope_ref01"
+                  }
+                }
+              ],
+              "valid": []
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "isotope_ref01",
+                "srcdatavar": "isotope_ref01_data",
+                "suffix": "_dt0"
+              },
+              "match": {
+                "element_id": "element01",
+                "id": "isotope01"
+              },
+              "op": "load",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "TextFieldMark",
+                  "def": {
+                    "mark": "Mark01-isotope_ref01"
+                  }
+                }
+              ]
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "isotope_ref01",
+                "suffix": "_rm0"
+              },
+              "match": {
+                "element_id": "element01",
+                "id": "isotope01"
+              },
+              "op": "remove",
+              "spec": [],
+              "valid": []
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "suffix": "_rt0"
+              },
+              "match": {
+                "element_id": "element01"
+              },
+              "op": "list",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "ItemNotExists",
+                  "def": {
+                    "ref": "isotope_ref01"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "BasicSeriesFlow": {
+          "active": true,
+          "entity": "series",
+          "key$": "BasicSeriesFlow",
+          "kind": "basic",
+          "name": "BasicSeriesFlow",
+          "param": {},
+          "step": [
+            {
+              "active": true,
+              "data": {},
+              "input": {},
+              "match": {},
+              "op": "list",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "ItemExists",
+                  "def": {
+                    "ref": "series_ref01"
+                  }
+                }
+              ]
+            },
+            {
+              "active": true,
+              "data": {},
+              "input": {
+                "ref": "series_ref01",
+                "srcdatavar": "series_ref01_data",
+                "suffix": "_dt0"
+              },
+              "match": {
+                "id": "series01"
+              },
+              "op": "load",
+              "spec": [],
+              "valid": [
+                {
+                  "apply": "TextFieldMark",
+                  "def": {
+                    "mark": "Mark01-series_ref01"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "info": {
+        "auth": false,
+        "description": "The Periodic Table API. Elements, isotopes, groups and series.",
+        "servers": [
+          {
+            "url": "http://localhost:8902"
+          }
+        ],
+        "summary": "The Periodic Table API.",
+        "title": "Periodic Table API",
+        "version": "1.0.0"
+      },
+      "option": {},
+      "repo": {
+        "host": "github.com",
+        "path": "voxgig-sdk/voxgig-elementdemo-sdk"
+      },
+      "target": {
+        "bash": {
+          "active": true,
+          "author": {
+            "name": "",
+            "url": ""
+          },
+          "base": "../ext/.sdk",
+          "comment": {
+            "line": "#"
+          },
+          "deps": {},
+          "ext": "sh",
+          "feature": {
+            "fullset": [],
+            "trim": true
+          },
+          "module": {
+            "goversion": "",
+            "name": "elementdemo",
+            "package": "",
+            "path": ""
+          },
+          "name": "bash",
+          "origname": "",
+          "output": {
+            "adopt": false,
+            "create": true,
+            "path": "",
+            "repo": "",
+            "sdkrel": ""
+          },
+          "package": "@voxgig-sdk/sdkgen-elementdemo-ext",
+          "phase": {
+            "agentguide": {
+              "active": false
+            },
+            "readme": {
+              "active": false
+            }
+          },
+          "publish": {
+            "registry": {
+              "active": false,
+              "name": "",
+              "package": "",
+              "state": "pending",
+              "url": "",
+              "vault": {
+                "alias": "",
+                "env": "",
+                "recipe": ""
+              }
+            },
+            "tag": {
+              "active": true,
+              "prefix": "",
+              "vault": {
+                "alias": "github",
+                "recipe": "github"
+              },
+              "via": "port"
+            },
+            "version": "0.1.0"
+          },
+          "srcfeature": false,
+          "title": "Bash"
+        },
+        "go": {
+          "active": true,
+          "author": {
+            "name": "",
+            "url": ""
+          },
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "comment": {
+            "line": "//"
+          },
+          "deps": {},
+          "ext": "go",
+          "feature": {
+            "fullset": [
+              "test/feature_test.go"
+            ],
+            "trim": true
+          },
+          "module": {
+            "goversion": "",
+            "name": "elementdemo",
+            "package": "",
+            "path": ""
+          },
+          "name": "go",
+          "origname": "",
+          "output": {
+            "adopt": false,
+            "create": true,
+            "path": "",
+            "repo": "",
+            "sdkrel": ""
+          },
+          "package": "@voxgig/sdkgen",
+          "publish": {
+            "registry": {
+              "active": false,
+              "name": "",
+              "package": "",
+              "state": "pending",
+              "url": "",
+              "vault": {
+                "alias": "",
+                "env": "",
+                "recipe": ""
+              }
+            },
+            "tag": {
+              "active": true,
+              "prefix": "",
+              "vault": {
+                "alias": "github",
+                "recipe": "github"
+              },
+              "via": "port"
+            },
+            "version": "0.1.0"
+          },
+          "srcfeature": false,
+          "title": "Golang"
+        },
+        "java": {
+          "active": true,
+          "author": {
+            "name": "",
+            "url": ""
+          },
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "comment": {
+            "line": "//"
+          },
+          "deps": {},
+          "ext": "java",
+          "feature": {
+            "fullset": [
+              "test/FeatureTest.java"
+            ],
+            "trim": true
+          },
+          "module": {
+            "goversion": "",
+            "name": "elementdemo",
+            "package": "",
+            "path": ""
+          },
+          "name": "java",
+          "origname": "",
+          "output": {
+            "adopt": false,
+            "create": true,
+            "path": "",
+            "repo": "",
+            "sdkrel": ""
+          },
+          "package": "@voxgig/sdkgen",
+          "publish": {
+            "registry": {
+              "active": false,
+              "name": "maven-central",
+              "package": "",
+              "state": "pending",
+              "url": "https://central.sonatype.com",
+              "vault": {
+                "alias": "central",
+                "env": "",
+                "recipe": "maven"
+              }
+            },
+            "tag": {
+              "active": true,
+              "prefix": "",
+              "vault": {
+                "alias": "github",
+                "recipe": "github"
+              },
+              "via": "port"
+            },
+            "version": "0.1.0"
+          },
+          "srcfeature": false,
+          "title": "Java"
+        },
+        "py": {
+          "active": true,
+          "author": {
+            "name": "",
+            "url": ""
+          },
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "comment": {
+            "line": "#"
+          },
+          "deps": {
+            "requests": {
+              "active": true,
+              "kind": "prod",
+              "version": "2.33"
+            }
+          },
+          "ext": "py",
+          "feature": {
+            "fullset": [],
+            "trim": true
+          },
+          "module": {
+            "goversion": "",
+            "name": "elementdemo",
+            "package": "",
+            "path": ""
+          },
+          "name": "py",
+          "origname": "",
+          "output": {
+            "adopt": false,
+            "create": true,
+            "path": "",
+            "repo": "",
+            "sdkrel": ""
+          },
+          "package": "@voxgig/sdkgen",
+          "publish": {
+            "registry": {
+              "active": false,
+              "name": "pypi",
+              "package": "",
+              "state": "pending",
+              "url": "https://pypi.org",
+              "vault": {
+                "alias": "pypi",
+                "env": "",
+                "recipe": "pypi"
+              }
+            },
+            "tag": {
+              "active": true,
+              "prefix": "",
+              "vault": {
+                "alias": "github",
+                "recipe": "github"
+              },
+              "via": "port"
+            },
+            "version": "0.1.0"
+          },
+          "srcfeature": false,
+          "title": "Python"
+        },
+        "ts": {
+          "active": true,
+          "author": {
+            "name": "",
+            "url": ""
+          },
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "comment": {
+            "line": "//"
+          },
+          "deps": {
+            "@types/node": {
+              "active": true,
+              "kind": "dev",
+              "version": "^25.6.0"
+            },
+            "dotenv": {
+              "active": true,
+              "kind": "dev",
+              "version": "^17.4.2"
+            },
+            "typescript": {
+              "active": true,
+              "kind": "dev",
+              "version": "^5.9.3"
+            }
+          },
+          "ext": "ts",
+          "feature": {
+            "fullset": [],
+            "trim": true
+          },
+          "module": {
+            "goversion": "",
+            "name": "elementdemo",
+            "package": "",
+            "path": ""
+          },
+          "name": "ts",
+          "origname": "",
+          "output": {
+            "adopt": false,
+            "create": true,
+            "path": "",
+            "repo": "",
+            "sdkrel": ""
+          },
+          "package": "@voxgig/sdkgen",
+          "publish": {
+            "registry": {
+              "active": false,
+              "name": "npm",
+              "package": "",
+              "state": "pending",
+              "url": "https://registry.npmjs.org",
+              "vault": {
+                "alias": "npm",
+                "env": "",
+                "recipe": "npm"
+              }
+            },
+            "tag": {
+              "active": true,
+              "prefix": "",
+              "vault": {
+                "alias": "github",
+                "recipe": "github"
+              },
+              "via": "port"
+            },
+            "version": "0.1.0"
+          },
+          "title": "TypeScript"
+        }
+      },
+      "test": {
+        "live": {
+          "app": false,
+          "base": "",
+          "strict": true
+        }
+      }
+    }
+  },
+  "name": "elementdemo",
+  "name-": "elementdemo",
+  "name_": "elementdemo",
+  "name__orig": "elementdemo",
+  "origin": "voxgig-sdk"
+}

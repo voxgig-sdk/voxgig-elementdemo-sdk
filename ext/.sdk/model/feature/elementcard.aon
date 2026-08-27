@@ -1,0 +1,45 @@
+# Feature: elementcard — render a result record as an ASCII periodic-table
+# tile.
+#
+# A CUSTOM feature, provided by this project's own sdkgen package (ext/).
+# It is shape-triggered, not entity-bound: any single-record result carrying
+# `number`, `symbol`, `name` and `mass` gets a card, which is what lets the
+# language-neutral corpus cases in `.sdk/test/feature/elementcard.aon` drive
+# it without naming an entity.
+#
+# The card, exactly (inner width 9; name and mass centred, left-biased;
+# integral numbers render without a decimal point):
+#
+#   +---------+
+#   |26     Fe|
+#   |  Iron   |
+#   | 55.845  |
+#   +---------+
+#
+# Every implementation records `{ count, last }` on the client as
+# `_elementcard` (the convention the feature corpus asserts on), and with
+# `print: true` writes each card to the language's diagnostic stream.
+
+main: kit: feature: elementcard: {
+
+  name: key()
+  title: "ASCII periodic-table tile for element-shaped results"
+  version: '0.1.0'
+  active: true
+  base: 'BASE'
+  transport: 'none'
+
+  config: {
+    # Off by default, like every optional feature. A consumer turns it on
+    # with options.feature.elementcard.active = true; print additionally
+    # writes each rendered card to the diagnostic stream.
+    options: {
+      active: false
+      print: false
+    }
+  }
+
+  hook: {
+    PreResult: { active: true }
+  }
+}

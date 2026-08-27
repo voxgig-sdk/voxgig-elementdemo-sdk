@@ -1,0 +1,51 @@
+# Project overlay — YOURS. The scaffold creates this file once and never
+# overwrites it, unlike every other file it writes.
+#
+# Everything else under model/ is toolchain-derived and is deliberately
+# regenerated so that toolchain fixes propagate. Put anything here that is a
+# decision about THIS project rather than a fact about the API.
+#
+# Included LAST by sdk.aon, after target/target-index.aon, because a key
+# under main.kit.target.<t> can only refine a target that has already been
+# defined. Declared earlier, the model build fails with "Cannot unify value:
+# nil with value: string / key ext value was: nil", which names nothing that
+# would lead you here.
+#
+# The release version each generated manifest declares (package.json,
+# pyproject.toml, the gemspec, the rockspec) and that the port Makefiles tag:
+#
+#   main: kit: target: ts: publish: version: '1.2.3'
+#
+# Per target, because ports publish to different registries on different
+# clocks. Set every target to the same value for a lockstep repo.
+#
+# A published package name that does not follow the derivation:
+#
+#   main: kit: target: ts: publish: registry: package: '@scope/name'
+
+
+# This repo is voxgig-elementdemo-sdk, not the derived elementdemo-sdk. Sets
+# the Go module path, and the homepage/repository/bugs URLs in every manifest.
+# The slug stays 'elementdemo' so it can do its real job: naming the SDK
+# (ElementdemoSDK), rather than being bent to make the derivation come true.
+main: kit: repo: path: 'voxgig-sdk/voxgig-elementdemo-sdk'
+
+
+# One release version across all targets: every artifact is generated from
+# this one model, so a shared number is the honest claim.
+main: kit: target: ts: publish: version: '0.1.0'
+main: kit: target: go: publish: version: '0.1.0'
+main: kit: target: py: publish: version: '0.1.0'
+main: kit: target: java: publish: version: '0.1.0'
+
+
+# Live tests ASSERT rather than skip. This project owns its test server
+# (app/), so a live run that cannot reach it is a real failure and should
+# say so, not skip to green.
+main: kit: test: live: strict: true
+
+
+# The bash target's release version, like the four above. Legal only once
+# `package add ../ext` has put bash in the target index (this file refines,
+# it cannot define).
+main: kit: target: bash: publish: version: '0.1.0'
