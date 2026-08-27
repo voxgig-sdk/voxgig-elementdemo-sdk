@@ -10,6 +10,10 @@ Learn more about Voxgig SDKs at [voxgig.com/sdk](https://voxgig.com/sdk/).
 
 > TypeScript, Python, Golang, Bash, Java SDKs — all generated from one OpenAPI spec by [@voxgig/sdkgen](https://github.com/voxgig/sdkgen).
 
+> **Features:** `elementcard`, `retry`, `test`, `timeout` — opt-in,
+> inactive until switched on, and configured per client. See the Features
+> section of any SDK README below for what each one does.
+
 ## Entities, not endpoints
 
 This SDK exposes the API as a small set of **semantic entities** — Element, Group, Isotope and Series — that you
@@ -282,7 +286,7 @@ customizable without forking any upstream tool:
 
 - **The model** (`.sdk/model/`) declares everything this project owns:
   package names, versions, active features, per-target settings. It is
-  written in [aontu](https://github.com/aontu-lang/aontu), a JSON-based
+  written in [aontu](https://aontu.dev), a JSON-based
   specification language designed for building ontologies: easy to edit
   by hand, and files unify rather than override, so small declarations
   compose into one model. Regeneration re-reads it every time.

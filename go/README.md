@@ -590,6 +590,82 @@ if err != nil {
 fmt.Println(seriess) // the array of records
 ```
 
+## Features
+
+This SDK ships 4 optional features. Each is **inactive until you
+switch it on**, so an SDK you have not configured behaves exactly as if none of
+them existed — no retries, no cache, no logging, no measurable overhead.
+
+Activate a feature by name in the client options, alongside the options shown
+above:
+
+| Feature | What it does |
+|---|---|
+| [`elementcard`](#elementcard) | ASCII periodic-table tile for element-shaped results |
+| [`retry`](#retry) | Automatic retry of transient failures with exponential backoff |
+| [`test`](#test) | In-memory mock transport for testing without a live server |
+| [`timeout`](#timeout) | Per-request timeout with transport abort |
+
+> **Order matters for `retry`, `timeout`.** These wrap the
+> transport, so each one wraps whatever is already installed: the order you
+> activate them in IS the nesting order. Activating them as an ordered list
+> rather than a map is what fixes that order.
+
+### elementcard
+
+ASCII periodic-table tile for element-shaped results.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `print` | `false` |
+
+Set `feature.elementcard.active` to enable it, then override any of the options above.
+
+### retry
+
+Automatic retry of transient failures with exponential backoff.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `factor` | `2` |
+| `maxDelay` | `2000` |
+| `minDelay` | `50` |
+| `retries` | `2` |
+| `statuses` | `[408, 425, 429, 500, 502, 503, 504]` |
+
+Set `feature.retry.active` to enable it, then override any of the options above.
+
+`retry` wraps the transport, so its position among the other
+transport features decides what it sees. A feature activated later wraps one
+activated earlier.
+
+### test
+
+In-memory mock transport for testing without a live server.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+
+Set `feature.test.active` to enable it, then override any of the options above.
+
+### timeout
+
+Per-request timeout with transport abort.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `ms` | `30000` |
+
+Set `feature.timeout.active` to enable it, then override any of the options above.
+
+`timeout` wraps the transport, so its position among the other
+transport features decides what it sees. A feature activated later wraps one
+activated earlier.
+
 
 ## Advanced
 
