@@ -1,0 +1,100 @@
+# BasicElementFlow
+
+main: kit: flow: BasicElementFlow:
+{
+  entity: "element",
+  kind: "basic",
+  name: "BasicElementFlow",
+  step: [
+    {
+      input: {
+        ref: "element_ref01"
+      }
+
+      op: "create"
+    }
+
+    {
+      op: "list",
+      valid: [
+        {
+          apply: "ItemExists",
+          def: {
+            ref: "element_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      input: {
+        ref: "element_ref01",
+        srcdatavar: "element_ref01_data",
+        suffix: "_up0",
+        textfield: "block"
+      }
+
+      op: "update",
+      spec: [
+        {
+          apply: "TextFieldMark",
+          def: {
+            mark: "Mark01-element_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      input: {
+        ref: "element_ref01",
+        srcdatavar: "element_ref01_data",
+        suffix: "_dt0"
+      }
+
+      match: {
+        id: "element01"
+      }
+
+      op: "load",
+      valid: [
+        {
+          apply: "TextFieldMark",
+          def: {
+            mark: "Mark01-element_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      input: {
+        ref: "element_ref01",
+        suffix: "_rm0"
+      }
+
+      match: {
+        id: "element01"
+      }
+
+      op: "remove"
+    }
+
+    {
+      input: {
+        suffix: "_rt0"
+      }
+
+      op: "list",
+      valid: [
+        {
+          apply: "ItemNotExists",
+          def: {
+            ref: "element_ref01"
+          }
+        }
+      ]
+    }
+  ],
+  "key$": "BasicElementFlow"
+}

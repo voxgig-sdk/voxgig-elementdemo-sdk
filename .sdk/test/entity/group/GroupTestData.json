@@ -1,0 +1,33 @@
+{
+  "existing": {
+    "group": {
+      "GROUP00": {
+        "cas": "s28",
+        "id": "GROUP00",
+        "name": "s2a",
+        "number": "s2b"
+      },
+      "GROUP01": {
+        "cas": "s50",
+        "id": "GROUP01",
+        "name": "s52",
+        "number": "s53"
+      },
+      "GROUP02": {
+        "cas": "s78",
+        "id": "GROUP02",
+        "name": "s7a",
+        "number": "s7b"
+      }
+    }
+  },
+  "new": {
+    "group": {
+      "group_ref01": {
+        "cas": "sa0",
+        "name": "sa2",
+        "number": "sa3"
+      }
+    }
+  }
+}

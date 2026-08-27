@@ -1,0 +1,53 @@
+# Target: bash — the SDK as a sourceable Bash library.
+#
+# An entirely custom target, provided by this project's own sdkgen package
+# (ext/). Nothing in sdkgen knows the name `bash`: a target is just this
+# definition plus `src/cmp/bash/` plus `tm/bash/` in the same `.sdk`.
+#
+# The generated SDK is a library of shell functions (curl + jq) plus a thin
+# CLI. Entity operations are generated from the model by `Entity_bash`; the
+# static core (transport, hook dispatch, offline test store) is copied from
+# `tm/bash/`.
+
+main: kit: target: bash: {
+
+  title: 'Bash'
+  ext: sh
+  comment: line: "#"
+
+  module: name: 'elementdemo'
+
+  base: '../ext/.sdk'
+  package: '@voxgig-sdk/sdkgen-elementdemo-ext'
+
+  # Feature sources live at `feature/<name>.sh`, not under `src/feature/`,
+  # so the neutral Feature component's src-layout copy does not apply. They
+  # arrive through Main_bash's template-tree copy, like the go family.
+  srcfeature: false
+
+  # Only the phases this target implements. With readme and agentguide off,
+  # the README is a template master (`tm/bash/README.md`) rather than a
+  # component composition.
+  phase: {
+    readme:     { active: false }
+    agentguide: { active: false }
+  }
+
+  # Features contribute HOOK FUNCTIONS discovered by name at runtime
+  # (`<name>_feature_<feature>_<Hook>`), so nothing cross-feature exists to
+  # exclude when the selection is trimmed.
+  feature: {
+    trim: true
+    fullset: []
+  }
+
+  # Schema for per-feature dependency declarations against this target —
+  # none of the shipped features declare any for bash (curl and jq are
+  # system prerequisites, not packages).
+  deps: &: { kind: *'prod' | string }
+  deps: {}
+}
+
+main: kit: feature: &: target: bash: deps: &: {
+  kind: *'prod' | string
+}

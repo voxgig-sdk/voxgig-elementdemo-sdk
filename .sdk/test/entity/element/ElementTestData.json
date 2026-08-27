@@ -1,0 +1,73 @@
+{
+  "existing": {
+    "element": {
+      "ELEMENT00": {
+        "block": "s8c",
+        "charge": "s8d",
+        "discovered": "s8e",
+        "group": "s8f",
+        "id": "ELEMENT00",
+        "ion": "s91",
+        "mass": 146,
+        "name": "s93",
+        "number": "s94",
+        "ok": false,
+        "period": "s96",
+        "phase": "s97",
+        "series_id": "SERIES01",
+        "symbol": "s99"
+      },
+      "ELEMENT01": {
+        "block": "s118",
+        "charge": "s119",
+        "discovered": "s11a",
+        "group": "s11b",
+        "id": "ELEMENT01",
+        "ion": "s11d",
+        "mass": 286,
+        "name": "s11f",
+        "number": "s120",
+        "ok": false,
+        "period": "s122",
+        "phase": "s123",
+        "series_id": "SERIES01",
+        "symbol": "s125"
+      },
+      "ELEMENT02": {
+        "block": "s1a4",
+        "charge": "s1a5",
+        "discovered": "s1a6",
+        "group": "s1a7",
+        "id": "ELEMENT02",
+        "ion": "s1a9",
+        "mass": 426,
+        "name": "s1ab",
+        "number": "s1ac",
+        "ok": false,
+        "period": "s1ae",
+        "phase": "s1af",
+        "series_id": "SERIES01",
+        "symbol": "s1b1"
+      }
+    }
+  },
+  "new": {
+    "element": {
+      "element_ref01": {
+        "block": "s230",
+        "charge": "s231",
+        "discovered": "s232",
+        "group": "s233",
+        "ion": "s235",
+        "mass": 566,
+        "name": "s237",
+        "number": "s238",
+        "ok": false,
+        "period": "s23a",
+        "phase": "s23b",
+        "series_id": "SERIES01",
+        "symbol": "s23d"
+      }
+    }
+  }
+}

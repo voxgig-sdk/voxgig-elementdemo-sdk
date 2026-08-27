@@ -1,0 +1,30 @@
+{
+  "sdkgen": {
+    "package": 1
+  },
+  "name": "@voxgig-sdk/sdkgen-elementdemo-ext",
+  "version": "0.1.0",
+  "engines": {
+    "sdkgen": ">=4.0.0"
+  },
+  "provides": {
+    "target": [
+      "bash"
+    ],
+    "feature": [
+      "elementcard"
+    ]
+  },
+  "targetsSupported": {
+    "elementcard": [
+      "ts",
+      "go",
+      "py",
+      "java",
+      "bash"
+    ]
+  },
+  "parity": {
+    "bash": "UNCOVERED"
+  }
+}
