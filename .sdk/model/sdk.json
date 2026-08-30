@@ -1,15 +1,6 @@
 {
-  "NAME": "ELEMENTDEMO",
-  "Name": "Elementdemo",
   "def": "elementdemo-1.0.0-openapi-3.0.0.yaml",
   "main": {
-    "api": {
-      "entity": {},
-      "guide": {}
-    },
-    "custom": {
-      "plurals": {}
-    },
     "def": {
       "desc": ""
     },
@@ -2101,8 +2092,5 @@
     }
   },
   "name": "elementdemo",
-  "name-": "elementdemo",
-  "name_": "elementdemo",
-  "name__orig": "elementdemo",
   "origin": "voxgig-sdk"
 }

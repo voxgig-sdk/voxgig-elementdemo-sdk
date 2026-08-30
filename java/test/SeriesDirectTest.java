@@ -157,7 +157,7 @@ public class SeriesDirectTest {
     Map<String, Object> envm = new LinkedHashMap<>();
     envm.put("ELEMENTDEMO_TEST_SERIES_ENTID", new LinkedHashMap<>());
     envm.put("ELEMENTDEMO_TEST_LIVE", "FALSE");
-    envm.put("ELEMENTDEMO_APIKEY", "NONE");
+    envm.put("ELEMENTDEMO_APIKEY", "");
     envm.put("ELEMENTDEMO_SERVER_ACCOUNT_ID", "");
     Map<String, Object> env = RunnerSupport.envOverride(envm);
 

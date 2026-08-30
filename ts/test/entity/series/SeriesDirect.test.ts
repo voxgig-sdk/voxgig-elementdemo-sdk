@@ -155,8 +155,8 @@ function directSetup(mockres?: any) {
   const env = envOverride({
     'ELEMENTDEMO_TEST_SERIES_ENTID': {},
     'ELEMENTDEMO_TEST_LIVE': 'FALSE',
-    'ELEMENTDEMO_APIKEY': 'NONE',
-    'ELEMENTDEMO_SERVER_ACCOUNT_ID': '',
+    'ELEMENTDEMO_APIKEY': '',
+    'ELEMENTDEMO_SERVER_ACCOUNT_ID': "",
   })
 
   const live = 'TRUE' === env.ELEMENTDEMO_TEST_LIVE

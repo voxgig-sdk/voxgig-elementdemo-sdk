@@ -154,7 +154,7 @@ public class SeriesEntityTest {
     envm.put("ELEMENTDEMO_TEST_SERIES_ENTID", idmap);
     envm.put("ELEMENTDEMO_TEST_LIVE", "FALSE");
     envm.put("ELEMENTDEMO_TEST_EXPLAIN", "FALSE");
-    envm.put("ELEMENTDEMO_APIKEY", "NONE");
+    envm.put("ELEMENTDEMO_APIKEY", "");
     envm.put("ELEMENTDEMO_SERVER_ACCOUNT_ID", "");
     Map<String, Object> env = RunnerSupport.envOverride(envm);
 

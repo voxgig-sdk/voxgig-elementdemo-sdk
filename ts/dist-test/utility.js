@@ -177,9 +177,26 @@ function skipIfMissingIds(t, setup, requiredKeys) {
 //
 // Merged UNDER the generated fields, so the suite's own base/apikey/server
 // values win — this adds to the live client, it does not redirect it.
+//
+// That contract is enforced HERE rather than left to each merge site: the
+// generated object only names a field when the model calls for one, so a
+// `base` in this block would face no competing value and would silently
+// redirect the whole suite — credential included — to another host. The
+// reserved fields are stripped once, where the block is read, so every
+// caller gets the same guarantee whether or not it happens to emit them.
+const LIVE_RESERVED = ['base', 'prefix', 'suffix', 'server', 'apikey', 'secret'];
 function liveClientOptions() {
     const opts = loadTestControl()?.test?.client?.options;
-    return (null != opts && 'object' === typeof opts) ? opts : {};
+    if (null == opts || 'object' !== typeof opts) {
+        return {};
+    }
+    const out = {};
+    for (const key of Object.keys(opts)) {
+        if (!LIVE_RESERVED.includes(key)) {
+            out[key] = opts[key];
+        }
+    }
+    return out;
 }
 // Per-test live pacing delay (ms). Read from sdk-test-control.json
 // `test.live.delayMs`; defaults to 500ms if absent or invalid.

@@ -235,7 +235,7 @@ func isotopeDirectSetup(mockres any) *isotopeDirectSetupResult {
 	env := envOverride(map[string]any{
 		"ELEMENTDEMO_TEST_ISOTOPE_ENTID": map[string]any{},
 		"ELEMENTDEMO_TEST_LIVE":    "FALSE",
-		"ELEMENTDEMO_APIKEY":       "NONE",
+		"ELEMENTDEMO_APIKEY":       "",
 		"ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
 	})
 

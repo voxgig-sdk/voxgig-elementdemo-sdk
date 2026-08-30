@@ -107,7 +107,7 @@ def _element_direct_setup(mockres):
     env = runner.env_override({
         "ELEMENTDEMO_TEST_ELEMENT_ENTID": {},
         "ELEMENTDEMO_TEST_LIVE": "FALSE",
-        "ELEMENTDEMO_APIKEY": "NONE",
+        "ELEMENTDEMO_APIKEY": "",
         "ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
     })
 

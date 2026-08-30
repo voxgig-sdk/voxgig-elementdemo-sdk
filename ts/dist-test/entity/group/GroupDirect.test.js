@@ -128,8 +128,8 @@ function directSetup(mockres) {
     const env = (0, utility_1.envOverride)({
         'ELEMENTDEMO_TEST_GROUP_ENTID': {},
         'ELEMENTDEMO_TEST_LIVE': 'FALSE',
-        'ELEMENTDEMO_APIKEY': 'NONE',
-        'ELEMENTDEMO_SERVER_ACCOUNT_ID': '',
+        'ELEMENTDEMO_APIKEY': '',
+        'ELEMENTDEMO_SERVER_ACCOUNT_ID': "",
     });
     const live = 'TRUE' === env.ELEMENTDEMO_TEST_LIVE;
     if (live) {

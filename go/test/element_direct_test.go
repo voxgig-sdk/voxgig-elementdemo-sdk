@@ -196,7 +196,7 @@ func elementDirectSetup(mockres any) *elementDirectSetupResult {
 	env := envOverride(map[string]any{
 		"ELEMENTDEMO_TEST_ELEMENT_ENTID": map[string]any{},
 		"ELEMENTDEMO_TEST_LIVE":    "FALSE",
-		"ELEMENTDEMO_APIKEY":       "NONE",
+		"ELEMENTDEMO_APIKEY":       "",
 		"ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
 	})
 

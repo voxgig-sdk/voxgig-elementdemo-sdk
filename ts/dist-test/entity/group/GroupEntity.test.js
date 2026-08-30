@@ -116,8 +116,8 @@ function basicSetup(extra) {
         'ELEMENTDEMO_TEST_GROUP_ENTID': idmap,
         'ELEMENTDEMO_TEST_LIVE': 'FALSE',
         'ELEMENTDEMO_TEST_EXPLAIN': 'FALSE',
-        'ELEMENTDEMO_APIKEY': 'NONE',
-        'ELEMENTDEMO_SERVER_ACCOUNT_ID': '',
+        'ELEMENTDEMO_APIKEY': '',
+        'ELEMENTDEMO_SERVER_ACCOUNT_ID': "",
     });
     idmap = env['ELEMENTDEMO_TEST_GROUP_ENTID'];
     const live = 'TRUE' === env.ELEMENTDEMO_TEST_LIVE;

@@ -196,7 +196,7 @@ func groupDirectSetup(mockres any) *groupDirectSetupResult {
 	env := envOverride(map[string]any{
 		"ELEMENTDEMO_TEST_GROUP_ENTID": map[string]any{},
 		"ELEMENTDEMO_TEST_LIVE":    "FALSE",
-		"ELEMENTDEMO_APIKEY":       "NONE",
+		"ELEMENTDEMO_APIKEY":       "",
 		"ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
 	})
 

@@ -257,23 +257,47 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
     async _withRefresh(ctx, url, fetchdef, inner) {
         const x = this._exchange;
         const max = null == x ? 0 : x.retries;
+        // `auth: null` is the documented way to send NO credential, and
+        // prepareAuth honours it by removing the header. A refusal of a
+        // deliberately unauthenticated request is not an expired token and
+        // cannot be fixed by buying one — retrying would transmit exactly the
+        // credential the caller suppressed.
+        if (null == this._client.options().auth) {
+            return inner(ctx, url, fetchdef);
+        }
         let attempt = 0;
         for (;;) {
+            // The credential THIS attempt goes out with, captured before it
+            // leaves: it is what tells a stale refusal apart from a fresh one.
+            const used = this._client._options.apikey;
             const res = await inner(ctx, url, fetchdef);
             if (attempt >= max || !this._spent(res)) {
                 return res;
             }
+            // Another request may have bought a token while this one was in
+            // flight. Concurrent 401s share the in-flight purchase, but
+            // STAGGERED ones do not: the first finishes and clears it, and the
+            // second would then buy again — a second exchange for a token that
+            // is already current, and on a provider that invalidates the
+            // previous credential on issuance, one that breaks the first
+            // request's own retry. So spend what is current before buying.
+            const current = this._client._options.apikey;
             let token;
-            try {
-                token = await this._buy();
+            if ('string' === typeof current && '' !== current && current !== used) {
+                token = current;
             }
-            catch (err) {
-                // The purchase failed: answer with the API's own refusal rather
-                // than this one. The caller asked for data, and the 401 is the
-                // more useful of the two — the exchange error is a symptom.
-                return res;
+            else {
+                try {
+                    token = await this._buy();
+                }
+                catch (err) {
+                    // The purchase failed: answer with the API's own refusal rather
+                    // than this one. The caller asked for data, and the 401 is the
+                    // more useful of the two — the exchange error is a symptom.
+                    return res;
+                }
+                this._client._options.apikey = token;
             }
-            this._client._options.apikey = token;
             this._reauth(fetchdef, token);
             attempt++;
         }
@@ -290,7 +314,15 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
             return;
         }
         const auth = this._client.options().auth;
-        const prefix = null == auth ? "" : auth.prefix;
+        // Suppressed auth means NO header, the same answer prepareAuth gives.
+        // Reached defensively - _withRefresh does not retry at all when auth
+        // is null - but this is the function that writes the credential, so
+        // it is where the rule has to hold.
+        if (null == auth) {
+            delete fetchdef.headers.authorization;
+            return;
+        }
+        const prefix = auth.prefix;
         fetchdef.headers.authorization = prefix ? prefix + " " + token : token;
     }
 }

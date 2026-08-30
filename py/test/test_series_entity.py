@@ -134,7 +134,7 @@ def _series_basic_setup(extra):
         "ELEMENTDEMO_TEST_SERIES_ENTID": idmap,
         "ELEMENTDEMO_TEST_LIVE": "FALSE",
         "ELEMENTDEMO_TEST_EXPLAIN": "FALSE",
-        "ELEMENTDEMO_APIKEY": "NONE",
+        "ELEMENTDEMO_APIKEY": "",
         "ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
     })
 
