@@ -2,9 +2,11 @@ import { describe, test, beforeEach, afterEach } from 'node:test'
 import { strictEqual, ok } from 'node:assert'
 import { build } from '../../src/server.js'
 import type { FastifyInstance } from 'fastify'
+import { apiClient } from '../setup.js'
 
 describe('Element API Integration', () => {
   let app: FastifyInstance
+  let api: ReturnType<typeof apiClient>
 
   // Per TEST, not per file. build() re-reads element.data.json into fresh
   // stores (src/server.ts), so every test starts from the seed.
@@ -15,16 +17,17 @@ describe('Element API Integration', () => {
   // either. Per-test builds remove the dependency rather than relying on it.
   beforeEach(async () => {
     app = await build()
+    api = apiClient(app)
   })
 
   afterEach(async () => {
     await app.close()
   })
 
-  test('GET /api/element returns all elements', async () => {
-    const res = await app.inject({
+  test('GET /api/:account_id/element returns all elements', async () => {
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element',
+      url: '/element',
     })
 
     strictEqual(res.statusCode, 200)
@@ -32,10 +35,10 @@ describe('Element API Integration', () => {
     strictEqual(elements.length, 118)
   })
 
-  test('GET /api/element/:element_id returns specific element', async () => {
-    const res = await app.inject({
+  test('GET /api/:account_id/element/:element_id returns specific element', async () => {
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element/fe',
+      url: '/element/fe',
     })
 
     strictEqual(res.statusCode, 200)
@@ -46,19 +49,19 @@ describe('Element API Integration', () => {
     strictEqual(element.number, 26)
   })
 
-  test('GET /api/element/:element_id returns 404 for non-existent element', async () => {
-    const res = await app.inject({
+  test('GET /api/:account_id/element/:element_id returns 404 for non-existent element', async () => {
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element/non-existent',
+      url: '/element/non-existent',
     })
 
     strictEqual(res.statusCode, 404)
   })
 
   test('full element lifecycle', async () => {
-    const createRes = await app.inject({
+    const createRes = await api.inject({
       method: 'POST',
-      url: '/api/element',
+      url: '/element',
       payload: {
         name: 'Testium',
         symbol: 'Ts',
@@ -73,17 +76,17 @@ describe('Element API Integration', () => {
     const created = JSON.parse(createRes.payload)
     const elementId = created.id
 
-    const getRes = await app.inject({
+    const getRes = await api.inject({
       method: 'GET',
-      url: `/api/element/${elementId}`,
+      url: `/element/${elementId}`,
     })
     strictEqual(getRes.statusCode, 200)
     const element = JSON.parse(getRes.payload)
     strictEqual(element.name, 'Testium')
 
-    const updateRes = await app.inject({
+    const updateRes = await api.inject({
       method: 'PUT',
-      url: `/api/element/${elementId}`,
+      url: `/element/${elementId}`,
       payload: {
         name: 'Updated Testium',
         symbol: 'Ts',
@@ -98,23 +101,23 @@ describe('Element API Integration', () => {
     const updated = JSON.parse(updateRes.payload)
     strictEqual(updated.name, 'Updated Testium')
 
-    const deleteRes = await app.inject({
+    const deleteRes = await api.inject({
       method: 'DELETE',
-      url: `/api/element/${elementId}`,
+      url: `/element/${elementId}`,
     })
     strictEqual(deleteRes.statusCode, 204)
 
-    const notFoundRes = await app.inject({
+    const notFoundRes = await api.inject({
       method: 'GET',
-      url: `/api/element/${elementId}`,
+      url: `/element/${elementId}`,
     })
     strictEqual(notFoundRes.statusCode, 404)
   })
 
-  test('POST /api/element/:element_id/ionize builds the ion notation', async () => {
-    const res = await app.inject({
+  test('POST /api/:account_id/element/:element_id/ionize builds the ion notation', async () => {
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/fe/ionize',
+      url: '/element/fe/ionize',
       payload: { charge: 3 },
     })
 
@@ -124,10 +127,10 @@ describe('Element API Integration', () => {
     strictEqual(body.ion, 'Fe3+')
   })
 
-  test('POST /api/element/:element_id/ionize handles negative charges', async () => {
-    const res = await app.inject({
+  test('POST /api/:account_id/element/:element_id/ionize handles negative charges', async () => {
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/o/ionize',
+      url: '/element/o/ionize',
       payload: { charge: -2 },
     })
 
@@ -138,25 +141,25 @@ describe('Element API Integration', () => {
   })
 
   test('ionize omits the magnitude when it is one', async () => {
-    const plus = await app.inject({
+    const plus = await api.inject({
       method: 'POST',
-      url: '/api/element/na/ionize',
+      url: '/element/na/ionize',
       payload: { charge: 1 },
     })
     strictEqual(JSON.parse(plus.payload).ion, 'Na+')
 
-    const minus = await app.inject({
+    const minus = await api.inject({
       method: 'POST',
-      url: '/api/element/cl/ionize',
+      url: '/element/cl/ionize',
       payload: { charge: -1 },
     })
     strictEqual(JSON.parse(minus.payload).ion, 'Cl-')
   })
 
   test('ionize defaults the charge to 1', async () => {
-    const res = await app.inject({
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/h/ionize',
+      url: '/element/h/ionize',
       payload: {},
     })
 
@@ -167,9 +170,9 @@ describe('Element API Integration', () => {
   })
 
   test('ionize with charge 0 is no ion at all', async () => {
-    const res = await app.inject({
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/fe/ionize',
+      url: '/element/fe/ionize',
       payload: { charge: 0 },
     })
 
@@ -179,10 +182,10 @@ describe('Element API Integration', () => {
     strictEqual(body.ion, 'Fe')
   })
 
-  test('POST /api/element creates an element visible in /debug', async () => {
-    const createRes = await app.inject({
+  test('POST /api/:account_id/element creates an element visible in /debug', async () => {
+    const createRes = await api.inject({
       method: 'POST',
-      url: '/api/element',
+      url: '/element',
       payload: {
         name: 'Debug Test Element',
         symbol: 'Dt',
@@ -197,6 +200,8 @@ describe('Element API Integration', () => {
     const created = JSON.parse(createRes.payload)
     const elementId = created.id
 
+    // /debug is NOT account-scoped and takes no credential, so it goes
+    // through app.inject directly rather than the account-prefixing client.
     const debugRes = await app.inject({
       method: 'GET',
       url: '/debug',
@@ -210,13 +215,13 @@ describe('Element API Integration', () => {
     strictEqual(debugElement.mass, 299.9)
 
     // Clean up
-    await app.inject({ method: 'DELETE', url: `/api/element/${elementId}` })
+    await api.inject({ method: 'DELETE', url: `/element/${elementId}` })
   })
 
   test('ionize on non-existent element returns 404', async () => {
-    const res = await app.inject({
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/non-existent/ionize',
+      url: '/element/non-existent/ionize',
       payload: { charge: 1 },
     })
 
@@ -227,10 +232,10 @@ describe('Element API Integration', () => {
   // the generated SDK create type requires it too, so every SDK caller sends
   // one; a schema that rejects it, or a handler that overwrites it, breaks
   // the whole SDK round-trip.
-  test('POST /api/element honours a client-supplied id', async () => {
-    const createRes = await app.inject({
+  test('POST /api/:account_id/element honours a client-supplied id', async () => {
+    const createRes = await api.inject({
       method: 'POST',
-      url: '/api/element',
+      url: '/element',
       payload: {
         id: 'uue',
         name: 'Ununennium',
@@ -247,17 +252,17 @@ describe('Element API Integration', () => {
     strictEqual(JSON.parse(createRes.payload).id, 'uue')
 
     // and it is addressable by the id the caller chose
-    const getRes = await app.inject({ method: 'GET', url: '/api/element/uue' })
+    const getRes = await api.inject({ method: 'GET', url: '/element/uue' })
     strictEqual(getRes.statusCode, 200)
     strictEqual(JSON.parse(getRes.payload).name, 'Ununennium')
 
-    await app.inject({ method: 'DELETE', url: '/api/element/uue' })
+    await api.inject({ method: 'DELETE', url: '/element/uue' })
   })
 
-  test('POST /api/element still generates an id when none is given', async () => {
-    const res = await app.inject({
+  test('POST /api/:account_id/element still generates an id when none is given', async () => {
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element',
+      url: '/element',
       payload: {
         name: 'Nameless',
         symbol: 'Nl',
@@ -273,13 +278,13 @@ describe('Element API Integration', () => {
     const created = JSON.parse(res.payload)
     ok(created.id, 'server should generate an id when the client omits one')
 
-    await app.inject({ method: 'DELETE', url: `/api/element/${created.id}` })
+    await api.inject({ method: 'DELETE', url: `/element/${created.id}` })
   })
 
-  test('POST /api/element rejects a duplicate id with 409', async () => {
-    const res = await app.inject({
+  test('POST /api/:account_id/element rejects a duplicate id with 409', async () => {
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element',
+      url: '/element',
       payload: {
         id: 'fe',
         name: 'Impostor',
@@ -296,7 +301,7 @@ describe('Element API Integration', () => {
 
     // the original must be untouched, not overwritten
     const fe = JSON.parse(
-      (await app.inject({ method: 'GET', url: '/api/element/fe' })).payload
+      (await api.inject({ method: 'GET', url: '/element/fe' })).payload
     )
     strictEqual(fe.name, 'Iron')
   })
@@ -308,9 +313,9 @@ describe('Element API Integration', () => {
   // the isolation would be an unenforced convention — the next person to
   // "simplify" the hooks back would find every test still green.
   test('isolation guard: leave an element behind', async () => {
-    const res = await app.inject({
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element',
+      url: '/element',
       payload: {
         id: 'isolation-probe',
         name: 'Probe',
@@ -326,7 +331,7 @@ describe('Element API Integration', () => {
   })
 
   test('isolation guard: the next test cannot see it', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/element/isolation-probe' })
+    const res = await api.inject({ method: 'GET', url: '/element/isolation-probe' })
     strictEqual(res.statusCode, 404,
       'a record created by the previous test survived — the suite is sharing ' +
       'one server again, so every count assertion here is order-dependent')

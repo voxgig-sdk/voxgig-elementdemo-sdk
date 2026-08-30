@@ -1,3 +1,4 @@
+import type { AccountStore } from './store/AccountStore.js'
 import type { ElementStore } from './store/ElementStore.js'
 import type { IsotopeStore } from './store/IsotopeStore.js'
 import type { GroupStore } from './store/GroupStore.js'
@@ -47,6 +48,34 @@ export interface Series {
   description: string
 }
 
+// An API account. `id` is the `<account-id>` segment every API path
+// carries; `refresh_token` is the long-lived secret that buys access
+// tokens for it.
+export interface Account {
+  id: string
+  refresh_token: string
+}
+
+// An issued access token and how much life it has left. `uses` counts
+// requests, not seconds — see AccountStore.
+export interface AccessToken {
+  token: string
+  account_id: string
+  uses: number
+}
+
+export interface TokenRequest {
+  refresh_token: string
+}
+
+export interface TokenResponse {
+  access_token: string
+  token_type: string
+  // Requests, not seconds: this API expires access tokens by use count so
+  // a client's refresh path can be tested deterministically.
+  expires_in_requests: number
+}
+
 export interface IonizeRequest {
   charge?: number
 }
@@ -76,6 +105,7 @@ export type UpdateIsotopeInput = Partial<Isotope>
 
 declare module 'fastify' {
   interface FastifyInstance {
+    accountStore: AccountStore
     elementStore: ElementStore
     isotopeStore: IsotopeStore
     groupStore: GroupStore

@@ -1,3 +1,4 @@
+import type { AccountStore } from './store/AccountStore.js';
 import type { ElementStore } from './store/ElementStore.js';
 import type { IsotopeStore } from './store/IsotopeStore.js';
 import type { GroupStore } from './store/GroupStore.js';
@@ -39,6 +40,23 @@ export interface Series {
     color: string;
     description: string;
 }
+export interface Account {
+    id: string;
+    refresh_token: string;
+}
+export interface AccessToken {
+    token: string;
+    account_id: string;
+    uses: number;
+}
+export interface TokenRequest {
+    refresh_token: string;
+}
+export interface TokenResponse {
+    access_token: string;
+    token_type: string;
+    expires_in_requests: number;
+}
 export interface IonizeRequest {
     charge?: number;
 }
@@ -64,6 +82,7 @@ export type CreateIsotopeInput = Omit<Isotope, 'id'> & {
 export type UpdateIsotopeInput = Partial<Isotope>;
 declare module 'fastify' {
     interface FastifyInstance {
+        accountStore: AccountStore;
         elementStore: ElementStore;
         isotopeStore: IsotopeStore;
         groupStore: GroupStore;

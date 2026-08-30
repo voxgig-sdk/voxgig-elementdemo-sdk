@@ -49,3 +49,41 @@ main: kit: test: live: strict: true
 # `package add ../ext` has put bash in the target index (this file refines,
 # it cannot define).
 main: kit: target: bash: publish: version: '0.1.0'
+
+
+# ACCESS-TOKEN AUTH.
+#
+# The Elementdemo API takes a short-lived ACCESS token, bought with a
+# long-lived REFRESH token at POST /api/<account-id>/auth/token — and it
+# invalidates each access token after four requests, so a client that cannot
+# re-buy one gets four calls in and then fails. The `secrets` feature's
+# exchange is what does the buying; the refresh token itself is resolved
+# through the vendored sekreto chain, from a `.env` file (or the process
+# environment) rather than from code.
+#
+# This turns the feature ON for GENERATION: its source is emitted into the
+# target and registered in the generated Config. Whether a given CLIENT uses
+# it is a runtime option, like every other feature —
+#
+#   new ElementdemoSDK({
+#     server: { account_id: 'acc01' },
+#     feature: { secrets: {
+#       active: true,
+#       name: 'refresh_token',
+#       providers: [{ kind: 'dotenv', file: '.env' }, { kind: 'env' }],
+#       exchange: { active: true },
+#     } },
+#   })
+#
+# — and NOT something this file can preset. A feature's `config.options` in
+# the toolchain model are concrete literals, so a project cannot refine them
+# here (aontu: a concrete value conflicts with a concrete value, it does not
+# yield), and they are the DECLARED defaults carried into the embedded
+# config rather than values makeOptions merges. The live suite's copy of the
+# block above lives in each target's `test/sdk-test-control.json`.
+#
+# Only `ts` carries this: the exchange is a thin layer over the vendored
+# sekreto port, and `needs: { sekreto: true }` gates the feature to targets
+# that have one. The other targets take an access token through the `apikey`
+# option and must refresh it themselves.
+main: kit: feature: secrets: active: true

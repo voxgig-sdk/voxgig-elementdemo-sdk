@@ -90,6 +90,7 @@ type TestControl = {
       unit?: { direct?: any[], entityOp?: any[] }
     }
     live?: { delayMs?: number }
+    client?: { options?: Record<string, any> }
     [k: string]: any
   }
   [k: string]: any
@@ -167,6 +168,34 @@ function skipIfMissingIds(t: any, setup: any, requiredKeys: string[]): boolean {
 }
 
 
+// Extra SDK options every LIVE client is constructed with, from
+// sdk-test-control.json `test.client.options`.
+//
+// The generated live client knows two things: the base URL (from the spec)
+// and the credential (from the environment). Everything else about how a
+// particular API wants to be talked to — which features to switch on, and
+// with what settings — is a property of THAT API, known to the project and
+// to nothing in the toolchain.
+//
+// The concrete case: an API that issues short-lived access tokens needs the
+// `secrets` feature's exchange turned on and pointed at its token endpoint,
+// or the live suite gets a handful of calls in and then fails 401 with
+// nothing explaining why. There was no seam for that, so the suite could
+// not be run at all.
+//
+// A committed FILE rather than an environment variable, because it is
+// configuration, not a secret: it belongs in the repo next to the API it
+// describes, where it can be read and reviewed. Secrets still come from the
+// environment (the providers this block names read them).
+//
+// Merged UNDER the generated fields, so the suite's own base/apikey/server
+// values win — this adds to the live client, it does not redirect it.
+function liveClientOptions(): Record<string, any> {
+  const opts = loadTestControl()?.test?.client?.options
+  return (null != opts && 'object' === typeof opts) ? opts : {}
+}
+
+
 // Per-test live pacing delay (ms). Read from sdk-test-control.json
 // `test.live.delayMs`; defaults to 500ms if absent or invalid.
 function liveDelayMs(): number {
@@ -188,6 +217,76 @@ function liveDelay(liveEnvVar: string): () => Promise<void> {
 }
 
 
+// Load a .env.local file into process.env, replacing the `dotenv`
+// devDependency — the SDK's last non-tooling package.
+//
+// Same semantics dotenv gave these tests: a missing file is fine, and a key
+// already present in the environment is never overridden, so an explicit
+// export still beats the file.
+//
+// WHY NOT sekreto's parsedotenv, which does the same job and is already
+// vendored: sekreto lives INSIDE the secrets feature container, so `target
+// add` removes it whenever a project does not select that feature — while
+// these entity tests need the loader either way. Importing it here would
+// couple every generated test suite to an optional feature. The parser is
+// small enough that a second, independent copy is cheaper than that
+// coupling; it deliberately handles only what a .env.local holds.
+function loadEnvLocal(file: string): void {
+  let text: string
+  try {
+    text = Fs.readFileSync(file, 'utf8')
+  }
+  catch (err: any) {
+    if ('ENOENT' === err.code) {
+      return
+    }
+    throw err
+  }
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+
+    // Blank and comment lines. A '#' INSIDE a value is not a comment.
+    if ('' === line || line.startsWith('#')) {
+      continue
+    }
+
+    const eq = line.indexOf('=')
+    if (0 >= eq) {
+      continue
+    }
+
+    const key = line.slice(0, eq).trim().replace(/^export\s+/, '')
+    let val = line.slice(eq + 1).trim()
+
+    const quote = ("'" === val[0] || '"' === val[0]) ? val[0] : ''
+
+    if ('' !== quote) {
+      // Quoted: the value runs to the CLOSING quote, and a '#' inside it is
+      // part of the value. Anything after the closing quote is a comment.
+      const close = val.indexOf(quote, 1)
+      val = 0 < close ? val.slice(1, close) : val.slice(1)
+    }
+    else {
+      // Unquoted: the first '#' starts an inline comment, with or without
+      // preceding whitespace — `A=a#b` is `a` to dotenv, not `a#b`.
+      // Dropping this made `KEY=secret # note` resolve to the whole string
+      // including the note, and a generated live test would then send that
+      // as the credential. Verified against dotenv's own parse().
+      const hash = val.indexOf('#')
+      if (0 <= hash) {
+        val = val.slice(0, hash)
+      }
+      val = val.trim()
+    }
+
+    if (undefined === process.env[key]) {
+      process.env[key] = val
+    }
+  }
+}
+
+
 export {
   makeStepData,
   makeMatch,
@@ -199,6 +298,8 @@ export {
   isControlSkipped,
   maybeSkipControl,
   skipIfMissingIds,
+  liveClientOptions,
   liveDelayMs,
   liveDelay,
+  loadEnvLocal,
 }

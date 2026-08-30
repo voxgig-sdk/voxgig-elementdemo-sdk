@@ -22,4 +22,14 @@ export class ConflictError extends Error {
         this.name = 'ConflictError';
     }
 }
+// A missing, malformed, unknown or spent credential. 401 rather than 403:
+// the caller has not proved who it is, and the fix is to present a
+// credential (or refresh the one it has), not to ask for more rights.
+export class AuthError extends Error {
+    statusCode = 401;
+    constructor(message) {
+        super(message);
+        this.name = 'AuthError';
+    }
+}
 //# sourceMappingURL=errors.js.map

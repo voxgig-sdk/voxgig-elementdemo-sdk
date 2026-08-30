@@ -6,17 +6,17 @@ guide: {
   metrics: count: method: 16
 
   entity: element: {
-    path: "/api/element": {
+    path: "/element": {
       op: create: method: *POST
       op: list: method: *GET
     }
-    path: "/api/element/{element_id}": {
+    path: "/element/{element_id}": {
       rename: param: "element_id": *"id"
       op: load: method: *GET
       op: remove: method: *DELETE
       op: update: method: *PUT
     }
-    path: "/api/element/{element_id}/ionize": {
+    path: "/element/{element_id}/ionize": {
       action: "ionize": {}
       rename: param: "element_id": *"id"
       op: create: method: *POST
@@ -24,27 +24,27 @@ guide: {
   }
 
   entity: group: {
-    path: "/api/group": {
+    path: "/group": {
       op: list: method: *GET
     }
-    path: "/api/group/{group_id}": {
+    path: "/group/{group_id}": {
       rename: param: "group_id": *"id"
       op: load: method: *GET
     }
   }
 
   entity: isotope: {
-    path: "/api/element/{element_id}/isotope": {
+    path: "/element/{element_id}/isotope": {
       op: create: method: *POST
       op: list: method: *GET
     }
-    path: "/api/element/{element_id}/isotope/{isotope_id}": {
+    path: "/element/{element_id}/isotope/{isotope_id}": {
       rename: param: "isotope_id": *"id"
       op: load: method: *GET
       op: remove: method: *DELETE
       op: update: method: *PUT
     }
-    path: "/api/element/{element_id}/isotope/{isotope_id}/decay": {
+    path: "/element/{element_id}/isotope/{isotope_id}/decay": {
       action: "decay": {}
       rename: param: "isotope_id": *"id"
       op: create: method: *POST
@@ -52,10 +52,10 @@ guide: {
   }
 
   entity: series: {
-    path: "/api/series": {
+    path: "/series": {
       op: list: method: *GET
     }
-    path: "/api/series/{series_id}": {
+    path: "/series/{series_id}": {
       rename: param: "series_id": *"id"
       op: load: method: *GET
     }

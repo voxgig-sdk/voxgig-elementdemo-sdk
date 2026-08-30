@@ -44,11 +44,17 @@ package main
 
 import (
     "fmt"
+    "os"
     sdk "github.com/voxgig-sdk/voxgig-elementdemo-sdk/go"
 )
 
 func main() {
-    client := sdk.New()
+    client := sdk.NewElementdemoSDK(map[string]any{
+        "apikey": os.Getenv("ELEMENTDEMO_APIKEY"),
+    "server": map[string]any{
+        "account_id": "<account_id>",
+    },
+    })
 
     // List element records — the value is the array of records itself.
     elements, err := client.Element(nil).List(nil, nil)
@@ -204,6 +210,7 @@ Create a `.env.local` file at the project root:
 
 ```
 ELEMENTDEMO_TEST_LIVE=TRUE
+ELEMENTDEMO_APIKEY=<your-key>
 ```
 
 Then run:
@@ -225,6 +232,7 @@ Creates a new SDK client.
 
 | Option | Type | Description |
 | --- | --- | --- |
+| `"apikey"` | `string` | API key for authentication. |
 | `"base"` | `string` | Base URL of the API server. |
 | `"prefix"` | `string` | URL path prefix prepended to all requests. |
 | `"suffix"` | `string` | URL path suffix appended to all requests. |
@@ -313,7 +321,7 @@ Only `Direct()` returns a response envelope — a `map[string]any` with
 
 Operations: Create, List, Load, Remove, Update.
 
-API path: `/api/element/{element_id}/ionize`
+API path: `/element/{element_id}/ionize`
 
 #### Group
 
@@ -326,7 +334,7 @@ API path: `/api/element/{element_id}/ionize`
 
 Operations: List, Load.
 
-API path: `/api/group`
+API path: `/group`
 
 #### Isotope
 
@@ -347,7 +355,7 @@ API path: `/api/group`
 
 Operations: Create, List, Load, Remove, Update.
 
-API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
+API path: `/element/{element_id}/isotope/{isotope_id}/decay`
 
 #### Series
 
@@ -360,7 +368,7 @@ API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
 
 Operations: List, Load.
 
-API path: `/api/series`
+API path: `/series`
 
 
 

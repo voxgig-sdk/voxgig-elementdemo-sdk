@@ -107,9 +107,8 @@ main: kit: entity: isotope: {
             ]
           }
           method: "POST"
-          orig: "/api/element/{element_id}/isotope/{isotope_id}/decay"
+          orig: "/element/{element_id}/isotope/{isotope_id}/decay"
           parts: [
-            "api"
             "element"
             "{element_id}"
             "isotope"
@@ -146,9 +145,8 @@ main: kit: entity: isotope: {
             ]
           }
           method: "POST"
-          orig: "/api/element/{element_id}/isotope"
+          orig: "/element/{element_id}/isotope"
           parts: [
-            "api"
             "element"
             "{element_id}"
             "isotope"
@@ -181,9 +179,8 @@ main: kit: entity: isotope: {
             ]
           }
           method: "GET"
-          orig: "/api/element/{element_id}/isotope"
+          orig: "/element/{element_id}/isotope"
           parts: [
-            "api"
             "element"
             "{element_id}"
             "isotope"
@@ -223,9 +220,8 @@ main: kit: entity: isotope: {
             ]
           }
           method: "GET"
-          orig: "/api/element/{element_id}/isotope/{isotope_id}"
+          orig: "/element/{element_id}/isotope/{isotope_id}"
           parts: [
-            "api"
             "element"
             "{element_id}"
             "isotope"
@@ -272,9 +268,8 @@ main: kit: entity: isotope: {
             ]
           }
           method: "DELETE"
-          orig: "/api/element/{element_id}/isotope/{isotope_id}"
+          orig: "/element/{element_id}/isotope/{isotope_id}"
           parts: [
-            "api"
             "element"
             "{element_id}"
             "isotope"
@@ -321,9 +316,8 @@ main: kit: entity: isotope: {
             ]
           }
           method: "PUT"
-          orig: "/api/element/{element_id}/isotope/{isotope_id}"
+          orig: "/element/{element_id}/isotope/{isotope_id}"
           parts: [
-            "api"
             "element"
             "{element_id}"
             "isotope"

@@ -33,7 +33,12 @@ loading a specific record.
 ```java
 import voxgig.elementdemosdk.core.ElementdemoSDK;
 
-ElementdemoSDK client = new ElementdemoSDK();
+Map<String, Object> options = new java.util.LinkedHashMap<>();
+options.put("apikey", System.getenv("ELEMENTDEMO_APIKEY"));
+Map<String, Object> server = new java.util.LinkedHashMap<>();
+server.put("account_id", "<account_id>");
+options.put("server", server);
+ElementdemoSDK client = new ElementdemoSDK(options);
 ```
 
 ### 2. List element records
@@ -189,6 +194,7 @@ Create a `.env.local` file at the project root:
 
 ```
 ELEMENTDEMO_TEST_LIVE=TRUE
+ELEMENTDEMO_APIKEY=<your-key>
 ```
 
 Then run:
@@ -210,6 +216,7 @@ Creates a new SDK client. `options` is a `Map<String, Object>`.
 
 | Option | Type | Description |
 | --- | --- | --- |
+| `apikey` | `String` | API key for authentication. |
 | `base` | `String` | Base URL of the API server. |
 | `prefix` | `String` | URL path prefix prepended to all requests. |
 | `suffix` | `String` | URL path suffix appended to all requests. |
@@ -295,7 +302,7 @@ On error, `ok` is `false` and `err` contains the error value.
 
 Operations: create, list, load, remove, update.
 
-API path: `/api/element/{element_id}/ionize`
+API path: `/element/{element_id}/ionize`
 
 #### Group
 
@@ -308,7 +315,7 @@ API path: `/api/element/{element_id}/ionize`
 
 Operations: list, load.
 
-API path: `/api/group`
+API path: `/group`
 
 #### Isotope
 
@@ -329,7 +336,7 @@ API path: `/api/group`
 
 Operations: create, list, load, remove, update.
 
-API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
+API path: `/element/{element_id}/isotope/{isotope_id}/decay`
 
 #### Series
 
@@ -342,7 +349,7 @@ API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
 
 Operations: list, load.
 
-API path: `/api/series`
+API path: `/series`
 
 
 

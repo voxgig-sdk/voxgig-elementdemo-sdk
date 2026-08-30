@@ -39,6 +39,7 @@ component.* After editing a component run `npm run build` before
 
 - [`elementcard`](./src/feature/elementcard/AGENTS.md) — ASCII periodic-table tile for element-shaped results
 - [`retry`](./src/feature/retry/AGENTS.md) — Automatic retry of transient failures with exponential backoff
+- [`secrets`](./src/feature/secrets/AGENTS.md) — Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens
 - [`test`](./src/feature/test/AGENTS.md) — In-memory mock transport for testing without a live server
 - [`timeout`](./src/feature/timeout/AGENTS.md) — Per-request timeout with transport abort
 

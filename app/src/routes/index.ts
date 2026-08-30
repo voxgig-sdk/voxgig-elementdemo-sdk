@@ -1,9 +1,19 @@
 import type { FastifyInstance } from 'fastify'
+import authRoutes from './auth.routes.js'
 import elementRoutes from './element.routes.js'
 import isotopeRoutes from './isotope.routes.js'
 import groupRoutes from './group.routes.js'
 import seriesRoutes from './series.routes.js'
 import { debugRouteEnabled } from '../config.js'
+import { requireAccessToken } from '../auth/requireAccessToken.js'
+
+// Every API path is account-scoped: /api/<account-id>/<resource>. The
+// account is a routing PARAMETER, not a header or a query value, because
+// it is part of the resource's identity — and because that puts it in the
+// one place an OpenAPI server URL can carry it
+// (http://localhost:8902/api/{account_id}), which is what lets a generated
+// SDK take it as a construction option and never mention it again.
+const ACCOUNT_PREFIX = '/api/:account_id'
 
 export default async function routes(fastify: FastifyInstance) {
   fastify.addSchema({
@@ -90,8 +100,23 @@ export default async function routes(fastify: FastifyInstance) {
     })
   }
 
-  await fastify.register(elementRoutes)
-  await fastify.register(isotopeRoutes)
-  await fastify.register(groupRoutes)
-  await fastify.register(seriesRoutes)
+  // The token endpoint: account-scoped, but NOT behind the access-token
+  // hook — it is what issues access tokens. Its own scope, so the hook
+  // registered on the sibling scope below cannot reach it.
+  await fastify.register(authRoutes, { prefix: ACCOUNT_PREFIX })
+
+  // Everything else: account-scoped AND authenticated. The hook is added
+  // inside the registered plugin, so Fastify's encapsulation confines it to
+  // the routes registered in this scope. Adding it at the root instead
+  // would apply it to /debug and to the token endpoint too — the second of
+  // which could then never be called, since the only way to get a token
+  // would be to already have one.
+  await fastify.register(async (scope: FastifyInstance) => {
+    scope.addHook('onRequest', requireAccessToken)
+
+    await scope.register(elementRoutes)
+    await scope.register(isotopeRoutes)
+    await scope.register(groupRoutes)
+    await scope.register(seriesRoutes)
+  }, { prefix: ACCOUNT_PREFIX })
 }

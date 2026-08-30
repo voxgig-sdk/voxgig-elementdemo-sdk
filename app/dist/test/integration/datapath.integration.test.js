@@ -3,6 +3,7 @@ import { strictEqual, ok } from 'node:assert';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { apiClient } from '../setup.js';
 // DATA_PATH is documented in config.ts; this pins that it is actually read,
 // and that ALL FOUR collections come from it — a hardcoded seed file, or one
 // that only wired up some of the stores, would fail here.
@@ -13,6 +14,7 @@ import { join } from 'node:path';
 // into the other suites, which rely on the default seed data.
 describe('DATA_PATH', () => {
     let app;
+    let api;
     before(async () => {
         const file = join(mkdtempSync(join(tmpdir(), 'elementdemo-datapath-')), 'alt.data.json');
         writeFileSync(file, JSON.stringify({
@@ -41,13 +43,14 @@ describe('DATA_PATH', () => {
         process.env.DATA_PATH = file;
         const { build } = await import('../../src/server.js');
         app = await build();
+        api = apiClient(app);
     });
     after(async () => {
         delete process.env.DATA_PATH;
         await app.close();
     });
     test('an absolute DATA_PATH replaces the default seed data', async () => {
-        const res = await app.inject({ method: 'GET', url: '/api/element' });
+        const res = await api.inject({ method: 'GET', url: '/element' });
         strictEqual(res.statusCode, 200);
         const elements = JSON.parse(res.payload);
         // The default file seeds 118 elements; this one seeds exactly one, so a
@@ -56,9 +59,9 @@ describe('DATA_PATH', () => {
         strictEqual(elements[0].id, 'xa');
     });
     test('nested data from DATA_PATH is loaded too', async () => {
-        const res = await app.inject({
+        const res = await api.inject({
             method: 'GET',
-            url: '/api/element/xa/isotope/xa-500',
+            url: '/element/xa/isotope/xa-500',
         });
         strictEqual(res.statusCode, 200);
         const isotope = JSON.parse(res.payload);
@@ -66,17 +69,17 @@ describe('DATA_PATH', () => {
         strictEqual(isotope.element_id, 'xa');
     });
     test('the read-only collections come from DATA_PATH too', async () => {
-        const groupRes = await app.inject({ method: 'GET', url: '/api/group' });
+        const groupRes = await api.inject({ method: 'GET', url: '/group' });
         strictEqual(groupRes.statusCode, 200);
         const groups = JSON.parse(groupRes.payload);
         strictEqual(groups.length, 1);
         strictEqual(groups[0].id, 'g99');
-        const seriesRes = await app.inject({ method: 'GET', url: '/api/series/imaginary' });
+        const seriesRes = await api.inject({ method: 'GET', url: '/series/imaginary' });
         strictEqual(seriesRes.statusCode, 200);
         strictEqual(JSON.parse(seriesRes.payload).name, 'Imaginary');
     });
     test('an element from the default seed data is absent', async () => {
-        const res = await app.inject({ method: 'GET', url: '/api/element/fe' });
+        const res = await api.inject({ method: 'GET', url: '/element/fe' });
         ok(404 === res.statusCode, 'fe comes from the default file — seeing it means DATA_PATH was ignored');
     });
 });

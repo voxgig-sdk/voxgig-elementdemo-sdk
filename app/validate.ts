@@ -8,6 +8,75 @@ const BASE_URL =
   process.env.VALIDATE_BASE_URL ||
   `http://${process.env.HOST || 'localhost'}:${process.env.PORT || '8902'}`
 
+// The account every path is scoped to, and the long-lived secret that buys
+// access tokens for it. Defaults match app/src/config.ts's own defaults, so
+// `npm run validate` works against a server started with no environment at
+// all; override both when validating against a server that was.
+const ACCOUNT_ID = process.env.ACCOUNT_ID || 'acc01'
+const REFRESH_TOKEN = process.env.REFRESH_TOKEN || 'rt-elementdemo-dev-refresh-token'
+
+// The account-scoped base every API call below is relative to. This is
+// exactly the URL a generated SDK builds from the OpenAPI server template
+// `http://localhost:8902/api/{account_id}` and its `account_id` option.
+const API_URL = `${BASE_URL}/api/${ACCOUNT_ID}`
+
+let accessToken: string | null = null
+let refreshCount = 0
+
+// Buy an access token with the refresh token.
+async function refreshAccessToken(): Promise<string> {
+  const res = await fetch(`${API_URL}/auth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: REFRESH_TOKEN }),
+  })
+
+  if (!res.ok) {
+    throw new Error(
+      `could not obtain an access token: ${res.status} ${await res.text()}`)
+  }
+
+  const body = await res.json()
+  accessToken = body.access_token
+  refreshCount++
+
+  return accessToken as string
+}
+
+// Every API call in this script goes through here.
+//
+// An access token serves FOUR requests and is then invalidated by the
+// server, and this script makes far more than four — so a 401 is retried
+// ONCE against a freshly bought token. That single retry is the entire
+// client-side obligation this API's auth imposes, and it is what the
+// generated SDK's tokenauth feature does for a caller.
+//
+// One retry, not a loop: a second 401 on a token just issued means the
+// credential or the account is wrong, and looping would turn a clear
+// failure into a hang.
+async function api(path: string, init?: RequestInit): Promise<Response> {
+  if (null == accessToken) {
+    await refreshAccessToken()
+  }
+
+  const send = () => fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  const res = await send()
+
+  if (401 !== res.status) {
+    return res
+  }
+
+  await refreshAccessToken()
+  return send()
+}
+
 interface TestResult {
   name: string
   passed: boolean
@@ -37,11 +106,72 @@ async function test(name: string, fn: () => Promise<void>) {
 
 async function main() {
   console.log('🚀 Starting API Validation Tests\n')
-  console.log(`Base URL: ${BASE_URL}\n`)
+  console.log(`Base URL: ${API_URL}\n`)
+
+  // Test 0: the credential round trip, before anything that depends on it.
+  //
+  // Placed first and asserted explicitly because every test after it hides
+  // the flow behind api(): if the exchange or the expiry were broken, the
+  // rest of this script would still fail — but on whatever call happened to
+  // be fifth, blaming the periodic table.
+  await test('0. Refresh token buys an access token that expires after 4 requests', async () => {
+    const res = await fetch(`${API_URL}/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: REFRESH_TOKEN }),
+    })
+    assert(res.ok, `Expected 200 from the token endpoint, got ${res.status}`)
+
+    const body = await res.json()
+    assert('string' === typeof body.access_token, 'Expected an access_token')
+    assert(body.token_type === 'Bearer', `Expected Bearer, got ${body.token_type}`)
+
+    const uses = body.expires_in_requests
+    assert(0 < uses, `Expected a positive expires_in_requests, got ${uses}`)
+
+    // Spend the token down and prove the next request is refused. Uses the
+    // raw fetch, not api(): the whole point is to SEE the 401 that api()
+    // exists to absorb.
+    const probe = () => fetch(`${API_URL}/element/fe`, {
+      headers: { Authorization: `Bearer ${body.access_token}` },
+    })
+
+    for (let i = 1; i <= uses; i++) {
+      const ok = await probe()
+      assert(ok.status === 200, `Request ${i} of ${uses} should succeed, got ${ok.status}`)
+    }
+
+    const spent = await probe()
+    assert(spent.status === 401,
+      `Request ${uses + 1} should be refused, got ${spent.status}`)
+
+    const err = await spent.json()
+    assert(err.error === 'AuthError', `Expected AuthError, got ${err.error}`)
+
+    console.log(`   Access token served ${uses} requests, then 401 as designed`)
+  })
+
+  await test('0b. An unauthenticated request is refused', async () => {
+    const res = await fetch(`${API_URL}/element`)
+    assert(res.status === 401, `Expected 401, got ${res.status}`)
+    const body = await res.json()
+    assert(body.error === 'AuthError', `Expected AuthError, got ${body.error}`)
+    console.log('   No credential, no data')
+  })
+
+  await test('0c. A wrong refresh token is refused', async () => {
+    const res = await fetch(`${API_URL}/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: 'not-the-refresh-token' }),
+    })
+    assert(res.status === 401, `Expected 401, got ${res.status}`)
+    console.log('   Bad refresh token rejected')
+  })
 
   // Test 1: List all elements
   await test('1. List all elements', async () => {
-    const res = await fetch(`${BASE_URL}/api/element`)
+    const res = await api(`/element`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const elements = await res.json()
     assert(Array.isArray(elements), 'Expected array')
@@ -51,7 +181,7 @@ async function main() {
 
   // Test 2: Get specific element (Iron)
   await test('2. Get specific element (Iron)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/fe`)
+    const res = await api(`/element/fe`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const element = await res.json()
     assert(element.id === 'fe', `Expected id 'fe', got '${element.id}'`)
@@ -64,7 +194,7 @@ async function main() {
 
   // Test 3: Create a new element (Ununennium)
   await test('3. Create a new element (Ununennium)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element`, {
+    const res = await api(`/element`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -86,7 +216,7 @@ async function main() {
 
   // Test 4: Update element (Ununennium)
   await test('4. Update element (Ununennium)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/uue`, {
+    const res = await api(`/element/uue`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,7 +241,7 @@ async function main() {
 
   // Test 5: Ionize iron with charge 3
   await test('5. Ionize iron with charge 3', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/fe/ionize`, {
+    const res = await api(`/element/fe/ionize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ charge: 3 }),
@@ -125,7 +255,7 @@ async function main() {
 
   // Test 6: Ionize oxygen with charge -2
   await test('6. Ionize oxygen with charge -2', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/o/ionize`, {
+    const res = await api(`/element/o/ionize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ charge: -2 }),
@@ -139,7 +269,7 @@ async function main() {
 
   // Test 7: Ionize hydrogen with the default charge
   await test('7. Ionize hydrogen with the default charge', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/h/ionize`, {
+    const res = await api(`/element/h/ionize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -153,7 +283,7 @@ async function main() {
 
   // Test 8: Ionize with charge 0 is no ion at all
   await test('8. Ionize with charge 0 is no ion at all', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/fe/ionize`, {
+    const res = await api(`/element/fe/ionize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ charge: 0 }),
@@ -167,7 +297,7 @@ async function main() {
 
   // Test 9: Ionize a non-existent element
   await test('9. Ionize a non-existent element returns 404', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/unobtainium/ionize`, {
+    const res = await api(`/element/unobtainium/ionize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ charge: 1 }),
@@ -178,7 +308,7 @@ async function main() {
 
   // Test 10: List isotopes of hydrogen
   await test('10. List isotopes of hydrogen', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/h/isotope`)
+    const res = await api(`/element/h/isotope`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const isotopes = await res.json()
     assert(Array.isArray(isotopes), 'Expected array')
@@ -188,7 +318,7 @@ async function main() {
 
   // Test 11: Get specific isotope (Hydrogen-2)
   await test('11. Get specific isotope (Hydrogen-2)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/h/isotope/h-2`)
+    const res = await api(`/element/h/isotope/h-2`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const isotope = await res.json()
     assert(isotope.id === 'h-2', `Expected id 'h-2', got '${isotope.id}'`)
@@ -200,7 +330,7 @@ async function main() {
 
   // Test 12: Create a new isotope for carbon
   await test('12. Create a new isotope for carbon', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/c/isotope`, {
+    const res = await api(`/element/c/isotope`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -223,7 +353,7 @@ async function main() {
 
   // Test 13: Update isotope (Carbon-11)
   await test('13. Update isotope (Carbon-11)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/c/isotope/c-11`, {
+    const res = await api(`/element/c/isotope/c-11`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -246,7 +376,7 @@ async function main() {
 
   // Test 14: Verify carbon has 4 isotopes
   await test('14. Verify carbon has 4 isotopes', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/c/isotope`)
+    const res = await api(`/element/c/isotope`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const isotopes = await res.json()
     assert(isotopes.length === 4, `Expected 4 isotopes, got ${isotopes.length}`)
@@ -255,19 +385,19 @@ async function main() {
 
   // Test 15: Delete isotope (Carbon-11)
   await test('15. Delete isotope (Carbon-11)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/c/isotope/c-11`, {
+    const res = await api(`/element/c/isotope/c-11`, {
       method: 'DELETE',
     })
     assert(res.status === 204, `Expected 204, got ${res.status}`)
 
-    const gone = await fetch(`${BASE_URL}/api/element/c/isotope/c-11`)
+    const gone = await api(`/element/c/isotope/c-11`)
     assert(gone.status === 404, `Expected 404 after delete, got ${gone.status}`)
     console.log(`   Carbon-11 deleted successfully`)
   })
 
   // Test 16: Decay carbon-14
   await test('16. Decay carbon-14', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/c/isotope/c-14/decay`, {
+    const res = await api(`/element/c/isotope/c-14/decay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -282,7 +412,7 @@ async function main() {
 
   // Test 17: Decay a stable isotope (helium-4)
   await test('17. Decay a stable isotope (helium-4)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/he/isotope/he-4/decay`, {
+    const res = await api(`/element/he/isotope/he-4/decay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ steps: 3 }),
@@ -297,7 +427,7 @@ async function main() {
   // Test 18: Decay uranium-238 with steps 3 (chain leaves the store)
   await test('18. Decay uranium-238 with steps 3 stops where the store ends', async () => {
     // u-238's product th-234 is not a record, so only one step can apply.
-    const res = await fetch(`${BASE_URL}/api/element/u/isotope/u-238/decay`, {
+    const res = await api(`/element/u/isotope/u-238/decay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ steps: 3 }),
@@ -313,7 +443,7 @@ async function main() {
   // Test 19: Decay radium-226 with steps 3 (a real multi-step walk)
   await test('19. Decay radium-226 with steps 3 walks two steps', async () => {
     // ra-226 -> rn-222 (a record, unstable) -> po-218 (not a record).
-    const res = await fetch(`${BASE_URL}/api/element/ra/isotope/ra-226/decay`, {
+    const res = await api(`/element/ra/isotope/ra-226/decay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ steps: 3 }),
@@ -328,7 +458,7 @@ async function main() {
 
   // Test 20: Decay a non-existent isotope
   await test('20. Decay a non-existent isotope returns 404', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/h/isotope/h-99/decay`, {
+    const res = await api(`/element/h/isotope/h-99/decay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -339,7 +469,7 @@ async function main() {
 
   // Test 21: List all groups
   await test('21. List all groups', async () => {
-    const res = await fetch(`${BASE_URL}/api/group`)
+    const res = await api(`/group`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const groups = await res.json()
     assert(Array.isArray(groups), 'Expected array')
@@ -349,7 +479,7 @@ async function main() {
 
   // Test 22: Get specific group (g1)
   await test('22. Get specific group (g1)', async () => {
-    const res = await fetch(`${BASE_URL}/api/group/g1`)
+    const res = await api(`/group/g1`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const group = await res.json()
     assert(group.id === 'g1', `Expected id 'g1', got '${group.id}'`)
@@ -360,7 +490,7 @@ async function main() {
 
   // Test 23: Groups are read-only
   await test('23. Groups are read-only: POST /api/group is not a route', async () => {
-    const res = await fetch(`${BASE_URL}/api/group`, {
+    const res = await api(`/group`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: 'g19', number: 19, cas: 'XXB' }),
@@ -373,7 +503,7 @@ async function main() {
 
   // Test 24: List all series
   await test('24. List all series', async () => {
-    const res = await fetch(`${BASE_URL}/api/series`)
+    const res = await api(`/series`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const series = await res.json()
     assert(Array.isArray(series), 'Expected array')
@@ -383,7 +513,7 @@ async function main() {
 
   // Test 25: Get specific series (alkali-metal)
   await test('25. Get specific series (alkali-metal)', async () => {
-    const res = await fetch(`${BASE_URL}/api/series/alkali-metal`)
+    const res = await api(`/series/alkali-metal`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const series = await res.json()
     assert(series.id === 'alkali-metal', `Expected id 'alkali-metal', got '${series.id}'`)
@@ -394,7 +524,7 @@ async function main() {
 
   // Test 26: Series are read-only
   await test('26. Series are read-only: DELETE /api/series/:id is not a route', async () => {
-    const res = await fetch(`${BASE_URL}/api/series/alkali-metal`, {
+    const res = await api(`/series/alkali-metal`, {
       method: 'DELETE',
     })
     assert(res.status === 404, `Expected 404, got ${res.status}`)
@@ -403,7 +533,7 @@ async function main() {
 
   // Test 27: Test 404 - Non-existent element
   await test('27. Test 404 - Non-existent element', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/nonexistent`)
+    const res = await api(`/element/nonexistent`)
     assert(res.status === 404, `Expected 404, got ${res.status}`)
     const error = await res.json()
     assert(error.error === 'NotFoundError', 'Expected NotFoundError')
@@ -416,7 +546,7 @@ async function main() {
 
   // Test 28: Test validation error - Missing required field
   await test('28. Test validation error - Missing required field', async () => {
-    const res = await fetch(`${BASE_URL}/api/element`, {
+    const res = await api(`/element`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: 'test', name: 'Test' }),
@@ -430,7 +560,7 @@ async function main() {
   // Test 29: Count uranium's isotopes before delete
   let uraniumIsotopeCount = 0
   await test('29. Count uranium isotopes before delete', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/u/isotope`)
+    const res = await api(`/element/u/isotope`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const isotopes = await res.json()
     uraniumIsotopeCount = isotopes.length
@@ -440,7 +570,7 @@ async function main() {
 
   // Test 30: Delete uranium (cascade delete test)
   await test('30. Delete uranium (cascade delete test)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/u`, {
+    const res = await api(`/element/u`, {
       method: 'DELETE',
     })
     assert(res.status === 204, `Expected 204, got ${res.status}`)
@@ -449,21 +579,21 @@ async function main() {
 
   // Test 31: Verify uranium is deleted
   await test('31. Verify uranium is deleted', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/u`)
+    const res = await api(`/element/u`)
     assert(res.status === 404, `Expected 404, got ${res.status}`)
     console.log(`   Uranium correctly returns 404`)
   })
 
   // Test 32: Verify uranium's isotopes were cascade deleted
   await test('32. Verify uranium isotopes cascade deleted', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/u/isotope/u-238`)
+    const res = await api(`/element/u/isotope/u-238`)
     assert(res.status === 404, `Expected 404 for deleted isotope, got ${res.status}`)
     console.log(`   Uranium's isotopes correctly cascade deleted`)
   })
 
   // Test 33: Delete Ununennium (cleanup)
   await test('33. Delete Ununennium (cleanup)', async () => {
-    const res = await fetch(`${BASE_URL}/api/element/uue`, {
+    const res = await api(`/element/uue`, {
       method: 'DELETE',
     })
     assert(res.status === 204, `Expected 204, got ${res.status}`)
@@ -472,7 +602,7 @@ async function main() {
 
   // Test 34: Final state - Count remaining elements
   await test('34. Final state - Count remaining elements', async () => {
-    const res = await fetch(`${BASE_URL}/api/element`)
+    const res = await api(`/element`)
     assert(res.ok, `Expected 200, got ${res.status}`)
     const elements = await res.json()
     assert(
@@ -491,6 +621,8 @@ async function main() {
   const failed = results.filter((r) => !r.passed).length
 
   console.log(`\nTotal Tests: ${results.length}`)
+  console.log(`Access tokens bought: ${refreshCount} ` +
+    `(one per 4 requests — the SDK's refresh path, exercised)`)
   console.log(`✓ Passed: ${passed}`)
   console.log(`✗ Failed: ${failed}`)
 

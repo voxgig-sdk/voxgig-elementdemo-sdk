@@ -32,45 +32,134 @@ npm run validate
 npm run validate:full
 ```
 
-The server will start on `http://localhost:8902` by default.
+The server will start on `http://localhost:8902` by default. Every API path
+is account-scoped, so the base URL a client actually uses is
+`http://localhost:8902/api/<account-id>`.
+
+## Accounts and access tokens
+
+Two things are needed to call this API: an **account id**, which is part of
+every path, and an **access token**, sent as a bearer credential.
+
+| | | |
+| --- | --- | --- |
+| **Account id** | `/api/<account-id>/...` | Names the account every request operates as. Not a secret. |
+| **Refresh token** | never sent to an API path | Long-lived secret. Buys access tokens, and nothing else. |
+| **Access token** | `Authorization: Bearer <token>` | Short-lived. **Serves four requests, then dies.** |
+
+The defaults, when `ACCOUNTS`, `ACCOUNT_ID` and `REFRESH_TOKEN` are all
+unset:
+
+| | |
+| --- | --- |
+| account id | `acc01` |
+| refresh token | `rt-elementdemo-dev-refresh-token` |
+
+These are dev credentials to a server holding public chemistry data. There is
+nothing here to protect, and a reference server has to be callable out of the
+box — but do not copy the pattern into anything that does have something to
+protect.
+
+### Getting an access token
+
+```bash
+ACCOUNT=acc01
+TOKEN=$(curl -s -X POST http://localhost:8902/api/$ACCOUNT/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"refresh_token":"rt-elementdemo-dev-refresh-token"}' | jq -r .access_token)
+
+curl http://localhost:8902/api/$ACCOUNT/element/fe \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+`POST /api/<account-id>/auth/token` answers:
+
+```json
+{
+  "access_token": "at-...",
+  "token_type": "Bearer",
+  "expires_in_requests": 4
+}
+```
+
+### Expiry is counted in REQUESTS, not seconds
+
+An access token serves exactly four requests and is then invalidated; the
+fifth request answers `401 AuthError`, and the client must buy another token
+with its refresh token. That is deliberate, and it is the point of this
+server: a wall-clock TTL would make every test either slow or flaky, while a
+request count expires on a known call, so a client's refresh path is
+exercised by any run longer than four requests rather than by a special
+"please expire me" endpoint nobody would call in earnest.
+
+`ACCESS_TOKEN_USES` tunes the count.
+
+### The token endpoint is not in the OpenAPI definition
+
+Deliberately, like `/debug`. The definition describes the periodic-table
+resources an SDK generates entity classes for; the credential round trip is
+transport plumbing an SDK's auth layer performs. Describing it would mint an
+`Auth` entity with a `token` operation in every generated language.
+
+## Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `HOST` | `localhost` | Bind address. A non-loopback value also drops `/debug` — see `src/config.ts`. |
+| `PORT` | `8902` | Bind port. |
+| `ACCOUNTS` | *(unset)* | `<id>:<refresh-token>` pairs, comma-separated: `acc01:rt-one,acc02:rt-two`. |
+| `ACCOUNT_ID` | `acc01` | The single account's id, when `ACCOUNTS` is unset. |
+| `REFRESH_TOKEN` | `rt-elementdemo-dev-refresh-token` | That account's refresh token. |
+| `ACCESS_TOKEN_USES` | `4` | Requests one access token serves before it is invalidated. |
+| `DATA_PATH` | `./element.data.json` | Seed data. |
+| `LOG_LEVEL` | `error` | Fastify log level. |
+| `DEBUG_ROUTE` | *(unset)* | `true`/`false` overrides the loopback rule for `/debug`. |
 
 ## API Endpoints
 
+Every path below is relative to `http://localhost:8902/api/<account-id>` and
+requires `Authorization: Bearer <access-token>`.
+
 | Method | Path                                              | Description                            |
 | ------ | ------------------------------------------------- | -------------------------------------- |
-| GET    | `/api/element`                                    | List all elements                      |
-| POST   | `/api/element`                                    | Create an element                      |
-| GET    | `/api/element/{element_id}`                       | Get an element                         |
-| PUT    | `/api/element/{element_id}`                       | Update an element                      |
-| DELETE | `/api/element/{element_id}`                       | Delete an element (cascades to isotopes) |
-| POST   | `/api/element/{element_id}/ionize`                | Ionize an element                      |
-| GET    | `/api/element/{element_id}/isotope`               | List isotopes of an element            |
-| POST   | `/api/element/{element_id}/isotope`               | Create an isotope                      |
-| GET    | `/api/element/{element_id}/isotope/{isotope_id}`  | Get an isotope                         |
-| PUT    | `/api/element/{element_id}/isotope/{isotope_id}`  | Update an isotope                      |
-| DELETE | `/api/element/{element_id}/isotope/{isotope_id}`  | Delete an isotope                      |
-| POST   | `/api/element/{element_id}/isotope/{isotope_id}/decay` | Decay an isotope                  |
-| GET    | `/api/group`                                      | List all groups (read-only)            |
-| GET    | `/api/group/{group_id}`                           | Get a group (read-only)                |
-| GET    | `/api/series`                                     | List all series (read-only)            |
-| GET    | `/api/series/{series_id}`                         | Get a series (read-only)               |
+| POST   | `/api/{account_id}/auth/token`                    | Exchange a refresh token for an access token (no credential needed) |
+| GET    | `/api/{account_id}/element`                                    | List all elements                      |
+| POST   | `/api/{account_id}/element`                                    | Create an element                      |
+| GET    | `/api/{account_id}/element/{element_id}`                       | Get an element                         |
+| PUT    | `/api/{account_id}/element/{element_id}`                       | Update an element                      |
+| DELETE | `/api/{account_id}/element/{element_id}`                       | Delete an element (cascades to isotopes) |
+| POST   | `/api/{account_id}/element/{element_id}/ionize`                | Ionize an element                      |
+| GET    | `/api/{account_id}/element/{element_id}/isotope`               | List isotopes of an element            |
+| POST   | `/api/{account_id}/element/{element_id}/isotope`               | Create an isotope                      |
+| GET    | `/api/{account_id}/element/{element_id}/isotope/{isotope_id}`  | Get an isotope                         |
+| PUT    | `/api/{account_id}/element/{element_id}/isotope/{isotope_id}`  | Update an isotope                      |
+| DELETE | `/api/{account_id}/element/{element_id}/isotope/{isotope_id}`  | Delete an isotope                      |
+| POST   | `/api/{account_id}/element/{element_id}/isotope/{isotope_id}/decay` | Decay an isotope                  |
+| GET    | `/api/{account_id}/group`                                      | List all groups (read-only)            |
+| GET    | `/api/{account_id}/group/{group_id}`                           | Get a group (read-only)                |
+| GET    | `/api/{account_id}/series`                                     | List all series (read-only)            |
+| GET    | `/api/{account_id}/series/{series_id}`                         | Get a series (read-only)               |
 
 Groups and series are **read-only**: the OpenAPI definition has no create,
 update or delete for them, so those routes do not exist — a write request
 answers 404 in the standard error envelope, like any other unmatched route.
 
+The `curl` examples below assume `$ACCOUNT` and `$TOKEN` are set as in
+[Getting an access token](#getting-an-access-token), and omit the
+`-H "Authorization: Bearer $TOKEN"` every one of them needs, for readability.
+
 ### Elements
 
 #### List all elements
 ```bash
-curl http://localhost:8902/api/element
+curl http://localhost:8902/api/$ACCOUNT/element -H "Authorization: Bearer $TOKEN"
 ```
 
 **Response:** Array of element objects
 
 #### Get a specific element
 ```bash
-curl http://localhost:8902/api/element/fe
+curl http://localhost:8902/api/$ACCOUNT/element/fe
 ```
 
 **Response:** Element object
@@ -91,7 +180,7 @@ curl http://localhost:8902/api/element/fe
 
 #### Create a new element
 ```bash
-curl -X POST http://localhost:8902/api/element \
+curl -X POST http://localhost:8902/api/$ACCOUNT/element \
   -H "Content-Type: application/json" \
   -d '{
     "id": "uue",
@@ -109,7 +198,7 @@ curl -X POST http://localhost:8902/api/element \
 
 #### Update an element
 ```bash
-curl -X PUT http://localhost:8902/api/element/uue \
+curl -X PUT http://localhost:8902/api/$ACCOUNT/element/uue \
   -H "Content-Type: application/json" \
   -d '{
     "id": "uue",
@@ -127,7 +216,7 @@ curl -X PUT http://localhost:8902/api/element/uue \
 
 #### Delete an element
 ```bash
-curl -X DELETE http://localhost:8902/api/element/uue
+curl -X DELETE http://localhost:8902/api/$ACCOUNT/element/uue
 ```
 
 **Response:** No content (204)
@@ -139,12 +228,12 @@ Build the ion notation for an element and a charge (default `1`).
 
 ```bash
 # Fe with charge 3
-curl -X POST http://localhost:8902/api/element/fe/ionize \
+curl -X POST http://localhost:8902/api/$ACCOUNT/element/fe/ionize \
   -H "Content-Type: application/json" \
   -d '{"charge": 3}'
 
 # O with charge -2
-curl -X POST http://localhost:8902/api/element/o/ionize \
+curl -X POST http://localhost:8902/api/$ACCOUNT/element/o/ionize \
   -H "Content-Type: application/json" \
   -d '{"charge": -2}'
 ```
@@ -164,14 +253,14 @@ ion at all: `{ "ok": false, "ion": "Fe" }`.
 
 #### List isotopes of an element
 ```bash
-curl http://localhost:8902/api/element/h/isotope
+curl http://localhost:8902/api/$ACCOUNT/element/h/isotope
 ```
 
 **Response:** Array of isotope objects
 
 #### Get a specific isotope
 ```bash
-curl http://localhost:8902/api/element/h/isotope/h-2
+curl http://localhost:8902/api/$ACCOUNT/element/h/isotope/h-2
 ```
 
 **Response:** Isotope object
@@ -189,7 +278,7 @@ curl http://localhost:8902/api/element/h/isotope/h-2
 
 #### Create a new isotope
 ```bash
-curl -X POST http://localhost:8902/api/element/c/isotope \
+curl -X POST http://localhost:8902/api/$ACCOUNT/element/c/isotope \
   -H "Content-Type: application/json" \
   -d '{
     "id": "c-11",
@@ -210,7 +299,7 @@ curl -X POST http://localhost:8902/api/element/c/isotope \
 
 #### Update an isotope
 ```bash
-curl -X PUT http://localhost:8902/api/element/c/isotope/c-11 \
+curl -X PUT http://localhost:8902/api/$ACCOUNT/element/c/isotope/c-11 \
   -H "Content-Type: application/json" \
   -d '{
     "id": "c-11",
@@ -226,7 +315,7 @@ curl -X PUT http://localhost:8902/api/element/c/isotope/c-11 \
 
 #### Delete an isotope
 ```bash
-curl -X DELETE http://localhost:8902/api/element/c/isotope/c-11
+curl -X DELETE http://localhost:8902/api/$ACCOUNT/element/c/isotope/c-11
 ```
 
 **Response:** No content (204)
@@ -240,12 +329,12 @@ applied and the final product id.
 
 ```bash
 # One step: c-14 -> n-14
-curl -X POST http://localhost:8902/api/element/c/isotope/c-14/decay \
+curl -X POST http://localhost:8902/api/$ACCOUNT/element/c/isotope/c-14/decay \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # Three requested, two applied: ra-226 -> rn-222 -> po-218 (not a record)
-curl -X POST http://localhost:8902/api/element/ra/isotope/ra-226/decay \
+curl -X POST http://localhost:8902/api/$ACCOUNT/element/ra/isotope/ra-226/decay \
   -H "Content-Type: application/json" \
   -d '{"steps": 3}'
 ```
@@ -271,14 +360,14 @@ A stable isotope does not decay, however many steps are asked for:
 
 #### List all groups
 ```bash
-curl http://localhost:8902/api/group
+curl http://localhost:8902/api/$ACCOUNT/group
 ```
 
 **Response:** Array of group objects
 
 #### Get a specific group
 ```bash
-curl http://localhost:8902/api/group/g1
+curl http://localhost:8902/api/$ACCOUNT/group/g1
 ```
 
 **Response:** Group object
@@ -295,14 +384,14 @@ curl http://localhost:8902/api/group/g1
 
 #### List all series
 ```bash
-curl http://localhost:8902/api/series
+curl http://localhost:8902/api/$ACCOUNT/series
 ```
 
 **Response:** Array of series objects
 
 #### Get a specific series
 ```bash
-curl http://localhost:8902/api/series/alkali-metal
+curl http://localhost:8902/api/$ACCOUNT/series/alkali-metal
 ```
 
 **Response:** Series object
@@ -331,6 +420,20 @@ humans reading logs, and `message` as free text that may change.
 
 Covers both a schema violation and a malformed JSON body.
 
+### 401 Unauthorized
+```json
+{
+  "error": "AuthError",
+  "message": "access token is invalid or expired"
+}
+```
+
+A missing, malformed, unknown, spent, or wrong-account credential — and a
+refresh token that does not match its account. The fix is always the same:
+buy a new access token at `POST /api/<account-id>/auth/token`. Expect this
+on every fifth request with the same token; see
+[Accounts and access tokens](#accounts-and-access-tokens).
+
 ### 404 Not Found
 ```json
 {
@@ -339,9 +442,9 @@ Covers both a schema violation and a malformed JSON body.
 }
 ```
 
-Also what a write to a read-only entity gets: `POST /api/group` is an
+Also what a write to a read-only entity gets: `POST /api/<account-id>/group` is an
 unmatched route, so it answers
-`{ "error": "NotFoundError", "message": "Route POST:/api/group not found" }`.
+`{ "error": "NotFoundError", "message": "Route POST:/api/acc01/group not found" }`.
 
 ### 409 Conflict
 ```json
@@ -528,6 +631,13 @@ The validation script tests:
 - JSON Schema validation using Fastify's built-in Ajv integration
 - Request body, params, and response validation
 - OpenAPI 3.0 compliant schemas
+
+### Authentication
+- Accounts are a routing parameter: `/api/<account-id>/...`
+- A refresh token buys access tokens at `POST /api/<account-id>/auth/token`
+- Access tokens are bearer credentials that expire after four requests
+- The check is an `onRequest` hook on an encapsulated Fastify scope, so the
+  token endpoint (which issues the credential) and `/debug` sit outside it
 
 ### Error Handling
 - Custom error classes with HTTP status codes
