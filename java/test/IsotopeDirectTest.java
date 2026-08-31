@@ -57,7 +57,7 @@ public class IsotopeDirectTest {
     }
 
     Map<String, Object> result = client.direct(jm(
-        "path", "api/element/{element_id}/isotope",
+        "path", "element/{element_id}/isotope",
         "method", "GET",
         "params", params));
     if (setup.live) {
@@ -114,7 +114,7 @@ public class IsotopeDirectTest {
       Map<String, Object> listParams = new LinkedHashMap<>();
       listParams.put("element_id", setup.idmap.get("element01"));
       Map<String, Object> listResult = client.direct(jm(
-          "path", "api/element/{element_id}/isotope",
+          "path", "element/{element_id}/isotope",
           "method", "GET",
           "params", listParams));
       Assumptions.assumeTrue(Boolean.TRUE.equals(listResult.get("ok")),
@@ -134,7 +134,7 @@ public class IsotopeDirectTest {
     }
 
     Map<String, Object> result = client.direct(jm(
-        "path", "api/element/{element_id}/isotope/{id}",
+        "path", "element/{element_id}/isotope/{id}",
         "method", "GET",
         "params", params,
         "query", query));
@@ -189,6 +189,8 @@ public class IsotopeDirectTest {
     Map<String, Object> envm = new LinkedHashMap<>();
     envm.put("ELEMENTDEMO_TEST_ISOTOPE_ENTID", new LinkedHashMap<>());
     envm.put("ELEMENTDEMO_TEST_LIVE", "FALSE");
+    envm.put("ELEMENTDEMO_APIKEY", "");
+    envm.put("ELEMENTDEMO_SERVER_ACCOUNT_ID", "");
     Map<String, Object> env = RunnerSupport.envOverride(envm);
 
     boolean live = "TRUE".equals(env.get("ELEMENTDEMO_TEST_LIVE"));
@@ -197,7 +199,14 @@ public class IsotopeDirectTest {
     setup.calls = calls;
 
     if (live) {
-      Map<String, Object> mergedOpts = new LinkedHashMap<>();
+      // sdk-test-control.json's test.client.options seeds the live
+      // client; the generated fields below overwrite anything they name.
+      Map<String, Object> mergedOpts =
+          new LinkedHashMap<>(RunnerSupport.liveClientOptions());
+      mergedOpts.put("apikey", env.get("ELEMENTDEMO_APIKEY"));
+      Map<String, Object> serveropt = new LinkedHashMap<>();
+      serveropt.put("account_id", env.get("ELEMENTDEMO_SERVER_ACCOUNT_ID"));
+      mergedOpts.put("server", serveropt);
       setup.client = new ElementdemoSDK(mergedOpts);
       setup.live = true;
 

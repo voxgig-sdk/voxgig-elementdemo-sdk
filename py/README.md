@@ -31,9 +31,15 @@ loading a specific record.
 ### 1. Create a client
 
 ```python
+import os
 from elementdemo_sdk import ElementdemoSDK
 
-client = ElementdemoSDK()
+client = ElementdemoSDK({
+    "apikey": os.environ.get("ELEMENTDEMO_APIKEY"),
+    "server": {
+        "account_id": "<account_id>",
+    },
+})
 ```
 
 ### 2. List element records
@@ -183,6 +189,7 @@ Create a `.env.local` file at the project root:
 
 ```
 ELEMENTDEMO_TEST_LIVE=TRUE
+ELEMENTDEMO_APIKEY=<your-key>
 ```
 
 Then run:
@@ -206,6 +213,7 @@ Creates a new SDK client.
 
 | Option | Type | Description |
 | --- | --- | --- |
+| `apikey` | `str` | API key for authentication. |
 | `base` | `str` | Base URL of the API server. |
 | `prefix` | `str` | URL path prefix prepended to all requests. |
 | `suffix` | `str` | URL path suffix appended to all requests. |
@@ -293,7 +301,7 @@ On error, `ok` is `False` and `err` contains the error value.
 
 Operations: Create, List, Load, Remove, Update.
 
-API path: `/api/element/{element_id}/ionize`
+API path: `/element/{element_id}/ionize`
 
 #### Group
 
@@ -306,7 +314,7 @@ API path: `/api/element/{element_id}/ionize`
 
 Operations: List, Load.
 
-API path: `/api/group`
+API path: `/group`
 
 #### Isotope
 
@@ -327,7 +335,7 @@ API path: `/api/group`
 
 Operations: Create, List, Load, Remove, Update.
 
-API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
+API path: `/element/{element_id}/isotope/{isotope_id}/decay`
 
 #### Series
 
@@ -340,7 +348,7 @@ API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
 
 Operations: List, Load.
 
-API path: `/api/series`
+API path: `/series`
 
 
 

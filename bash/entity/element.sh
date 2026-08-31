@@ -19,7 +19,7 @@ elementdemo_element_create() {
     _body=$(cat)
   fi
   [ -n "$_body" ] || _body='{}'
-  elementdemo_request POST "/api/element" "$_body" "$_query" "element" "create" "$_args"
+  elementdemo_request POST "/element" "$_body" "$_query" "element" "create" "$_args"
 }
 
 # element ionize (action)
@@ -41,7 +41,7 @@ elementdemo_element_ionize() {
     _body=$(cat)
   fi
   [ -n "$_body" ] || _body='{}'
-  elementdemo_request POST "/api/element/$(_elementdemo_encode "$id")/ionize" "$_body" "$_query" "element" "ionize" "$_args"
+  elementdemo_request POST "/element/$(_elementdemo_encode "$id")/ionize" "$_body" "$_query" "element" "ionize" "$_args"
 }
 
 # element list
@@ -54,7 +54,7 @@ elementdemo_element_list() {
     esac
   done
   _args='{}'
-  elementdemo_request GET "/api/element" "" "$_query" "element" "list" "$_args"
+  elementdemo_request GET "/element" "" "$_query" "element" "list" "$_args"
 }
 
 # element load
@@ -71,7 +71,7 @@ elementdemo_element_load() {
   [ -n "$id" ] || { _elementdemo_error "required" "element load: id is required"; return 2; }
   _args=$(jq -n --arg id "$id" \
     '{id: $id} | with_entries(select(.value != ""))')
-  elementdemo_request GET "/api/element/$(_elementdemo_encode "$id")" "" "$_query" "element" "load" "$_args"
+  elementdemo_request GET "/element/$(_elementdemo_encode "$id")" "" "$_query" "element" "load" "$_args"
 }
 
 # element remove
@@ -88,7 +88,7 @@ elementdemo_element_remove() {
   [ -n "$id" ] || { _elementdemo_error "required" "element remove: id is required"; return 2; }
   _args=$(jq -n --arg id "$id" \
     '{id: $id} | with_entries(select(.value != ""))')
-  elementdemo_request DELETE "/api/element/$(_elementdemo_encode "$id")" "" "$_query" "element" "remove" "$_args"
+  elementdemo_request DELETE "/element/$(_elementdemo_encode "$id")" "" "$_query" "element" "remove" "$_args"
 }
 
 # element update
@@ -110,5 +110,5 @@ elementdemo_element_update() {
     _body=$(cat)
   fi
   [ -n "$_body" ] || _body='{}'
-  elementdemo_request PUT "/api/element/$(_elementdemo_encode "$id")" "$_body" "$_query" "element" "update" "$_args"
+  elementdemo_request PUT "/element/$(_elementdemo_encode "$id")" "$_body" "$_query" "element" "update" "$_args"
 }

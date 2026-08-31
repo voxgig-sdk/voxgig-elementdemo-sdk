@@ -14,7 +14,7 @@ elementdemo_group_list() {
     esac
   done
   _args='{}'
-  elementdemo_request GET "/api/group" "" "$_query" "group" "list" "$_args"
+  elementdemo_request GET "/group" "" "$_query" "group" "list" "$_args"
 }
 
 # group load
@@ -31,5 +31,5 @@ elementdemo_group_load() {
   [ -n "$id" ] || { _elementdemo_error "required" "group load: id is required"; return 2; }
   _args=$(jq -n --arg id "$id" \
     '{id: $id} | with_entries(select(.value != ""))')
-  elementdemo_request GET "/api/group/$(_elementdemo_encode "$id")" "" "$_query" "group" "load" "$_args"
+  elementdemo_request GET "/group/$(_elementdemo_encode "$id")" "" "$_query" "group" "load" "$_args"
 }

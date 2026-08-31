@@ -4,11 +4,23 @@
 main: {
   kit: {
     info: {
-      auth: false
       description: "The Periodic Table API. Elements, isotopes, groups and series."
+      security: {
+        in: "header"
+        name: "Authorization"
+        prefix: "Bearer"
+        scheme: "bearerAuth"
+        type: "http"
+      }
       servers: [
         {
-          url: "http://localhost:8902"
+          url: "http://localhost:8902/api/{account_id}"
+          variables: {
+            account_id: {
+              default: ""
+              description: "The API account the client is operating as."
+            }
+          }
         }
       ]
       summary: "The Periodic Table API."

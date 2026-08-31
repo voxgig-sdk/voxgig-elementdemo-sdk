@@ -111,9 +111,8 @@ main: kit: entity: element: {
             ]
           }
           method: "POST"
-          orig: "/api/element/{element_id}/ionize"
+          orig: "/element/{element_id}/ionize"
           parts: [
-            "api"
             "element"
             "{id}"
             "ionize"
@@ -136,9 +135,8 @@ main: kit: entity: element: {
         }
         {
           method: "POST"
-          orig: "/api/element"
+          orig: "/element"
           parts: [
-            "api"
             "element"
           ]
           transform: {
@@ -153,9 +151,8 @@ main: kit: entity: element: {
       points: [
         {
           method: "GET"
-          orig: "/api/element"
+          orig: "/element"
           parts: [
-            "api"
             "element"
           ]
           transform: {
@@ -181,9 +178,8 @@ main: kit: entity: element: {
             ]
           }
           method: "GET"
-          orig: "/api/element/{element_id}"
+          orig: "/element/{element_id}"
           parts: [
-            "api"
             "element"
             "{id}"
           ]
@@ -220,9 +216,8 @@ main: kit: entity: element: {
             ]
           }
           method: "DELETE"
-          orig: "/api/element/{element_id}"
+          orig: "/element/{element_id}"
           parts: [
-            "api"
             "element"
             "{id}"
           ]
@@ -259,9 +254,8 @@ main: kit: entity: element: {
             ]
           }
           method: "PUT"
-          orig: "/api/element/{element_id}"
+          orig: "/element/{element_id}"
           parts: [
-            "api"
             "element"
             "{id}"
           ]

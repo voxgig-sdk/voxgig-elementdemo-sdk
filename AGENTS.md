@@ -22,7 +22,7 @@ There are companion guides deeper in the tree: one per language
 | `py` | `py/` | [`py/AGENTS.md`](./py/AGENTS.md) |
 | `ts` | `ts/` | [`ts/AGENTS.md`](./ts/AGENTS.md) |
 
-**Features** (4): `elementcard`, `retry`, `test`, `timeout`.
+**Features** (5): `elementcard`, `retry`, `secrets`, `test`, `timeout`.
 
 Each feature is generated into every SDK target — as a directory
 `<lang>/src/feature/<name>/` (ts/js) or a flat file in the `<lang>/feature/`

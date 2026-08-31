@@ -10,7 +10,7 @@ Learn more about Voxgig SDKs at [voxgig.com/sdk](https://voxgig.com/sdk/).
 
 > TypeScript, Python, Golang, Bash, Java SDKs — all generated from one OpenAPI spec by [@voxgig/sdkgen](https://github.com/voxgig/sdkgen).
 
-> **Features:** `elementcard`, `retry`, `test`, `timeout` — opt-in,
+> **Features:** `elementcard`, `retry`, `secrets`, `test`, `timeout` — opt-in,
 > inactive until switched on, and configured per client. See the Features
 > section of any SDK README below for what each one does.
 
@@ -95,7 +95,13 @@ System.out.println(isotopeList);
 ```ts
 import { ElementdemoSDK } from '@voxgig-sdk/elementdemo'
 
-const client = new ElementdemoSDK()
+const client = new ElementdemoSDK({
+  apikey: process.env.ELEMENTDEMO_APIKEY,
+  // Required: this API's server URL is templated on these.
+  server: {
+    account_id: '<account_id>',
+  },
+})
 
 // List all elements (returns ElementEntity[] — .data() for the record)
 const elements = await client.Element().list()
@@ -125,10 +131,10 @@ The API exposes 4 entities:
 
 | Entity | Description | API path |
 | --- | --- | --- |
-| **Element** | The Element entity (create, list, load, remove, update). | `/api/element` |
-| **Group** | The Group entity (list, load). | `/api/group` |
-| **Isotope** | The Isotope entity (create, list, load, remove, update). | `/api/element/{element_id}/isotope` |
-| **Series** | The Series entity (list, load). | `/api/series` |
+| **Element** | The Element entity (create, list, load, remove, update). | `/element` |
+| **Group** | The Group entity (list, load). | `/group` |
+| **Isotope** | The Isotope entity (create, list, load, remove, update). | `/element/{element_id}/isotope` |
+| **Series** | The Series entity (list, load). | `/series` |
 
 The operations available across these entities are **load**, **list**, **create**, **update**, **remove** — see each entity's
 own list above for exactly which it supports.
@@ -138,9 +144,15 @@ own list above for exactly which it supports.
 ### Python
 
 ```python
+import os
 from elementdemo_sdk import ElementdemoSDK
 
-client = ElementdemoSDK()
+client = ElementdemoSDK({
+    "apikey": os.environ.get("ELEMENTDEMO_APIKEY"),
+    "server": {
+        "account_id": "<account_id>",
+    },
+})
 
 # List all elements (returns a list, raises on error)
 elements = client.Element().list()
@@ -157,7 +169,12 @@ print(element)
 ```go
 import sdk "github.com/voxgig-sdk/voxgig-elementdemo-sdk/go"
 
-client := sdk.New()
+client := sdk.NewElementdemoSDK(map[string]any{
+    "apikey": os.Getenv("ELEMENTDEMO_APIKEY"),
+    "server": map[string]any{
+        "account_id": "<account_id>",
+    },
+})
 
 // List all elements
 elements, err := client.Element(nil).List(nil, nil)
@@ -181,7 +198,12 @@ fmt.Println(isotope)
 ```java
 import voxgig.elementdemosdk.core.ElementdemoSDK;
 
-ElementdemoSDK client = new ElementdemoSDK();
+Map<String, Object> options = new java.util.LinkedHashMap<>();
+options.put("apikey", System.getenv("ELEMENTDEMO_APIKEY"));
+Map<String, Object> server = new java.util.LinkedHashMap<>();
+server.put("account_id", "<account_id>");
+options.put("server", server);
+ElementdemoSDK client = new ElementdemoSDK(options);
 
 // List all elements (returns Object, an aggregate list; raises on error)
 Object elementList = client.element(null).list(null, null);
@@ -274,6 +296,7 @@ forking the SDK.
 | --- | --- |
 | **ElementcardFeature** | ASCII periodic-table tile for element-shaped results |
 | **RetryFeature** | Automatic retry of transient failures with exponential backoff |
+| **SecretsFeature** | Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens |
 | **TestFeature** | In-memory mock transport for testing without a live server |
 | **TimeoutFeature** | Per-request timeout with transport abort |
 
@@ -321,7 +344,7 @@ unofficial client and is not affiliated with the API provider.
 The OpenAPI spec(s) this SDK was generated from are kept in the
 [`.sdk/def/`](.sdk/def/) folder.
 
-- Upstream API: [http://localhost:8902](http://localhost:8902)
+- Upstream API: `http://localhost:8902/api/{account_id}`
 
 ## Security
 

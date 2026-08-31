@@ -1,15 +1,6 @@
 {
-  "NAME": "ELEMENTDEMO",
-  "Name": "Elementdemo",
   "def": "elementdemo-1.0.0-openapi-3.0.0.yaml",
   "main": {
-    "api": {
-      "entity": {},
-      "guide": {}
-    },
-    "custom": {
-      "plurals": {}
-    },
     "def": {
       "desc": ""
     },
@@ -163,9 +154,8 @@
                   },
                   "kind": "http",
                   "method": "POST",
-                  "orig": "/api/element/{element_id}/ionize",
+                  "orig": "/element/{element_id}/ionize",
                   "parts": [
-                    "api",
                     "element",
                     "{id}",
                     "ionize"
@@ -191,9 +181,8 @@
                   "args": {},
                   "kind": "http",
                   "method": "POST",
-                  "orig": "/api/element",
+                  "orig": "/element",
                   "parts": [
-                    "api",
                     "element"
                   ],
                   "select": {},
@@ -213,9 +202,8 @@
                   "args": {},
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/element",
+                  "orig": "/element",
                   "parts": [
-                    "api",
                     "element"
                   ],
                   "select": {},
@@ -246,9 +234,8 @@
                   },
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/element/{element_id}",
+                  "orig": "/element/{element_id}",
                   "parts": [
-                    "api",
                     "element",
                     "{id}"
                   ],
@@ -289,9 +276,8 @@
                   },
                   "kind": "http",
                   "method": "DELETE",
-                  "orig": "/api/element/{element_id}",
+                  "orig": "/element/{element_id}",
                   "parts": [
-                    "api",
                     "element",
                     "{id}"
                   ],
@@ -332,9 +318,8 @@
                   },
                   "kind": "http",
                   "method": "PUT",
-                  "orig": "/api/element/{element_id}",
+                  "orig": "/element/{element_id}",
                   "parts": [
-                    "api",
                     "element",
                     "{id}"
                   ],
@@ -410,9 +395,8 @@
                   "args": {},
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/group",
+                  "orig": "/group",
                   "parts": [
-                    "api",
                     "group"
                   ],
                   "select": {},
@@ -443,9 +427,8 @@
                   },
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/group/{group_id}",
+                  "orig": "/group/{group_id}",
                   "parts": [
-                    "api",
                     "group",
                     "{id}"
                   ],
@@ -594,9 +577,8 @@
                   },
                   "kind": "http",
                   "method": "POST",
-                  "orig": "/api/element/{element_id}/isotope/{isotope_id}/decay",
+                  "orig": "/element/{element_id}/isotope/{isotope_id}/decay",
                   "parts": [
-                    "api",
                     "element",
                     "{element_id}",
                     "isotope",
@@ -636,9 +618,8 @@
                   },
                   "kind": "http",
                   "method": "POST",
-                  "orig": "/api/element/{element_id}/isotope",
+                  "orig": "/element/{element_id}/isotope",
                   "parts": [
-                    "api",
                     "element",
                     "{element_id}",
                     "isotope"
@@ -675,9 +656,8 @@
                   },
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/element/{element_id}/isotope",
+                  "orig": "/element/{element_id}/isotope",
                   "parts": [
-                    "api",
                     "element",
                     "{element_id}",
                     "isotope"
@@ -722,9 +702,8 @@
                   },
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+                  "orig": "/element/{element_id}/isotope/{isotope_id}",
                   "parts": [
-                    "api",
                     "element",
                     "{element_id}",
                     "isotope",
@@ -776,9 +755,8 @@
                   },
                   "kind": "http",
                   "method": "DELETE",
-                  "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+                  "orig": "/element/{element_id}/isotope/{isotope_id}",
                   "parts": [
-                    "api",
                     "element",
                     "{element_id}",
                     "isotope",
@@ -830,9 +808,8 @@
                   },
                   "kind": "http",
                   "method": "PUT",
-                  "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+                  "orig": "/element/{element_id}/isotope/{isotope_id}",
                   "parts": [
-                    "api",
                     "element",
                     "{element_id}",
                     "isotope",
@@ -915,9 +892,8 @@
                   "args": {},
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/series",
+                  "orig": "/series",
                   "parts": [
-                    "api",
                     "series"
                   ],
                   "select": {},
@@ -948,9 +924,8 @@
                   },
                   "kind": "http",
                   "method": "GET",
-                  "orig": "/api/series/{series_id}",
+                  "orig": "/series/{series_id}",
                   "parts": [
-                    "api",
                     "series",
                     "{id}"
                   ],
@@ -1034,6 +1009,7 @@
             }
           },
           "name": "elementcard",
+          "needs": {},
           "origname": "",
           "package": "@voxgig-sdk/sdkgen-elementdemo-ext",
           "target": {
@@ -1125,6 +1101,7 @@
             }
           },
           "name": "retry",
+          "needs": {},
           "origname": "",
           "package": "@voxgig/sdkgen",
           "target": {
@@ -1147,6 +1124,102 @@
           "title": "Automatic retry of transient failures with exponential backoff",
           "transport": "wrap",
           "version": "0.0.1"
+        },
+        "secrets": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "cache": true,
+              "exchange": {
+                "active": false,
+                "method": "POST",
+                "path": "auth/token",
+                "refresh": "",
+                "request": "refresh_token",
+                "response": "access_token",
+                "retries": 1,
+                "statuses": [
+                  401
+                ]
+              },
+              "name": "apikey",
+              "providers": []
+            }
+          },
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreRequest": {
+              "active": false,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": false,
+              "await": false
+            },
+            "PreSpec": {
+              "active": true,
+              "await": true
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "secrets",
+          "needs": {
+            "sekreto": true
+          },
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens",
+          "transport": "wrap",
+          "version": "0.1.0"
         },
         "test": {
           "active": true,
@@ -1211,6 +1284,7 @@
             }
           },
           "name": "test",
+          "needs": {},
           "origname": "",
           "package": "@voxgig/sdkgen",
           "target": {
@@ -1290,6 +1364,7 @@
             }
           },
           "name": "timeout",
+          "needs": {},
           "origname": "",
           "package": "@voxgig/sdkgen",
           "target": {
@@ -1647,11 +1722,23 @@
         }
       },
       "info": {
-        "auth": false,
         "description": "The Periodic Table API. Elements, isotopes, groups and series.",
+        "security": {
+          "in": "header",
+          "name": "Authorization",
+          "prefix": "Bearer",
+          "scheme": "bearerAuth",
+          "type": "http"
+        },
         "servers": [
           {
-            "url": "http://localhost:8902"
+            "url": "http://localhost:8902/api/{account_id}",
+            "variables": {
+              "account_id": {
+                "default": "",
+                "description": "The API account the client is operating as."
+              }
+            }
           }
         ],
         "summary": "The Periodic Table API.",
@@ -1704,6 +1791,7 @@
               "active": false
             }
           },
+          "provides": {},
           "publish": {
             "registry": {
               "active": false,
@@ -1765,6 +1853,7 @@
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
+          "provides": {},
           "publish": {
             "registry": {
               "active": false,
@@ -1826,6 +1915,7 @@
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
+          "provides": {},
           "publish": {
             "registry": {
               "active": false,
@@ -1891,6 +1981,7 @@
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
+          "provides": {},
           "publish": {
             "registry": {
               "active": false,
@@ -1934,11 +2025,6 @@
               "kind": "dev",
               "version": "^25.6.0"
             },
-            "dotenv": {
-              "active": true,
-              "kind": "dev",
-              "version": "^17.4.2"
-            },
             "typescript": {
               "active": true,
               "kind": "dev",
@@ -1966,6 +2052,9 @@
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
+          "provides": {
+            "sekreto": true
+          },
           "publish": {
             "registry": {
               "active": false,
@@ -2003,8 +2092,5 @@
     }
   },
   "name": "elementdemo",
-  "name-": "elementdemo",
-  "name_": "elementdemo",
-  "name__orig": "elementdemo",
   "origin": "voxgig-sdk"
 }

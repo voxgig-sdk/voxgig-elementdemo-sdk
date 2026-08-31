@@ -10,3 +10,7 @@ export declare class ConflictError extends Error {
     statusCode: number;
     constructor(resource: string, id: string);
 }
+export declare class AuthError extends Error {
+    statusCode: number;
+    constructor(message: string);
+}

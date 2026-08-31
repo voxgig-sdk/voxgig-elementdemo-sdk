@@ -2,25 +2,28 @@ import { describe, test, beforeEach, afterEach } from 'node:test'
 import { strictEqual } from 'node:assert'
 import { build } from '../../src/server.js'
 import type { FastifyInstance } from 'fastify'
+import { apiClient } from '../setup.js'
 
 describe('Isotope API Integration', () => {
   let app: FastifyInstance
+  let api: ReturnType<typeof apiClient>
 
   // Per TEST, not per file. build() re-reads element.data.json into fresh
   // stores (src/server.ts), so every test starts from the seed — see the note
   // in element.integration.test.ts.
   beforeEach(async () => {
     app = await build()
+    api = apiClient(app)
   })
 
   afterEach(async () => {
     await app.close()
   })
 
-  test('GET /api/element/:element_id/isotope returns isotopes for element', async () => {
-    const res = await app.inject({
+  test('GET /api/:account_id/element/:element_id/isotope returns isotopes for element', async () => {
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element/h/isotope',
+      url: '/element/h/isotope',
     })
 
     strictEqual(res.statusCode, 200)
@@ -29,19 +32,19 @@ describe('Isotope API Integration', () => {
     strictEqual(isotopes[0].name, 'Hydrogen-1')
   })
 
-  test('GET /api/element/:element_id/isotope returns 404 for non-existent element', async () => {
-    const res = await app.inject({
+  test('GET /api/:account_id/element/:element_id/isotope returns 404 for non-existent element', async () => {
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element/non-existent/isotope',
+      url: '/element/non-existent/isotope',
     })
 
     strictEqual(res.statusCode, 404)
   })
 
-  test('GET /api/element/:element_id/isotope/:isotope_id returns specific isotope', async () => {
-    const res = await app.inject({
+  test('GET /api/:account_id/element/:element_id/isotope/:isotope_id returns specific isotope', async () => {
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element/h/isotope/h-2',
+      url: '/element/h/isotope/h-2',
     })
 
     strictEqual(res.statusCode, 200)
@@ -52,19 +55,19 @@ describe('Isotope API Integration', () => {
     strictEqual(isotope.stable, true)
   })
 
-  test('GET /api/element/:element_id/isotope/:isotope_id returns 404 for non-existent isotope', async () => {
-    const res = await app.inject({
+  test('GET /api/:account_id/element/:element_id/isotope/:isotope_id returns 404 for non-existent isotope', async () => {
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element/h/isotope/non-existent',
+      url: '/element/h/isotope/non-existent',
     })
 
     strictEqual(res.statusCode, 404)
   })
 
   test('full isotope lifecycle', async () => {
-    const createRes = await app.inject({
+    const createRes = await api.inject({
       method: 'POST',
-      url: '/api/element/c/isotope',
+      url: '/element/c/isotope',
       payload: {
         name: 'Carbon-11',
         element_id: 'c',
@@ -80,17 +83,17 @@ describe('Isotope API Integration', () => {
     const created = JSON.parse(createRes.payload)
     const isotopeId = created.id
 
-    const getRes = await app.inject({
+    const getRes = await api.inject({
       method: 'GET',
-      url: `/api/element/c/isotope/${isotopeId}`,
+      url: `/element/c/isotope/${isotopeId}`,
     })
     strictEqual(getRes.statusCode, 200)
     const isotope = JSON.parse(getRes.payload)
     strictEqual(isotope.name, 'Carbon-11')
 
-    const updateRes = await app.inject({
+    const updateRes = await api.inject({
       method: 'PUT',
-      url: `/api/element/c/isotope/${isotopeId}`,
+      url: `/element/c/isotope/${isotopeId}`,
       payload: {
         name: 'Updated Carbon-11',
         element_id: 'c',
@@ -103,23 +106,23 @@ describe('Isotope API Integration', () => {
     const updated = JSON.parse(updateRes.payload)
     strictEqual(updated.name, 'Updated Carbon-11')
 
-    const deleteRes = await app.inject({
+    const deleteRes = await api.inject({
       method: 'DELETE',
-      url: `/api/element/c/isotope/${isotopeId}`,
+      url: `/element/c/isotope/${isotopeId}`,
     })
     strictEqual(deleteRes.statusCode, 204)
 
-    const notFoundRes = await app.inject({
+    const notFoundRes = await api.inject({
       method: 'GET',
-      url: `/api/element/c/isotope/${isotopeId}`,
+      url: `/element/c/isotope/${isotopeId}`,
     })
     strictEqual(notFoundRes.statusCode, 404)
   })
 
-  test('POST /api/element/:element_id/isotope returns 404 for non-existent element', async () => {
-    const res = await app.inject({
+  test('POST /api/:account_id/element/:element_id/isotope returns 404 for non-existent element', async () => {
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/non-existent/isotope',
+      url: '/element/non-existent/isotope',
       payload: {
         name: 'Test Isotope',
         element_id: 'non-existent',
@@ -132,10 +135,10 @@ describe('Isotope API Integration', () => {
     strictEqual(res.statusCode, 404)
   })
 
-  test('POST /api/element/:element_id/isotope validates element_id match', async () => {
-    const res = await app.inject({
+  test('POST /api/:account_id/element/:element_id/isotope validates element_id match', async () => {
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/h/isotope',
+      url: '/element/h/isotope',
       payload: {
         name: 'Test Isotope',
         element_id: 'he',
@@ -149,18 +152,18 @@ describe('Isotope API Integration', () => {
   })
 
   test('filtering isotopes by element_id', async () => {
-    const feRes = await app.inject({
+    const feRes = await api.inject({
       method: 'GET',
-      url: '/api/element/fe/isotope',
+      url: '/element/fe/isotope',
     })
 
     strictEqual(feRes.statusCode, 200)
     const feIsotopes = JSON.parse(feRes.payload)
     strictEqual(feIsotopes.length, 4)
 
-    const uRes = await app.inject({
+    const uRes = await api.inject({
       method: 'GET',
-      url: '/api/element/u/isotope',
+      url: '/element/u/isotope',
     })
 
     strictEqual(uRes.statusCode, 200)
@@ -174,58 +177,58 @@ describe('Isotope API Integration', () => {
   describe('nested routes enforce the parent element_id', () => {
     // h-2 belongs to h; address it under fe.
     test('GET under the wrong parent returns 404', async () => {
-      const right = await app.inject({
+      const right = await api.inject({
         method: 'GET',
-        url: '/api/element/h/isotope/h-2',
+        url: '/element/h/isotope/h-2',
       })
       strictEqual(right.statusCode, 200)
 
-      const wrong = await app.inject({
+      const wrong = await api.inject({
         method: 'GET',
-        url: '/api/element/fe/isotope/h-2',
+        url: '/element/fe/isotope/h-2',
       })
       strictEqual(wrong.statusCode, 404)
     })
 
     test('PUT under the wrong parent returns 404 and does not mutate', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'PUT',
-        url: '/api/element/fe/isotope/h-2',
+        url: '/element/fe/isotope/h-2',
         payload: { name: 'Hijacked' },
       })
       strictEqual(res.statusCode, 404)
 
       const h2 = JSON.parse(
-        (await app.inject({ method: 'GET', url: '/api/element/h/isotope/h-2' }))
+        (await api.inject({ method: 'GET', url: '/element/h/isotope/h-2' }))
           .payload
       )
       strictEqual(h2.name, 'Hydrogen-2')
     })
 
     test('DELETE under the wrong parent returns 404 and does not delete', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'DELETE',
-        url: '/api/element/fe/isotope/h-2',
+        url: '/element/fe/isotope/h-2',
       })
       strictEqual(res.statusCode, 404)
 
-      const still = await app.inject({
+      const still = await api.inject({
         method: 'GET',
-        url: '/api/element/h/isotope/h-2',
+        url: '/element/h/isotope/h-2',
       })
       strictEqual(still.statusCode, 200)
     })
 
     test('PUT cannot reparent an isotope via the body', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'PUT',
-        url: '/api/element/h/isotope/h-2',
+        url: '/element/h/isotope/h-2',
         payload: { element_id: 'fe' },
       })
       strictEqual(res.statusCode, 400)
 
       const h2 = JSON.parse(
-        (await app.inject({ method: 'GET', url: '/api/element/h/isotope/h-2' }))
+        (await api.inject({ method: 'GET', url: '/element/h/isotope/h-2' }))
           .payload
       )
       strictEqual(h2.element_id, 'h')
@@ -234,9 +237,9 @@ describe('Isotope API Integration', () => {
 
   // C1 — client-supplied ids, same contract as element create.
   test('POST isotope honours a client-supplied id and rejects duplicates', async () => {
-    const created = await app.inject({
+    const created = await api.inject({
       method: 'POST',
-      url: '/api/element/h/isotope',
+      url: '/element/h/isotope',
       payload: {
         id: 'h-4',
         name: 'Hydrogen-4',
@@ -252,9 +255,9 @@ describe('Isotope API Integration', () => {
     strictEqual(created.statusCode, 201)
     strictEqual(JSON.parse(created.payload).id, 'h-4')
 
-    const dup = await app.inject({
+    const dup = await api.inject({
       method: 'POST',
-      url: '/api/element/h/isotope',
+      url: '/element/h/isotope',
       payload: {
         id: 'h-4',
         name: 'Impostor',
@@ -266,17 +269,17 @@ describe('Isotope API Integration', () => {
     })
     strictEqual(dup.statusCode, 409)
 
-    await app.inject({
+    await api.inject({
       method: 'DELETE',
-      url: '/api/element/h/isotope/h-4',
+      url: '/element/h/isotope/h-4',
     })
   })
 
   describe('POST decay walks the decay chain', () => {
     test('a stable isotope does not decay', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/he/isotope/he-4/decay',
+        url: '/element/he/isotope/he-4/decay',
         payload: {},
       })
 
@@ -288,9 +291,9 @@ describe('Isotope API Integration', () => {
     })
 
     test('a single step reports the record\'s own mode and product', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/c/isotope/c-14/decay',
+        url: '/element/c/isotope/c-14/decay',
         payload: { steps: 1 },
       })
 
@@ -302,9 +305,9 @@ describe('Isotope API Integration', () => {
     })
 
     test('steps defaults to 1', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/c/isotope/c-14/decay',
+        url: '/element/c/isotope/c-14/decay',
         payload: {},
       })
 
@@ -315,9 +318,9 @@ describe('Isotope API Integration', () => {
     test('the chain stops early when the product is not in the store', async () => {
       // u-238's product th-234 is not a record, so even steps: 3 applies
       // exactly one decay and reports where the chain left the store.
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/u/isotope/u-238/decay',
+        url: '/element/u/isotope/u-238/decay',
         payload: { steps: 3 },
       })
 
@@ -331,9 +334,9 @@ describe('Isotope API Integration', () => {
     test('the chain follows an unstable product for a further step', async () => {
       // ra-226 -> rn-222 (a record, unstable) -> po-218 (not a record): two
       // steps apply, the third cannot.
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/ra/isotope/ra-226/decay',
+        url: '/element/ra/isotope/ra-226/decay',
         payload: { steps: 3 },
       })
 
@@ -347,9 +350,9 @@ describe('Isotope API Integration', () => {
     test('the chain stops early when the product is stable', async () => {
       // h-3 -> he-3, which is a record but stable: one step, however many
       // are asked for.
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/h/isotope/h-3/decay',
+        url: '/element/h/isotope/h-3/decay',
         payload: { steps: 5 },
       })
 
@@ -363,9 +366,9 @@ describe('Isotope API Integration', () => {
     test('steps limits how far an intact chain is walked', async () => {
       // ra-226 with steps: 1 stops at rn-222 even though rn-222 is itself
       // unstable — the limit, not the chain, ends the walk.
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/ra/isotope/ra-226/decay',
+        url: '/element/ra/isotope/ra-226/decay',
         payload: { steps: 1 },
       })
 
@@ -377,9 +380,9 @@ describe('Isotope API Integration', () => {
     })
 
     test('decay on a non-existent isotope returns 404', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/h/isotope/non-existent/decay',
+        url: '/element/h/isotope/non-existent/decay',
         payload: {},
       })
 
@@ -387,9 +390,9 @@ describe('Isotope API Integration', () => {
     })
 
     test('decay under the wrong parent returns 404', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/fe/isotope/c-14/decay',
+        url: '/element/fe/isotope/c-14/decay',
         payload: {},
       })
 
@@ -397,9 +400,9 @@ describe('Isotope API Integration', () => {
     })
 
     test('decay on a non-existent element returns 404', async () => {
-      const res = await app.inject({
+      const res = await api.inject({
         method: 'POST',
-        url: '/api/element/non-existent/isotope/c-14/decay',
+        url: '/element/non-existent/isotope/c-14/decay',
         payload: {},
       })
 
@@ -410,9 +413,9 @@ describe('Isotope API Integration', () => {
   // These run in declaration order, the first deliberately leaves an isotope
   // behind, the second requires it gone.
   test('isolation guard: leave an isotope behind', async () => {
-    const res = await app.inject({
+    const res = await api.inject({
       method: 'POST',
-      url: '/api/element/h/isotope',
+      url: '/element/h/isotope',
       payload: {
         id: 'isolation-probe-isotope', element_id: 'h',
         name: 'Probe', mass_number: 9, mass: 9.0, stable: true,
@@ -422,9 +425,9 @@ describe('Isotope API Integration', () => {
   })
 
   test('isolation guard: the next test cannot see it', async () => {
-    const res = await app.inject({
+    const res = await api.inject({
       method: 'GET',
-      url: '/api/element/h/isotope/isolation-probe-isotope',
+      url: '/element/h/isotope/isolation-probe-isotope',
     })
     strictEqual(res.statusCode, 404,
       'an isotope created by the previous test survived — the suite is sharing ' +

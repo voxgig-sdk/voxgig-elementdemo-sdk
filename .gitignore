@@ -2,6 +2,11 @@
 *.local.*
 *.local
 
+# The refresh token a live SDK run reads through sekreto's dotenv provider
+# (see ts/AGENTS.md). Real credentials, even dev ones, do not belong in git.
+.env
+!.env.example
+
 # Dependencies (no trailing slash: also ignores node_modules SYMLINKS, e.g.
 # ts/node_modules -> shared tree, which a dir-only rule leaves tracked)
 node_modules

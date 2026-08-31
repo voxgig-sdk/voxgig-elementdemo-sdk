@@ -43,9 +43,8 @@ main: kit: entity: series: {
       points: [
         {
           method: "GET"
-          orig: "/api/series"
+          orig: "/series"
           parts: [
-            "api"
             "series"
           ]
           transform: {
@@ -71,9 +70,8 @@ main: kit: entity: series: {
             ]
           }
           method: "GET"
-          orig: "/api/series/{series_id}"
+          orig: "/series/{series_id}"
           parts: [
-            "api"
             "series"
             "{id}"
           ]

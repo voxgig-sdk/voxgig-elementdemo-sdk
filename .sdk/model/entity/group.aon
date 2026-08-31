@@ -43,9 +43,8 @@ main: kit: entity: group: {
       points: [
         {
           method: "GET"
-          orig: "/api/group"
+          orig: "/group"
           parts: [
-            "api"
             "group"
           ]
           transform: {
@@ -71,9 +70,8 @@ main: kit: entity: group: {
             ]
           }
           method: "GET"
-          orig: "/api/group/{group_id}"
+          orig: "/group/{group_id}"
           parts: [
-            "api"
             "group"
             "{id}"
           ]

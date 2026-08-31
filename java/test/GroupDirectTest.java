@@ -44,7 +44,7 @@ public class GroupDirectTest {
 
 
     Map<String, Object> result = client.direct(jm(
-        "path", "api/group",
+        "path", "group",
         "method", "GET",
         "params", new LinkedHashMap<>()));
     if (setup.live) {
@@ -86,7 +86,7 @@ public class GroupDirectTest {
     if (setup.live) {
       Map<String, Object> listParams = new LinkedHashMap<>();
       Map<String, Object> listResult = client.direct(jm(
-          "path", "api/group",
+          "path", "group",
           "method", "GET",
           "params", listParams));
       Assumptions.assumeTrue(Boolean.TRUE.equals(listResult.get("ok")),
@@ -104,7 +104,7 @@ public class GroupDirectTest {
     }
 
     Map<String, Object> result = client.direct(jm(
-        "path", "api/group/{id}",
+        "path", "group/{id}",
         "method", "GET",
         "params", params,
         "query", query));
@@ -157,6 +157,8 @@ public class GroupDirectTest {
     Map<String, Object> envm = new LinkedHashMap<>();
     envm.put("ELEMENTDEMO_TEST_GROUP_ENTID", new LinkedHashMap<>());
     envm.put("ELEMENTDEMO_TEST_LIVE", "FALSE");
+    envm.put("ELEMENTDEMO_APIKEY", "");
+    envm.put("ELEMENTDEMO_SERVER_ACCOUNT_ID", "");
     Map<String, Object> env = RunnerSupport.envOverride(envm);
 
     boolean live = "TRUE".equals(env.get("ELEMENTDEMO_TEST_LIVE"));
@@ -165,7 +167,14 @@ public class GroupDirectTest {
     setup.calls = calls;
 
     if (live) {
-      Map<String, Object> mergedOpts = new LinkedHashMap<>();
+      // sdk-test-control.json's test.client.options seeds the live
+      // client; the generated fields below overwrite anything they name.
+      Map<String, Object> mergedOpts =
+          new LinkedHashMap<>(RunnerSupport.liveClientOptions());
+      mergedOpts.put("apikey", env.get("ELEMENTDEMO_APIKEY"));
+      Map<String, Object> serveropt = new LinkedHashMap<>();
+      serveropt.put("account_id", env.get("ELEMENTDEMO_SERVER_ACCOUNT_ID"));
+      mergedOpts.put("server", serveropt);
       setup.client = new ElementdemoSDK(mergedOpts);
       setup.live = true;
 

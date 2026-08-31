@@ -37,7 +37,7 @@ class TestIsotopeDirect:
             params["element_id"] = "direct01"
 
         result = client.direct({
-            "path": "api/element/{element_id}/isotope",
+            "path": "element/{element_id}/isotope",
             "method": "GET",
             "params": params,
         })
@@ -83,7 +83,7 @@ class TestIsotopeDirect:
             params["id"] = "direct02"
 
         result = client.direct({
-            "path": "api/element/{element_id}/isotope/{id}",
+            "path": "element/{element_id}/isotope/{id}",
             "method": "GET",
             "params": params,
             "query": query,
@@ -120,13 +120,22 @@ def _isotope_direct_setup(mockres):
     env = runner.env_override({
         "ELEMENTDEMO_TEST_ISOTOPE_ENTID": {},
         "ELEMENTDEMO_TEST_LIVE": "FALSE",
+        "ELEMENTDEMO_APIKEY": "",
+        "ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
     })
 
     live = env.get("ELEMENTDEMO_TEST_LIVE") == "TRUE"
 
     if live:
-        merged_opts = {
-        }
+        # sdk-test-control.json's test.client.options seeds the live
+        # client; the generated fields below overwrite anything they name.
+        merged_opts = dict(runner.live_client_options())
+        merged_opts.update({
+            "apikey": env.get("ELEMENTDEMO_APIKEY"),
+            "server": {
+                "account_id": env.get("ELEMENTDEMO_SERVER_ACCOUNT_ID"),
+            },
+        })
         client = ElementdemoSDK(merged_opts)
         return {
             "client": client,

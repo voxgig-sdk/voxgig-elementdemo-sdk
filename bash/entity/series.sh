@@ -14,7 +14,7 @@ elementdemo_series_list() {
     esac
   done
   _args='{}'
-  elementdemo_request GET "/api/series" "" "$_query" "series" "list" "$_args"
+  elementdemo_request GET "/series" "" "$_query" "series" "list" "$_args"
 }
 
 # series load
@@ -31,5 +31,5 @@ elementdemo_series_load() {
   [ -n "$id" ] || { _elementdemo_error "required" "series load: id is required"; return 2; }
   _args=$(jq -n --arg id "$id" \
     '{id: $id} | with_entries(select(.value != ""))')
-  elementdemo_request GET "/api/series/$(_elementdemo_encode "$id")" "" "$_query" "series" "load" "$_args"
+  elementdemo_request GET "/series/$(_elementdemo_encode "$id")" "" "$_query" "series" "load" "$_args"
 }

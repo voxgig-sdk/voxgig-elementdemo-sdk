@@ -30,7 +30,13 @@ loading a specific record.
 ```ts
 import { ElementdemoSDK } from '@voxgig-sdk/elementdemo'
 
-const client = new ElementdemoSDK()
+const client = new ElementdemoSDK({
+  apikey: process.env.ELEMENTDEMO_APIKEY,
+  // Required: this API's server URL is templated on these.
+  server: {
+    account_id: '<account_id>',
+  },
+})
 ```
 
 ### 2. List element records
@@ -175,7 +181,7 @@ console.log(isotope)
 You can also use the instance method:
 
 ```ts
-const client = new ElementdemoSDK()
+const client = new ElementdemoSDK({ apikey: '...' })
 const testClient = client.tester()
 ```
 
@@ -211,6 +217,7 @@ const logger = {
 }
 
 const client = new ElementdemoSDK({
+  apikey: '...',
   extend: [logger],
 })
 ```
@@ -221,6 +228,7 @@ Create a `.env.local` file at the project root:
 
 ```
 ELEMENTDEMO_TEST_LIVE=TRUE
+ELEMENTDEMO_APIKEY=<your-key>
 ```
 
 Then run:
@@ -238,6 +246,8 @@ cd ts && npm test
 
 ```ts
 new ElementdemoSDK(options?: {
+  apikey?: string
+  server?: { account_id: string }
   base?: string
   prefix?: string
   suffix?: string
@@ -248,6 +258,8 @@ new ElementdemoSDK(options?: {
 
 | Option | Type | Description |
 | --- | --- | --- |
+| `server` | `object` | **Required.** Values for the server-URL variables: `account_id`. The API base URL is a template over them. |
+| `apikey` | `string` | API key for authentication. |
 | `base` | `string` | Base URL of the API server. |
 | `prefix` | `string` | URL path prefix prepended to all requests. |
 | `suffix` | `string` | URL path suffix appended to all requests. |
@@ -358,7 +370,7 @@ The `prepare()` method returns:
 
 Operations: create, list, load, remove, update.
 
-API path: `/api/element/{element_id}/ionize`
+API path: `/element/{element_id}/ionize`
 
 #### Group
 
@@ -371,7 +383,7 @@ API path: `/api/element/{element_id}/ionize`
 
 Operations: list, load.
 
-API path: `/api/group`
+API path: `/group`
 
 #### Isotope
 
@@ -392,7 +404,7 @@ API path: `/api/group`
 
 Operations: create, list, load, remove, update.
 
-API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
+API path: `/element/{element_id}/isotope/{isotope_id}/decay`
 
 #### Series
 
@@ -405,7 +417,7 @@ API path: `/api/element/{element_id}/isotope/{isotope_id}/decay`
 
 Operations: list, load.
 
-API path: `/api/series`
+API path: `/series`
 
 
 
@@ -597,7 +609,7 @@ const seriess = await client.Series().list()
 
 ## Features
 
-This SDK ships 4 optional features. Each is **inactive until you
+This SDK ships 5 optional features. Each is **inactive until you
 switch it on**, so an SDK you have not configured behaves exactly as if none of
 them existed — no retries, no cache, no logging, no measurable overhead.
 
@@ -608,10 +620,11 @@ above:
 |---|---|
 | [`elementcard`](#elementcard) | ASCII periodic-table tile for element-shaped results |
 | [`retry`](#retry) | Automatic retry of transient failures with exponential backoff |
+| [`secrets`](#secrets) | Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens |
 | [`test`](#test) | In-memory mock transport for testing without a live server |
 | [`timeout`](#timeout) | Per-request timeout with transport abort |
 
-> **Order matters for `retry`, `timeout`.** These wrap the
+> **Order matters for `retry`, `secrets`, `timeout`.** These wrap the
 > transport, so each one wraps whatever is already installed: the order you
 > activate them in IS the nesting order. Activating them as an ordered list
 > rather than a map is what fixes that order.
@@ -643,6 +656,24 @@ Automatic retry of transient failures with exponential backoff.
 Set `feature.retry.active` to enable it, then override any of the options above.
 
 `retry` wraps the transport, so its position among the other
+transport features decides what it sees. A feature activated later wraps one
+activated earlier.
+
+### secrets
+
+Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `cache` | `true` |
+| `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
+| `name` | `'apikey'` |
+| `providers` | `[]` |
+
+Set `feature.secrets.active` to enable it, then override any of the options above.
+
+`secrets` wraps the transport, so its position among the other
 transport features decides what it sees. A feature activated later wraps one
 activated earlier.
 
@@ -712,6 +743,7 @@ The SDK ships with built-in features:
 
 - **ElementcardFeature**: ASCII periodic-table tile for element-shaped results
 - **RetryFeature**: Automatic retry of transient failures with exponential backoff
+- **SecretsFeature**: Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens
 - **TestFeature**: In-memory mock transport for testing without a live server
 - **TimeoutFeature**: Per-request timeout with transport abort
 

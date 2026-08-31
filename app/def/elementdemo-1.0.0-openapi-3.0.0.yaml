@@ -5,10 +5,32 @@ info:
   description: The Periodic Table API. Elements, isotopes, groups and series.
 
 servers:
-  - url: http://localhost:8902
+  # The account id is part of every path (/api/<account-id>/...), so it
+  # belongs in the server URL as an OpenAPI server variable rather than as a
+  # path parameter repeated on all seventeen operations. A generated SDK
+  # takes a server variable as a CONSTRUCTION option and substitutes it into
+  # the base URL once; a path parameter would have to be passed again on
+  # every call.
+  #
+  # No default: there is no account this API can guess, and an empty default
+  # makes the variable required — the SDK then refuses to construct without
+  # one instead of issuing requests to a URL with a literal `{account_id}`
+  # in it.
+  - url: http://localhost:8902/api/{account_id}
+    variables:
+      account_id:
+        default: ''
+        description: The API account the client is operating as.
+
+# Every operation needs an access token. The token itself is bought with a
+# long-lived refresh token at POST /api/<account-id>/auth/token, which is
+# deliberately NOT described here: it is credential plumbing for an SDK's
+# auth layer, not a resource to generate an entity class for.
+security:
+  - bearerAuth: []
 
 paths:
-  /api/element:
+  /element:
     get:
       summary: List elements
       responses:
@@ -35,7 +57,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Element'
-  /api/element/{element_id}:
+  /element/{element_id}:
     get:
       summary: Get element
       parameters:
@@ -83,7 +105,7 @@ paths:
       responses:
         '204':
           description: No Content
-  /api/element/{element_id}/ionize:
+  /element/{element_id}/ionize:
     post:
       summary: Ionize element
       parameters:
@@ -114,7 +136,7 @@ paths:
                   ion:
                     type: string
 
-  /api/element/{element_id}/isotope:
+  /element/{element_id}/isotope:
     get:
       summary: List isotopes of element
       parameters:
@@ -153,7 +175,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Isotope'
-  /api/element/{element_id}/isotope/{isotope_id}:
+  /element/{element_id}/isotope/{isotope_id}:
     get:
       summary: Get isotope
       parameters:
@@ -216,7 +238,7 @@ paths:
       responses:
         '204':
           description: No Content
-  /api/element/{element_id}/isotope/{isotope_id}/decay:
+  /element/{element_id}/isotope/{isotope_id}/decay:
     post:
       summary: Decay isotope
       parameters:
@@ -254,7 +276,7 @@ paths:
                   product:
                     type: string
 
-  /api/group:
+  /group:
     get:
       summary: List groups
       responses:
@@ -266,7 +288,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Group'
-  /api/group/{group_id}:
+  /group/{group_id}:
     get:
       summary: Get group
       parameters:
@@ -283,7 +305,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Group'
 
-  /api/series:
+  /series:
     get:
       summary: List series
       responses:
@@ -295,7 +317,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Series'
-  /api/series/{series_id}:
+  /series/{series_id}:
     get:
       summary: Get series
       parameters:
@@ -313,6 +335,16 @@ paths:
                 $ref: '#/components/schemas/Series'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        A short-lived access token, sent as `Authorization: Bearer <token>`.
+        Obtain one by POSTing `{"refresh_token": "..."}` to
+        /api/<account-id>/auth/token. Each access token serves four requests
+        and is then invalidated, so a client must be able to refresh.
+
   schemas:
     Element:
       type: object

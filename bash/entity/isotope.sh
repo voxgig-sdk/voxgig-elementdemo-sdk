@@ -23,7 +23,7 @@ elementdemo_isotope_create() {
     _body=$(cat)
   fi
   [ -n "$_body" ] || _body='{}'
-  elementdemo_request POST "/api/element/$(_elementdemo_encode "$element_id")/isotope" "$_body" "$_query" "isotope" "create" "$_args"
+  elementdemo_request POST "/element/$(_elementdemo_encode "$element_id")/isotope" "$_body" "$_query" "isotope" "create" "$_args"
 }
 
 # isotope decay (action)
@@ -48,7 +48,7 @@ elementdemo_isotope_decay() {
     _body=$(cat)
   fi
   [ -n "$_body" ] || _body='{}'
-  elementdemo_request POST "/api/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")/decay" "$_body" "$_query" "isotope" "decay" "$_args"
+  elementdemo_request POST "/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")/decay" "$_body" "$_query" "isotope" "decay" "$_args"
 }
 
 # isotope list
@@ -65,7 +65,7 @@ elementdemo_isotope_list() {
   [ -n "$element_id" ] || { _elementdemo_error "required" "isotope list: element_id is required"; return 2; }
   _args=$(jq -n --arg element_id "$element_id" \
     '{element_id: $element_id} | with_entries(select(.value != ""))')
-  elementdemo_request GET "/api/element/$(_elementdemo_encode "$element_id")/isotope" "" "$_query" "isotope" "list" "$_args"
+  elementdemo_request GET "/element/$(_elementdemo_encode "$element_id")/isotope" "" "$_query" "isotope" "list" "$_args"
 }
 
 # isotope load
@@ -85,7 +85,7 @@ elementdemo_isotope_load() {
   [ -n "$id" ] || { _elementdemo_error "required" "isotope load: id is required"; return 2; }
   _args=$(jq -n --arg element_id "$element_id" --arg id "$id" \
     '{element_id: $element_id, id: $id} | with_entries(select(.value != ""))')
-  elementdemo_request GET "/api/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")" "" "$_query" "isotope" "load" "$_args"
+  elementdemo_request GET "/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")" "" "$_query" "isotope" "load" "$_args"
 }
 
 # isotope remove
@@ -105,7 +105,7 @@ elementdemo_isotope_remove() {
   [ -n "$id" ] || { _elementdemo_error "required" "isotope remove: id is required"; return 2; }
   _args=$(jq -n --arg element_id "$element_id" --arg id "$id" \
     '{element_id: $element_id, id: $id} | with_entries(select(.value != ""))')
-  elementdemo_request DELETE "/api/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")" "" "$_query" "isotope" "remove" "$_args"
+  elementdemo_request DELETE "/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")" "" "$_query" "isotope" "remove" "$_args"
 }
 
 # isotope update
@@ -130,5 +130,5 @@ elementdemo_isotope_update() {
     _body=$(cat)
   fi
   [ -n "$_body" ] || _body='{}'
-  elementdemo_request PUT "/api/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")" "$_body" "$_query" "isotope" "update" "$_args"
+  elementdemo_request PUT "/element/$(_elementdemo_encode "$element_id")/isotope/$(_elementdemo_encode "$id")" "$_body" "$_query" "isotope" "update" "$_args"
 }

@@ -98,7 +98,7 @@ func TestSeriesEntity(t *testing.T) {
 		client := setup.client
 
 		// Bootstrap entity data from existing test data (no create step in flow).
-		seriesRef01DataRaw := vs.Items(core.ToMapAny(vs.GetPath("existing.series", setup.data)))
+		seriesRef01DataRaw := vs.Items(core.ToMapAny(vs.GetPath(setup.data, "existing.series")))
 		var seriesRef01Data map[string]any
 		if len(seriesRef01DataRaw) > 0 {
 			seriesRef01Data = core.ToMapAny(seriesRef01DataRaw[0][1])
@@ -163,7 +163,7 @@ func seriesBasicSetup(extra map[string]any) *entityTestSetup {
 	client := sdk.TestSDK(options, extra)
 
 	// Generate idmap via transform, matching TS pattern.
-	idmap := vs.Transform(
+	idmap, _ := vs.Transform(
 		[]any{"series01", "series02", "series03"},
 		map[string]any{
 			"`$PACK`": []any{"", map[string]any{
@@ -183,6 +183,8 @@ func seriesBasicSetup(extra map[string]any) *entityTestSetup {
 		"ELEMENTDEMO_TEST_SERIES_ENTID": idmap,
 		"ELEMENTDEMO_TEST_LIVE":      "FALSE",
 		"ELEMENTDEMO_TEST_EXPLAIN":   "FALSE",
+		"ELEMENTDEMO_APIKEY":         "",
+		"ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
 	})
 
 	idmapResolved := core.ToMapAny(env["ELEMENTDEMO_TEST_SERIES_ENTID"])
@@ -191,10 +193,26 @@ func seriesBasicSetup(extra map[string]any) *entityTestSetup {
 	}
 
 	if env["ELEMENTDEMO_TEST_LIVE"] == "TRUE" {
+		// An empty map, not a nil one: Merge returns nil when its last entry
+		// is nil, and BasicSetup is normally called with no extras - so a
+		// bare nil silently discarded the apikey and server values below.
+		extraOpts := extra
+		if extraOpts == nil {
+			extraOpts = map[string]any{}
+		}
+
 		mergedOpts := vs.Merge([]any{
+			// liveClientOptions() FIRST, so the generated fields below win:
+			// sdk-test-control.json's test.client.options adds to the live
+			// client, it does not redirect it.
+			liveClientOptions(),
 			map[string]any{
+				"apikey": env["ELEMENTDEMO_APIKEY"],
+				"server": map[string]any{
+					"account_id": env["ELEMENTDEMO_SERVER_ACCOUNT_ID"],
+				},
 			},
-			extra,
+			extraOpts,
 		})
 		client = sdk.NewElementdemoSDK(core.ToMapAny(mergedOpts))
 	}

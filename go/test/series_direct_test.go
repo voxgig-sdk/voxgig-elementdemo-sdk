@@ -31,7 +31,7 @@ func TestSeriesDirect(t *testing.T) {
 
 
 		result, err := client.Direct(map[string]any{
-			"path":   "api/series",
+			"path":   "series",
 			"method": "GET",
 			"params": map[string]any{},
 		})
@@ -97,7 +97,7 @@ func TestSeriesDirect(t *testing.T) {
 		if setup.live {
 			listParams := map[string]any{}
 			listResult, listErr := client.Direct(map[string]any{
-				"path":   "api/series",
+				"path":   "series",
 				"method": "GET",
 				"params": listParams,
 			})
@@ -120,7 +120,7 @@ func TestSeriesDirect(t *testing.T) {
 		}
 
 		result, err := client.Direct(map[string]any{
-			"path":   "api/series/{id}",
+			"path":   "series/{id}",
 			"method": "GET",
 			"params": params,
 			"query":  query,
@@ -196,12 +196,26 @@ func seriesDirectSetup(mockres any) *seriesDirectSetupResult {
 	env := envOverride(map[string]any{
 		"ELEMENTDEMO_TEST_SERIES_ENTID": map[string]any{},
 		"ELEMENTDEMO_TEST_LIVE":    "FALSE",
+		"ELEMENTDEMO_APIKEY":       "",
+		"ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
 	})
 
 	live := env["ELEMENTDEMO_TEST_LIVE"] == "TRUE"
 
 	if live {
-		mergedOpts := map[string]any{
+		// sdk-test-control.json's test.client.options seeds the live
+		// client; the generated fields below overwrite anything they name.
+		mergedOpts := map[string]any{}
+		for k, v := range liveClientOptions() {
+			mergedOpts[k] = v
+		}
+		for k, v := range map[string]any{
+			"apikey": env["ELEMENTDEMO_APIKEY"],
+		"server": map[string]any{
+			"account_id": env["ELEMENTDEMO_SERVER_ACCOUNT_ID"],
+		},
+		} {
+			mergedOpts[k] = v
 		}
 		client := sdk.NewElementdemoSDK(mergedOpts)
 

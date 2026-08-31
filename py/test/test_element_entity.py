@@ -171,6 +171,8 @@ def _element_basic_setup(extra):
         "ELEMENTDEMO_TEST_ELEMENT_ENTID": idmap,
         "ELEMENTDEMO_TEST_LIVE": "FALSE",
         "ELEMENTDEMO_TEST_EXPLAIN": "FALSE",
+        "ELEMENTDEMO_APIKEY": "",
+        "ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
     })
 
     idmap_resolved = helpers.to_map(
@@ -180,7 +182,15 @@ def _element_basic_setup(extra):
 
     if env.get("ELEMENTDEMO_TEST_LIVE") == "TRUE":
         merged_opts = vs.merge([
+            # FIRST, so the generated fields below win: sdk-test-control.json's
+            # test.client.options adds to the live client, it does not
+            # redirect it.
+            runner.live_client_options(),
             {
+                "apikey": env.get("ELEMENTDEMO_APIKEY"),
+                "server": {
+                    "account_id": env.get("ELEMENTDEMO_SERVER_ACCOUNT_ID"),
+                },
             },
             extra or {},
         ])

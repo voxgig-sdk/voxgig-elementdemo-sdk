@@ -18,6 +18,8 @@ import { Utility } from './utility/Utility'
 
 
 import { BaseFeature } from './feature/base/BaseFeature'
+import * as sekreto from './feature/secrets/sekreto'
+
 
 
 const stdutil = new Utility()
@@ -29,6 +31,8 @@ class ElementdemoSDK {
   _utility = new Utility()
   _features: Feature[]
   _rootctx: Context
+  _secrets?: any
+
 
   constructor(options?: any) {
 
@@ -101,6 +105,12 @@ class ElementdemoSDK {
     return this._utility.struct.clone(this._utility)
   }
 
+  
+secrets() {
+  return this._secrets && this._secrets.sekreto()
+}
+
+
 
   async prepare(fetchargs?: any) {
     const utility = this._utility
@@ -146,6 +156,17 @@ class ElementdemoSDK {
         spec.headers[key] = uheaders[key]
       }
     }
+
+    
+if (null != this._secrets) {
+  try {
+    await this._secrets.resolve()
+  }
+  catch (err: any) {
+    return err instanceof Error ? err : new Error(String(err))
+  }
+}
+
 
     // Apply SDK auth (apikey, auth prefix, etc.)
     const authResult = prepareAuth(ctx)
@@ -379,6 +400,8 @@ const SDK = ElementdemoSDK
 export {
   stdutil,
   config,
+  sekreto,
+
 
   BaseFeature,
   ElementdemoEntityBase,

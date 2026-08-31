@@ -1,6 +1,4 @@
 
-const envlocal = __dirname + '/../../../.env.local'
-require('dotenv').config({ quiet: true, path: [envlocal] })
 
 import { test, describe, afterEach } from 'node:test'
 import assert from 'node:assert'
@@ -10,10 +8,19 @@ import { ElementdemoSDK } from '../../..'
 
 import {
   envOverride,
+  liveClientOptions,
   liveDelay,
+  loadEnvLocal,
   maybeSkipControl,
   skipIfMissingIds,
 } from '../../utility'
+
+
+// AFTER the imports on purpose: TypeScript hoists `import` above any
+// statement in the emitted CommonJS, so a loader placed above them would
+// run only after every imported module had already been evaluated - and
+// anything reading process.env at module scope would miss these values.
+loadEnvLocal(__dirname + '/../../../.env.local')
 
 
 describe('SeriesDirect', async () => {
@@ -44,7 +51,7 @@ describe('SeriesDirect', async () => {
     const query: any = {}
     if (setup.live) {
       const listResult: any = await client.direct({
-        path: 'api/series',
+        path: 'series',
         method: 'GET',
         params: {
 
@@ -68,20 +75,34 @@ describe('SeriesDirect', async () => {
     }
 
     const result: any = await client.direct({
-      path: 'api/series/{id}',
+      path: 'series/{id}',
       method: 'GET',
       params,
       query,
     })
 
-    assert(result.ok === true)
-    assert(result.status === 200)
-    assert(null != result.data)
-    assert(result.data.id === 'direct01')
-    assert(calls.length === 1)
-    assert(calls[0].init.method === 'GET')
-    assert(calls[0].url.includes('direct01'))
-
+    if (setup.live) {
+      // STRICT live mode: a non-2xx is a real failure - this project owns
+      // the server it points at, so there is nothing to be lenient about.
+      //
+      // What is NOT asserted here is the MOCK's own fixtures. `direct01`
+      // is a scripted id and `calls` records the mock transport; neither
+      // exists on a live run, so asserting them made strict mode mean
+      // "compare the live server against the mock's script" - a suite that
+      // could not pass against any real API, including this project's own.
+      assert(result.ok === true,
+        'live request failed: ' + result.status + ' ' + JSON.stringify(result.data))
+      assert(result.status >= 200 && result.status < 300)
+      assert(null != result.data)
+    } else {
+      assert(result.ok === true)
+      assert(result.status === 200)
+      assert(null != result.data)
+      assert(result.data.id === 'direct01')
+      assert(calls.length === 1)
+      assert(calls[0].init.method === 'GET')
+      assert(calls[0].url.includes('direct01'))
+    }
   })
 
   test('direct-list-series', async (t: any) => {
@@ -93,21 +114,35 @@ describe('SeriesDirect', async () => {
     const query: any = {}
 
     const result: any = await client.direct({
-      path: 'api/series',
+      path: 'series',
       method: 'GET',
       params,
       query,
     })
 
-    assert(result.ok === true)
-    assert(result.status === 200)
-    assert(null != result.data)
-    const listArr = unwrapListData(result.data)
-    assert(Array.isArray(listArr))
-    assert(listArr!.length === 2)
-    assert(calls.length === 1)
-    assert(calls[0].init.method === 'GET')
-
+    if (setup.live) {
+      // STRICT live mode: a non-2xx is a real failure - this project owns
+      // the server it points at, so there is nothing to be lenient about.
+      //
+      // What is NOT asserted here is the MOCK's own fixtures. `direct01`
+      // is a scripted id and `calls` records the mock transport; neither
+      // exists on a live run, so asserting them made strict mode mean
+      // "compare the live server against the mock's script" - a suite that
+      // could not pass against any real API, including this project's own.
+      assert(result.ok === true,
+        'live request failed: ' + result.status + ' ' + JSON.stringify(result.data))
+      assert(result.status >= 200 && result.status < 300)
+      assert(null != result.data)
+    } else {
+      assert(result.ok === true)
+      assert(result.status === 200)
+      assert(null != result.data)
+      const listArr = unwrapListData(result.data)
+      assert(Array.isArray(listArr))
+      assert(listArr!.length === 2)
+      assert(calls.length === 1)
+      assert(calls[0].init.method === 'GET')
+    }
   })
 
 })
@@ -120,13 +155,22 @@ function directSetup(mockres?: any) {
   const env = envOverride({
     'ELEMENTDEMO_TEST_SERIES_ENTID': {},
     'ELEMENTDEMO_TEST_LIVE': 'FALSE',
+    'ELEMENTDEMO_APIKEY': '',
+    'ELEMENTDEMO_SERVER_ACCOUNT_ID': "",
   })
 
   const live = 'TRUE' === env.ELEMENTDEMO_TEST_LIVE
 
   if (live) {
-    const client = new ElementdemoSDK({
-    })
+    // Merged so the generated fields win: sdk-test-control.json's
+    // test.client.options adds to the live client, it does not redirect it.
+    const client = new ElementdemoSDK(
+      Object.assign({}, liveClientOptions(), {
+      apikey: env.ELEMENTDEMO_APIKEY,
+      server: {
+        account_id: env.ELEMENTDEMO_SERVER_ACCOUNT_ID,
+      },
+      }))
 
     let idmap: any = env['ELEMENTDEMO_TEST_SERIES_ENTID']
     if ('string' === typeof idmap && idmap.startsWith('{')) {

@@ -9,6 +9,7 @@ import { config } from './Config';
 import { ElementdemoEntityBase } from './ElementdemoEntityBase';
 import { Utility } from './utility/Utility';
 import { BaseFeature } from './feature/base/BaseFeature';
+import * as sekreto from './feature/secrets/sekreto';
 declare const stdutil: Utility;
 declare class ElementdemoSDK {
     _mode: string;
@@ -16,9 +17,11 @@ declare class ElementdemoSDK {
     _utility: Utility;
     _features: Feature[];
     _rootctx: Context;
+    _secrets?: any;
     constructor(options?: any);
     options(): any;
     utility(): any;
+    secrets(): any;
     prepare(fetchargs?: any): Promise<any>;
     direct(fetchargs?: any): Promise<Error | {
         ok: boolean;
@@ -60,4 +63,4 @@ declare class ElementdemoSDK {
     [inspect.custom](): string;
 }
 declare const SDK: typeof ElementdemoSDK;
-export { stdutil, config, BaseFeature, ElementdemoEntityBase, ElementdemoSDK, SDK, };
+export { stdutil, config, sekreto, BaseFeature, ElementdemoEntityBase, ElementdemoSDK, SDK, };

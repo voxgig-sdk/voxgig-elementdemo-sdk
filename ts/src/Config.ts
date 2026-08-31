@@ -2,6 +2,7 @@
 import { BaseFeature } from './feature/base/BaseFeature'
 import { ElementcardFeature } from './feature/elementcard/ElementcardFeature'
 import { RetryFeature } from './feature/retry/RetryFeature'
+import { SecretsFeature } from './feature/secrets/SecretsFeature'
 import { TestFeature } from './feature/test/TestFeature'
 import { TimeoutFeature } from './feature/timeout/TimeoutFeature'
 
@@ -10,6 +11,7 @@ import { TimeoutFeature } from './feature/timeout/TimeoutFeature'
 const FEATURE_CLASS: Record<string, typeof BaseFeature> = {
    elementcard: ElementcardFeature,
  retry: RetryFeature,
+ secrets: SecretsFeature,
  test: TestFeature,
  timeout: TimeoutFeature,
 
@@ -69,6 +71,27 @@ class Config {
       },
       "transport": "wrap"
     },
+ secrets:     {
+      "options": {
+        "active": false,
+        "cache": true,
+        "exchange": {
+          "active": false,
+          "method": "POST",
+          "path": "auth/token",
+          "refresh": "",
+          "request": "refresh_token",
+          "response": "access_token",
+          "retries": 1,
+          "statuses": [
+            401
+          ]
+        },
+        "name": "apikey",
+        "providers": []
+      },
+      "transport": "wrap"
+    },
  test:     {
       "options": {
         "active": false
@@ -87,7 +110,15 @@ class Config {
 
 
   options = {
-    base: "http://localhost:8902",
+    base: "http://localhost:8902/api/{account_id}",
+
+    server: {
+      "account_id": "",
+    },
+
+    auth: {
+      prefix: 'Bearer',
+    },
 
     headers: {
       "content-type": "application/json"
@@ -210,9 +241,8 @@ class Config {
               },
               "kind": "http",
               "method": "POST",
-              "orig": "/api/element/{element_id}/ionize",
+              "orig": "/element/{element_id}/ionize",
               "parts": [
-                "api",
                 "element",
                 "{id}",
                 "ionize"
@@ -237,9 +267,8 @@ class Config {
               "args": {},
               "kind": "http",
               "method": "POST",
-              "orig": "/api/element",
+              "orig": "/element",
               "parts": [
-                "api",
                 "element"
               ],
               "select": {},
@@ -258,9 +287,8 @@ class Config {
               "args": {},
               "kind": "http",
               "method": "GET",
-              "orig": "/api/element",
+              "orig": "/element",
               "parts": [
-                "api",
                 "element"
               ],
               "select": {},
@@ -289,9 +317,8 @@ class Config {
               },
               "kind": "http",
               "method": "GET",
-              "orig": "/api/element/{element_id}",
+              "orig": "/element/{element_id}",
               "parts": [
-                "api",
                 "element",
                 "{id}"
               ],
@@ -330,9 +357,8 @@ class Config {
               },
               "kind": "http",
               "method": "DELETE",
-              "orig": "/api/element/{element_id}",
+              "orig": "/element/{element_id}",
               "parts": [
-                "api",
                 "element",
                 "{id}"
               ],
@@ -371,9 +397,8 @@ class Config {
               },
               "kind": "http",
               "method": "PUT",
-              "orig": "/api/element/{element_id}",
+              "orig": "/element/{element_id}",
               "parts": [
-                "api",
                 "element",
                 "{id}"
               ],
@@ -435,9 +460,8 @@ class Config {
               "args": {},
               "kind": "http",
               "method": "GET",
-              "orig": "/api/group",
+              "orig": "/group",
               "parts": [
-                "api",
                 "group"
               ],
               "select": {},
@@ -466,9 +490,8 @@ class Config {
               },
               "kind": "http",
               "method": "GET",
-              "orig": "/api/group/{group_id}",
+              "orig": "/group/{group_id}",
               "parts": [
-                "api",
                 "group",
                 "{id}"
               ],
@@ -588,9 +611,8 @@ class Config {
               },
               "kind": "http",
               "method": "POST",
-              "orig": "/api/element/{element_id}/isotope/{isotope_id}/decay",
+              "orig": "/element/{element_id}/isotope/{isotope_id}/decay",
               "parts": [
-                "api",
                 "element",
                 "{element_id}",
                 "isotope",
@@ -628,9 +650,8 @@ class Config {
               },
               "kind": "http",
               "method": "POST",
-              "orig": "/api/element/{element_id}/isotope",
+              "orig": "/element/{element_id}/isotope",
               "parts": [
-                "api",
                 "element",
                 "{element_id}",
                 "isotope"
@@ -665,9 +686,8 @@ class Config {
               },
               "kind": "http",
               "method": "GET",
-              "orig": "/api/element/{element_id}/isotope",
+              "orig": "/element/{element_id}/isotope",
               "parts": [
-                "api",
                 "element",
                 "{element_id}",
                 "isotope"
@@ -709,9 +729,8 @@ class Config {
               },
               "kind": "http",
               "method": "GET",
-              "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+              "orig": "/element/{element_id}/isotope/{isotope_id}",
               "parts": [
-                "api",
                 "element",
                 "{element_id}",
                 "isotope",
@@ -760,9 +779,8 @@ class Config {
               },
               "kind": "http",
               "method": "DELETE",
-              "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+              "orig": "/element/{element_id}/isotope/{isotope_id}",
               "parts": [
-                "api",
                 "element",
                 "{element_id}",
                 "isotope",
@@ -811,9 +829,8 @@ class Config {
               },
               "kind": "http",
               "method": "PUT",
-              "orig": "/api/element/{element_id}/isotope/{isotope_id}",
+              "orig": "/element/{element_id}/isotope/{isotope_id}",
               "parts": [
-                "api",
                 "element",
                 "{element_id}",
                 "isotope",
@@ -883,9 +900,8 @@ class Config {
               "args": {},
               "kind": "http",
               "method": "GET",
-              "orig": "/api/series",
+              "orig": "/series",
               "parts": [
-                "api",
                 "series"
               ],
               "select": {},
@@ -914,9 +930,8 @@ class Config {
               },
               "kind": "http",
               "method": "GET",
-              "orig": "/api/series/{series_id}",
+              "orig": "/series/{series_id}",
               "parts": [
-                "api",
                 "series",
                 "{id}"
               ],

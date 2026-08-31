@@ -45,7 +45,7 @@ func TestIsotopeDirect(t *testing.T) {
 		}
 
 		result, err := client.Direct(map[string]any{
-			"path":   "api/element/{element_id}/isotope",
+			"path":   "element/{element_id}/isotope",
 			"method": "GET",
 			"params": params,
 		})
@@ -131,7 +131,7 @@ func TestIsotopeDirect(t *testing.T) {
 			listParams := map[string]any{}
 			listParams["element_id"] = setup.idmap["element01"]
 			listResult, listErr := client.Direct(map[string]any{
-				"path":   "api/element/{element_id}/isotope",
+				"path":   "element/{element_id}/isotope",
 				"method": "GET",
 				"params": listParams,
 			})
@@ -156,7 +156,7 @@ func TestIsotopeDirect(t *testing.T) {
 		}
 
 		result, err := client.Direct(map[string]any{
-			"path":   "api/element/{element_id}/isotope/{id}",
+			"path":   "element/{element_id}/isotope/{id}",
 			"method": "GET",
 			"params": params,
 			"query":  query,
@@ -235,12 +235,26 @@ func isotopeDirectSetup(mockres any) *isotopeDirectSetupResult {
 	env := envOverride(map[string]any{
 		"ELEMENTDEMO_TEST_ISOTOPE_ENTID": map[string]any{},
 		"ELEMENTDEMO_TEST_LIVE":    "FALSE",
+		"ELEMENTDEMO_APIKEY":       "",
+		"ELEMENTDEMO_SERVER_ACCOUNT_ID": "",
 	})
 
 	live := env["ELEMENTDEMO_TEST_LIVE"] == "TRUE"
 
 	if live {
-		mergedOpts := map[string]any{
+		// sdk-test-control.json's test.client.options seeds the live
+		// client; the generated fields below overwrite anything they name.
+		mergedOpts := map[string]any{}
+		for k, v := range liveClientOptions() {
+			mergedOpts[k] = v
+		}
+		for k, v := range map[string]any{
+			"apikey": env["ELEMENTDEMO_APIKEY"],
+		"server": map[string]any{
+			"account_id": env["ELEMENTDEMO_SERVER_ACCOUNT_ID"],
+		},
+		} {
+			mergedOpts[k] = v
 		}
 		client := sdk.NewElementdemoSDK(mergedOpts)
 

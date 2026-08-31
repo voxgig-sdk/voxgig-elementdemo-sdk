@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
-import { config } from './config.js'
+import { config, accountList, accessTokenUses } from './config.js'
+import { AccountStore } from './store/AccountStore.js'
 import { ElementStore } from './store/ElementStore.js'
 import { IsotopeStore } from './store/IsotopeStore.js'
 import { GroupStore } from './store/GroupStore.js'
@@ -35,11 +36,13 @@ export async function build() {
   // Label per STATUS, not per thrown class.
   //
   // Nothing is lost: the map below reproduces every name this app throws
-  // (NotFoundError 404, ValidationError 400, ConflictError 409), and deriving
+  // (NotFoundError 404, AuthError 401, ValidationError 400, ConflictError
+  // 409), and deriving
   // from the status is what makes Fastify's own failures answer in the same
   // shape as ours.
   const STATUS_ERRORS: Record<number, string> = {
     400: 'ValidationError',
+    401: 'AuthError',
     404: 'NotFoundError',
     409: 'ConflictError',
     500: 'InternalServerError',
@@ -95,6 +98,12 @@ export async function build() {
     series: Record<string, Series>
   }
 
+  // Accounts and access-token expiry are read from the environment HERE
+  // rather than off the module-level `config`, which is evaluated once at
+  // import: a test that varied ACCOUNTS in-process could not otherwise take
+  // effect. Same reason debugRouteEnabled reads env at call time.
+  const accountStore = new AccountStore(accountList(), accessTokenUses())
+
   const isotopeStore = new IsotopeStore()
   const elementStore = new ElementStore(isotopeStore)
   const groupStore = new GroupStore()
@@ -105,6 +114,7 @@ export async function build() {
   Object.values(rawData.group).forEach((g) => groupStore.seed(g))
   Object.values(rawData.series).forEach((s) => seriesStore.seed(s))
 
+  fastify.decorate('accountStore', accountStore)
   fastify.decorate('elementStore', elementStore)
   fastify.decorate('isotopeStore', isotopeStore)
   fastify.decorate('groupStore', groupStore)
@@ -141,7 +151,12 @@ export async function main() {
       host: config.server.host,
       port: config.server.port,
     })
-    console.log(`Base URL: http://${config.server.host}:${config.server.port}`)
+    // The account segment is part of every API path, so a base URL without
+    // one is not something a caller can use. Print the form they need, and
+    // the accounts this process will actually answer for.
+    const base = `http://${config.server.host}:${config.server.port}`
+    console.log(`Base URL: ${base}/api/<account-id>`)
+    console.log(`Accounts: ${fastify.accountStore.accountIds().join(', ')}`)
   } catch (err) {
     fastify.log.error(err)
     process.exit(1)

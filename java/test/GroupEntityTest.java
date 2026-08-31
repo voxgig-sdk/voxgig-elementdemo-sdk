@@ -154,6 +154,8 @@ public class GroupEntityTest {
     envm.put("ELEMENTDEMO_TEST_GROUP_ENTID", idmap);
     envm.put("ELEMENTDEMO_TEST_LIVE", "FALSE");
     envm.put("ELEMENTDEMO_TEST_EXPLAIN", "FALSE");
+    envm.put("ELEMENTDEMO_APIKEY", "");
+    envm.put("ELEMENTDEMO_SERVER_ACCOUNT_ID", "");
     Map<String, Object> env = RunnerSupport.envOverride(envm);
 
     Map<String, Object> idmapResolved = Helpers.toMapAny(env.get("ELEMENTDEMO_TEST_GROUP_ENTID"));
@@ -163,8 +165,21 @@ public class GroupEntityTest {
 
     boolean live = "TRUE".equals(env.get("ELEMENTDEMO_TEST_LIVE"));
     if (live) {
-      Map<String, Object> liveOpts = new LinkedHashMap<>();
-      Object mergedOpts = Struct.merge(Struct.jt(liveOpts, extra));
+      // sdk-test-control.json's test.client.options seeds the live
+      // client; the generated fields below overwrite anything they name.
+      Map<String, Object> liveOpts =
+          new LinkedHashMap<>(RunnerSupport.liveClientOptions());
+      liveOpts.put("apikey", env.get("ELEMENTDEMO_APIKEY"));
+      Map<String, Object> serveropt = new LinkedHashMap<>();
+      serveropt.put("account_id", env.get("ELEMENTDEMO_SERVER_ACCOUNT_ID"));
+      liveOpts.put("server", serveropt);
+      // An empty map, not a null one: merge answers null when its last
+      // entry is null, and basicSetup is normally called with no extras -
+      // so a bare null silently discarded the apikey and server values
+      // above.
+      Map<String, Object> extraOpts =
+          extra == null ? new LinkedHashMap<>() : extra;
+      Object mergedOpts = Struct.merge(Struct.jt(liveOpts, extraOpts));
       client = new ElementdemoSDK(Helpers.toMapAny(mergedOpts));
     }
 
