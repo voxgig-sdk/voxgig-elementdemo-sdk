@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "_doc": "Per-SDK test control. Lists tests/operations to skip in unit and live modes; tunes per-test pacing; and declares the extra SDK options every LIVE client is constructed with. Edit by hand -- HERE, in .sdk/tm/ts/test/, which is the project's template layer; the copy under ts/test/ is generated output and is overwritten by 'npm run generate'. Loaded by ts/test/utility.ts.",
+  "_doc": "Per-SDK test control. Lists tests/operations to skip in unit and live modes; tunes per-test pacing. Edit by hand. Loaded by ts/test/utility.ts.",
   "test": {
     "skip": {
       "live": {
@@ -14,30 +14,6 @@
     },
     "live": {
       "delayMs": 500
-    },
-    "client": {
-      "_doc": "Extra options for the LIVE client only (ELEMENTDEMO_TEST_LIVE=TRUE). The Elementdemo API issues short-lived access tokens - each one serves four requests - so a live run needs the secrets feature exchange turned on, or the suite gets four calls in and then fails 401 with nothing explaining why. The refresh token itself is NOT here: it comes from the .env file (or the environment) the providers below name. The account id comes from ELEMENTDEMO_SERVER_ACCOUNT_ID.",
-      "options": {
-        "feature": {
-          "secrets": {
-            "active": true,
-            "name": "refresh_token",
-            "providers": [
-              {
-                "kind": "dotenv",
-                "file": ".env"
-              },
-              {
-                "kind": "env"
-              }
-            ],
-            "exchange": {
-              "active": true,
-              "path": "auth/token"
-            }
-          }
-        }
-      }
     }
   }
 }

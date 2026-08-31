@@ -6,6 +6,12 @@ main: {
     info: {
       description: "The Periodic Table API. Elements, isotopes, groups and series."
       security: {
+        exchange: {
+          method: "POST"
+          path: "auth/token"
+          request: "refresh_token"
+          response: "access_token"
+        }
         in: "header"
         name: "Authorization"
         prefix: "Bearer"

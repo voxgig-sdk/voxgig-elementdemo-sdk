@@ -94,12 +94,25 @@ exercised by any run longer than four requests rather than by a special
 
 `ACCESS_TOKEN_USES` tunes the count.
 
-### The token endpoint is not in the OpenAPI definition
+### The token endpoint IS in the OpenAPI definition
 
-Deliberately, like `/debug`. The definition describes the periodic-table
-resources an SDK generates entity classes for; the credential round trip is
-transport plumbing an SDK's auth layer performs. Describing it would mint an
-`Auth` entity with a `token` operation in every generated language.
+Unlike `/debug`. A client cannot authenticate without this call, so a real
+API publishes it: the definition carries `POST /auth/token` with
+`security: []` (the one operation callable without a credential), a
+`TokenRequest` body and a `TokenResponse` reply.
+
+It is not standard OAuth2 — a JSON body rather than form encoding, no
+`grant_type`, and `expires_in_requests` rather than `expires_in` — so an
+`oauth2` security scheme carrying a `tokenUrl` would misdescribe it. A
+bespoke credential exchange belongs in `paths:`, which is where a client
+generator can find it.
+
+That is deliberately hard on a generator, and it is meant to be: this
+definition exists to stress `@voxgig/sdkgen` with what real specs actually
+look like. sdkgen currently has no operation-level exclusion, so it mints an
+`Auth` entity with a `token` operation in all five languages — the wrong
+shape for auth plumbing. The fix belongs in the generator, not in a spec
+written around it.
 
 ## Configuration
 

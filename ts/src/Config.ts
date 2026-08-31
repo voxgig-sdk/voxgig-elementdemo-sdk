@@ -5,6 +5,8 @@ import { RetryFeature } from './feature/retry/RetryFeature'
 import { SecretsFeature } from './feature/secrets/SecretsFeature'
 import { TestFeature } from './feature/test/TestFeature'
 import { TimeoutFeature } from './feature/timeout/TimeoutFeature'
+import './feature/secrets/sekreto/provider/dotenv'
+import './feature/secrets/sekreto/provider/file'
 
 
 

@@ -1,4 +1,4 @@
-import { Provider, ProviderSpec } from './Providers';
+import { Provider, ProviderSpec } from './provider/support';
 /** A secret name: dot-separated lowercase segments, e.g. `api.token`. */
 export type Name = string;
 export type SekretoOptions = {

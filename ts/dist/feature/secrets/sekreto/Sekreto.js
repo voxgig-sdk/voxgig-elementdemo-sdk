@@ -1,6 +1,6 @@
 "use strict";
 // VENDORED: @voxgig/sekreto 0.1.2 (typescript/src/Sekreto.ts)
-// Source: https://github.com/voxgig/sekreto @ a8c293be1b6c33d65223b2b2275797c241b1a1f1
+// Source: https://github.com/voxgig/sekreto @ 65009cb5758850db767785ab666e71895f86086b
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 // sekreto: one interface for secrets, wherever they live.
 //
@@ -22,7 +22,7 @@ exports.awsparam = awsparam;
 exports.parsedotenv = parsedotenv;
 exports.redact = redact;
 exports.sekreto = sekreto;
-const Providers_1 = require("./Providers");
+const Registry_1 = require("./provider/Registry");
 /** Anything sekreto refuses to do: a bad name, a missing secret, a
  * provider that could not be reached. */
 class SekretoError extends Error {
@@ -208,7 +208,7 @@ class Sekreto {
                 return { store: storename(provider), provider };
             }
             const spec = entry;
-            const provider = (0, Providers_1.makeprovider)(spec);
+            const provider = (0, Registry_1.makeprovider)(spec);
             return { store: storename(provider, spec), provider };
         });
         this.docache = false === opts.cache ? false : true;
