@@ -1,10 +1,10 @@
 "use strict";
 // VENDORED: @voxgig/sekreto 0.1.2 (typescript/src/index.ts)
-// Source: https://github.com/voxgig/sekreto @ a8c293be1b6c33d65223b2b2275797c241b1a1f1
+// Source: https://github.com/voxgig/sekreto @ 65009cb5758850db767785ab666e71895f86086b
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 // @voxgig/sekreto - one interface for secrets, wherever they live.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sigv4 = exports.onepasswordprovider = exports.memoryprovider = exports.makeprovider = exports.infisicalprovider = exports.hashicorpprovider = exports.gcpsecretsprovider = exports.fileprovider = exports.envprovider = exports.dotenvprovider = exports.dopplerprovider = exports.checkaddr = exports.boruprovider = exports.azuresecretsprovider = exports.awssecretsprovider = exports.awsparamsprovider = exports.vaultref = exports.validname = exports.sekreto = exports.redact = exports.parsedotenv = exports.flatname = exports.envkey = exports.awsparam = exports.SekretoError = exports.Sekreto = void 0;
+exports.kinds = exports.registered = exports.register = exports.makeprovider = exports.checkaddr = exports.memoryprovider = exports.envprovider = exports.vaultref = exports.validname = exports.sekreto = exports.redact = exports.parsedotenv = exports.flatname = exports.envkey = exports.awsparam = exports.SekretoError = exports.Sekreto = void 0;
 var Sekreto_1 = require("./Sekreto");
 Object.defineProperty(exports, "Sekreto", { enumerable: true, get: function () { return Sekreto_1.Sekreto; } });
 Object.defineProperty(exports, "SekretoError", { enumerable: true, get: function () { return Sekreto_1.SekretoError; } });
@@ -16,22 +16,36 @@ Object.defineProperty(exports, "redact", { enumerable: true, get: function () { 
 Object.defineProperty(exports, "sekreto", { enumerable: true, get: function () { return Sekreto_1.sekreto; } });
 Object.defineProperty(exports, "validname", { enumerable: true, get: function () { return Sekreto_1.validname; } });
 Object.defineProperty(exports, "vaultref", { enumerable: true, get: function () { return Sekreto_1.vaultref; } });
-var Providers_1 = require("./Providers");
-Object.defineProperty(exports, "awsparamsprovider", { enumerable: true, get: function () { return Providers_1.awsparamsprovider; } });
-Object.defineProperty(exports, "awssecretsprovider", { enumerable: true, get: function () { return Providers_1.awssecretsprovider; } });
-Object.defineProperty(exports, "azuresecretsprovider", { enumerable: true, get: function () { return Providers_1.azuresecretsprovider; } });
-Object.defineProperty(exports, "boruprovider", { enumerable: true, get: function () { return Providers_1.boruprovider; } });
-Object.defineProperty(exports, "checkaddr", { enumerable: true, get: function () { return Providers_1.checkaddr; } });
-Object.defineProperty(exports, "dopplerprovider", { enumerable: true, get: function () { return Providers_1.dopplerprovider; } });
-Object.defineProperty(exports, "dotenvprovider", { enumerable: true, get: function () { return Providers_1.dotenvprovider; } });
-Object.defineProperty(exports, "envprovider", { enumerable: true, get: function () { return Providers_1.envprovider; } });
-Object.defineProperty(exports, "fileprovider", { enumerable: true, get: function () { return Providers_1.fileprovider; } });
-Object.defineProperty(exports, "gcpsecretsprovider", { enumerable: true, get: function () { return Providers_1.gcpsecretsprovider; } });
-Object.defineProperty(exports, "hashicorpprovider", { enumerable: true, get: function () { return Providers_1.hashicorpprovider; } });
-Object.defineProperty(exports, "infisicalprovider", { enumerable: true, get: function () { return Providers_1.infisicalprovider; } });
-Object.defineProperty(exports, "makeprovider", { enumerable: true, get: function () { return Providers_1.makeprovider; } });
-Object.defineProperty(exports, "memoryprovider", { enumerable: true, get: function () { return Providers_1.memoryprovider; } });
-Object.defineProperty(exports, "onepasswordprovider", { enumerable: true, get: function () { return Providers_1.onepasswordprovider; } });
-var Sigv4_1 = require("./Sigv4");
-Object.defineProperty(exports, "sigv4", { enumerable: true, get: function () { return Sigv4_1.sigv4; } });
+// THE CORE SURFACE. Deliberately does NOT re-export the eleven provider
+// kinds that need something of their runtime: pulling one through this
+// file would make all of them reachable and put AWS request signing in
+// every build, which is the thing the split removes.
+//
+// `env` and `memory` are here because they import nothing at all, and a
+// chain with nowhere to read from is not usable or testable.
+//
+// Everything else registers itself when its module is imported:
+//
+//     import '@voxgig/sekreto/provider/dotenv'
+//
+// or, for the old all-in behaviour, `from '@voxgig/sekreto/Providers'`.
+// See docs/design/plugin-providers.md.
+var env_1 = require("./provider/env");
+Object.defineProperty(exports, "envprovider", { enumerable: true, get: function () { return env_1.envprovider; } });
+var memory_1 = require("./provider/memory");
+Object.defineProperty(exports, "memoryprovider", { enumerable: true, get: function () { return memory_1.memoryprovider; } });
+// A pure validator, no platform dependency - kept on the core surface
+// because callers validate an address before configuring a provider.
+var addr_1 = require("./provider/addr");
+Object.defineProperty(exports, "checkaddr", { enumerable: true, get: function () { return addr_1.checkaddr; } });
+var Registry_1 = require("./provider/Registry");
+Object.defineProperty(exports, "makeprovider", { enumerable: true, get: function () { return Registry_1.makeprovider; } });
+Object.defineProperty(exports, "register", { enumerable: true, get: function () { return Registry_1.register; } });
+Object.defineProperty(exports, "registered", { enumerable: true, get: function () { return Registry_1.registered; } });
+Object.defineProperty(exports, "kinds", { enumerable: true, get: function () { return Registry_1.kinds; } });
+// `sigv4` is NOT on the core surface: it is the node:crypto edge, and
+// only the two aws providers use it. Import it from the module that
+// needs it - `@voxgig/sekreto/provider/aws` - or from the full-set
+// barrel. Re-exporting it here would put request signing in every
+// build again, which is the thing the split removes.
 //# sourceMappingURL=index.js.map

@@ -87,3 +87,21 @@ main: kit: target: bash: publish: version: '0.1.0'
 # that have one. The other targets take an access token through the `apikey`
 # option and must refresh it themselves.
 main: kit: feature: secrets: active: true
+
+# SEKRETO PLUGINS. The provider kinds this SDK's chain actually names, and
+# nothing else.
+#
+# The chain above is `[dotenv, env]`: read a .env file, then the process
+# environment. `env` needs no plugin — it is in sekreto's core, because it
+# imports nothing — so `dotenv` is the only one to turn on.
+#
+# Everything left off is code this SDK does not generate: `aws` (AWS
+# Secrets Manager and Parameter Store) is the one that costs node:crypto,
+# for SigV4 request signing this SDK never performs, and `vault`, `cloud`
+# and `saas` are seven HTTP vault clients it never calls. Before the
+# plugin trim they were all present, because one import reached every
+# provider kind.
+#
+# Turning one on is how a project that DOES read from AWS gets it — the
+# crypto edge is provisioned, not assumed.
+main: kit: feature: secrets: plugin: dotenv: active: true

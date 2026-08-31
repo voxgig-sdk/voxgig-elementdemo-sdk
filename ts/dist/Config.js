@@ -6,6 +6,8 @@ const RetryFeature_1 = require("./feature/retry/RetryFeature");
 const SecretsFeature_1 = require("./feature/secrets/SecretsFeature");
 const TestFeature_1 = require("./feature/test/TestFeature");
 const TimeoutFeature_1 = require("./feature/timeout/TimeoutFeature");
+require("./feature/secrets/sekreto/provider/dotenv");
+require("./feature/secrets/sekreto/provider/file");
 const FEATURE_CLASS = {
     elementcard: ElementcardFeature_1.ElementcardFeature,
     retry: RetryFeature_1.RetryFeature,

@@ -1,9 +1,9 @@
 # Guide
 
 guide: {
-  metrics: count: entity: 4
-  metrics: count: path: 10
-  metrics: count: method: 16
+  metrics: count: entity: 5
+  metrics: count: path: 11
+  metrics: count: method: 17
 
   entity: element: {
     path: "/element": {
@@ -58,6 +58,14 @@ guide: {
     path: "/series/{series_id}": {
       rename: param: "series_id": *"id"
       op: load: method: *GET
+    }
+  }
+
+  entity: token: {
+    # Deactivated by the heuristic (auth-exchange). Set `active: true` here in guide.aon to generate it as an entity.
+    active: *false
+    path: "/auth/token": {
+      op: create: method: *POST
     }
   }
 
