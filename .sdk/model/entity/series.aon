@@ -44,8 +44,10 @@ main: kit: entity: series: {
         {
           method: "GET"
           orig: "/series"
-          parts: [
-            "series"
+          segments: [
+            {
+              lit: "series"
+            }
           ]
           transform: {
             req: "`reqdata`"
@@ -71,15 +73,19 @@ main: kit: entity: series: {
           }
           method: "GET"
           orig: "/series/{series_id}"
-          parts: [
-            "series"
-            "{id}"
-          ]
           rename: {
             param: {
               series_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "series"
+            }
+            {
+              var: "id"
+            }
+          ]
           select: {
             exist: [
               "id"

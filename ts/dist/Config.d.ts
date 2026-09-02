@@ -122,6 +122,13 @@ declare class Config {
                                 element_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             $action: string;
                             exist: string[];
@@ -138,6 +145,9 @@ declare class Config {
                         method: string;
                         orig: string;
                         parts: string[];
+                        segments: {
+                            lit: string;
+                        }[];
                         select: {
                             $action?: undefined;
                             exist?: undefined;
@@ -158,6 +168,9 @@ declare class Config {
                         method: string;
                         orig: string;
                         parts: string[];
+                        segments: {
+                            lit: string;
+                        }[];
                         select: {};
                         transform: {
                             req: string;
@@ -187,6 +200,13 @@ declare class Config {
                                 element_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -218,6 +238,13 @@ declare class Config {
                                 element_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -249,6 +276,13 @@ declare class Config {
                                 element_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -286,6 +320,9 @@ declare class Config {
                         method: string;
                         orig: string;
                         parts: string[];
+                        segments: {
+                            lit: string;
+                        }[];
                         select: {};
                         transform: {
                             req: string;
@@ -315,6 +352,13 @@ declare class Config {
                                 group_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -370,6 +414,13 @@ declare class Config {
                                 isotope_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             $action: string;
                             exist: string[];
@@ -392,6 +443,13 @@ declare class Config {
                         method: string;
                         orig: string;
                         parts: string[];
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                             $action?: undefined;
@@ -420,6 +478,13 @@ declare class Config {
                         method: string;
                         orig: string;
                         parts: string[];
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -451,6 +516,13 @@ declare class Config {
                                 isotope_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -482,6 +554,13 @@ declare class Config {
                                 isotope_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -513,6 +592,13 @@ declare class Config {
                                 isotope_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };
@@ -545,6 +631,9 @@ declare class Config {
                         method: string;
                         orig: string;
                         parts: string[];
+                        segments: {
+                            lit: string;
+                        }[];
                         select: {};
                         transform: {
                             req: string;
@@ -574,6 +663,13 @@ declare class Config {
                                 series_id: string;
                             };
                         };
+                        segments: ({
+                            lit: string;
+                            var?: undefined;
+                        } | {
+                            var: string;
+                            lit?: undefined;
+                        })[];
                         select: {
                             exist: string[];
                         };

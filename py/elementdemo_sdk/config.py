@@ -201,6 +201,17 @@ def make_config():
                     "element_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "id",
+                  },
+                  {
+                    "lit": "ionize",
+                  },
+                ],
                 "select": {
                   "$action": "ionize",
                   "exist": [
@@ -219,6 +230,11 @@ def make_config():
                 "orig": "/element",
                 "parts": [
                   "element",
+                ],
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
                 ],
                 "select": {},
                 "transform": {
@@ -239,6 +255,11 @@ def make_config():
                 "orig": "/element",
                 "parts": [
                   "element",
+                ],
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
                 ],
                 "select": {},
                 "transform": {
@@ -276,6 +297,14 @@ def make_config():
                     "element_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "id",
@@ -316,6 +345,14 @@ def make_config():
                     "element_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "id",
@@ -356,6 +393,14 @@ def make_config():
                     "element_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "id",
@@ -413,6 +458,11 @@ def make_config():
                 "parts": [
                   "group",
                 ],
+                "segments": [
+                  {
+                    "lit": "group",
+                  },
+                ],
                 "select": {},
                 "transform": {
                   "req": "`reqdata`",
@@ -449,6 +499,14 @@ def make_config():
                     "group_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "group",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "id",
@@ -573,6 +631,23 @@ def make_config():
                     "isotope_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "element_id",
+                  },
+                  {
+                    "lit": "isotope",
+                  },
+                  {
+                    "var": "id",
+                  },
+                  {
+                    "lit": "decay",
+                  },
+                ],
                 "select": {
                   "$action": "decay",
                   "exist": [
@@ -604,6 +679,17 @@ def make_config():
                   "element",
                   "{element_id}",
                   "isotope",
+                ],
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "element_id",
+                  },
+                  {
+                    "lit": "isotope",
+                  },
                 ],
                 "select": {
                   "exist": [
@@ -640,6 +726,17 @@ def make_config():
                   "element",
                   "{element_id}",
                   "isotope",
+                ],
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "element_id",
+                  },
+                  {
+                    "lit": "isotope",
+                  },
                 ],
                 "select": {
                   "exist": [
@@ -690,6 +787,20 @@ def make_config():
                     "isotope_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "element_id",
+                  },
+                  {
+                    "lit": "isotope",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "element_id",
@@ -740,6 +851,20 @@ def make_config():
                     "isotope_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "element_id",
+                  },
+                  {
+                    "lit": "isotope",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "element_id",
@@ -790,6 +915,20 @@ def make_config():
                     "isotope_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "element_id",
+                  },
+                  {
+                    "lit": "isotope",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "element_id",
@@ -853,6 +992,11 @@ def make_config():
                 "parts": [
                   "series",
                 ],
+                "segments": [
+                  {
+                    "lit": "series",
+                  },
+                ],
                 "select": {},
                 "transform": {
                   "req": "`reqdata`",
@@ -889,6 +1033,14 @@ def make_config():
                     "series_id": "id",
                   },
                 },
+                "segments": [
+                  {
+                    "lit": "series",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "select": {
                   "exist": [
                     "id",

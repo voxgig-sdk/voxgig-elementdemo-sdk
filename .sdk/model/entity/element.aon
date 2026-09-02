@@ -112,16 +112,22 @@ main: kit: entity: element: {
           }
           method: "POST"
           orig: "/element/{element_id}/ionize"
-          parts: [
-            "element"
-            "{id}"
-            "ionize"
-          ]
           rename: {
             param: {
               element_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+            {
+              lit: "ionize"
+            }
+          ]
           select: {
             "$action": "ionize"
             exist: [
@@ -136,8 +142,10 @@ main: kit: entity: element: {
         {
           method: "POST"
           orig: "/element"
-          parts: [
-            "element"
+          segments: [
+            {
+              lit: "element"
+            }
           ]
           transform: {
             req: "`reqdata`"
@@ -152,8 +160,10 @@ main: kit: entity: element: {
         {
           method: "GET"
           orig: "/element"
-          parts: [
-            "element"
+          segments: [
+            {
+              lit: "element"
+            }
           ]
           transform: {
             req: "`reqdata`"
@@ -179,15 +189,19 @@ main: kit: entity: element: {
           }
           method: "GET"
           orig: "/element/{element_id}"
-          parts: [
-            "element"
-            "{id}"
-          ]
           rename: {
             param: {
               element_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+          ]
           select: {
             exist: [
               "id"
@@ -217,15 +231,19 @@ main: kit: entity: element: {
           }
           method: "DELETE"
           orig: "/element/{element_id}"
-          parts: [
-            "element"
-            "{id}"
-          ]
           rename: {
             param: {
               element_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+          ]
           select: {
             exist: [
               "id"
@@ -255,15 +273,19 @@ main: kit: entity: element: {
           }
           method: "PUT"
           orig: "/element/{element_id}"
-          parts: [
-            "element"
-            "{id}"
-          ]
           rename: {
             param: {
               element_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+          ]
           select: {
             exist: [
               "id"

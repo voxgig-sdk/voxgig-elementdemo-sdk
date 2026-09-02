@@ -184,6 +184,17 @@ func MakeConfig() map[string]any {
 										"element_id": "id",
 									},
 								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "id",
+									},
+									map[string]any{
+										"lit": "ionize",
+									},
+								},
 								"select": map[string]any{
 									"$action": "ionize",
 									"exist": []any{
@@ -202,6 +213,11 @@ func MakeConfig() map[string]any {
 								"orig": "/element",
 								"parts": []any{
 									"element",
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
 								},
 								"select": map[string]any{},
 								"transform": map[string]any{
@@ -222,6 +238,11 @@ func MakeConfig() map[string]any {
 								"orig": "/element",
 								"parts": []any{
 									"element",
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
 								},
 								"select": map[string]any{},
 								"transform": map[string]any{
@@ -257,6 +278,14 @@ func MakeConfig() map[string]any {
 								"rename": map[string]any{
 									"param": map[string]any{
 										"element_id": "id",
+									},
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "id",
 									},
 								},
 								"select": map[string]any{
@@ -299,6 +328,14 @@ func MakeConfig() map[string]any {
 										"element_id": "id",
 									},
 								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "id",
+									},
+								},
 								"select": map[string]any{
 									"exist": []any{
 										"id",
@@ -337,6 +374,14 @@ func MakeConfig() map[string]any {
 								"rename": map[string]any{
 									"param": map[string]any{
 										"element_id": "id",
+									},
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "id",
 									},
 								},
 								"select": map[string]any{
@@ -396,6 +441,11 @@ func MakeConfig() map[string]any {
 								"parts": []any{
 									"group",
 								},
+								"segments": []any{
+									map[string]any{
+										"lit": "group",
+									},
+								},
 								"select": map[string]any{},
 								"transform": map[string]any{
 									"req": "`reqdata`",
@@ -430,6 +480,14 @@ func MakeConfig() map[string]any {
 								"rename": map[string]any{
 									"param": map[string]any{
 										"group_id": "id",
+									},
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "group",
+									},
+									map[string]any{
+										"var": "id",
 									},
 								},
 								"select": map[string]any{
@@ -556,6 +614,23 @@ func MakeConfig() map[string]any {
 										"isotope_id": "id",
 									},
 								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "element_id",
+									},
+									map[string]any{
+										"lit": "isotope",
+									},
+									map[string]any{
+										"var": "id",
+									},
+									map[string]any{
+										"lit": "decay",
+									},
+								},
 								"select": map[string]any{
 									"$action": "decay",
 									"exist": []any{
@@ -587,6 +662,17 @@ func MakeConfig() map[string]any {
 									"element",
 									"{element_id}",
 									"isotope",
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "element_id",
+									},
+									map[string]any{
+										"lit": "isotope",
+									},
 								},
 								"select": map[string]any{
 									"exist": []any{
@@ -623,6 +709,17 @@ func MakeConfig() map[string]any {
 									"element",
 									"{element_id}",
 									"isotope",
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "element_id",
+									},
+									map[string]any{
+										"lit": "isotope",
+									},
 								},
 								"select": map[string]any{
 									"exist": []any{
@@ -671,6 +768,20 @@ func MakeConfig() map[string]any {
 								"rename": map[string]any{
 									"param": map[string]any{
 										"isotope_id": "id",
+									},
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "element_id",
+									},
+									map[string]any{
+										"lit": "isotope",
+									},
+									map[string]any{
+										"var": "id",
 									},
 								},
 								"select": map[string]any{
@@ -723,6 +834,20 @@ func MakeConfig() map[string]any {
 										"isotope_id": "id",
 									},
 								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "element_id",
+									},
+									map[string]any{
+										"lit": "isotope",
+									},
+									map[string]any{
+										"var": "id",
+									},
+								},
 								"select": map[string]any{
 									"exist": []any{
 										"element_id",
@@ -771,6 +896,20 @@ func MakeConfig() map[string]any {
 								"rename": map[string]any{
 									"param": map[string]any{
 										"isotope_id": "id",
+									},
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "element_id",
+									},
+									map[string]any{
+										"lit": "isotope",
+									},
+									map[string]any{
+										"var": "id",
 									},
 								},
 								"select": map[string]any{
@@ -836,6 +975,11 @@ func MakeConfig() map[string]any {
 								"parts": []any{
 									"series",
 								},
+								"segments": []any{
+									map[string]any{
+										"lit": "series",
+									},
+								},
 								"select": map[string]any{},
 								"transform": map[string]any{
 									"req": "`reqdata`",
@@ -870,6 +1014,14 @@ func MakeConfig() map[string]any {
 								"rename": map[string]any{
 									"param": map[string]any{
 										"series_id": "id",
+									},
+								},
+								"segments": []any{
+									map[string]any{
+										"lit": "series",
+									},
+									map[string]any{
+										"var": "id",
 									},
 								},
 								"select": map[string]any{
