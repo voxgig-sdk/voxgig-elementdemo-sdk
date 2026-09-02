@@ -59,13 +59,20 @@ npx voxgig-sdkgen package check ../ext
 
 `package check` expects no findings.
 
-`doctor` expects **1 edited, 1 additive** and exits non-zero for the edit:
+`doctor` expects **1 additive** and exits zero:
 
 - `src/cmp/ts/Examples_ts.ts` — additive, project-owned, not drift.
-- `tm/ts/test/sdk-test-control.json` — a DELIBERATE edit to the template
-  master. It carries this project's live-client options (the `secrets`
-  exchange the live suite needs), and there is nowhere else durable to put
-  them: the copy under `ts/test/` is regenerated on every `npm run
-  generate`. `voxgig-sdkgen target add ts` reverts it, so re-apply the
-  `test.client` block after a resync. See
-  `@voxgig/sdkgen`'s `docs/how-to/run-a-live-suite.md`.
+
+There is no longer a hand-edited template master to re-apply. This project
+used to carry its live-client options as a DELIBERATE edit to
+`tm/ts/test/sdk-test-control.json`, because the copy under `ts/test/` was
+regenerated on every `npm run generate`. Two changes removed the need:
+
+- the access-token exchange now arrives as a SPEC FACT (`@voxgig/apidef`
+  >= 8.1 records it; `@voxgig/sdkgen` >= 4.7 overlays it onto the feature's
+  config), so the exchange is not configured by hand at all; and
+- `sdk-test-control.json` is now WRITE-ONCE — `generate` leaves an existing
+  one alone — so anything a project does put there belongs in
+  `ts/test/sdk-test-control.json`, not in the template master.
+
+See `@voxgig/sdkgen`'s `docs/how-to/run-a-live-suite.md`.
