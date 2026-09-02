@@ -108,18 +108,28 @@ main: kit: entity: isotope: {
           }
           method: "POST"
           orig: "/element/{element_id}/isotope/{isotope_id}/decay"
-          parts: [
-            "element"
-            "{element_id}"
-            "isotope"
-            "{id}"
-            "decay"
-          ]
           rename: {
             param: {
               isotope_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+            {
+              lit: "decay"
+            }
+          ]
           select: {
             "$action": "decay"
             exist: [
@@ -146,10 +156,16 @@ main: kit: entity: isotope: {
           }
           method: "POST"
           orig: "/element/{element_id}/isotope"
-          parts: [
-            "element"
-            "{element_id}"
-            "isotope"
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
           ]
           select: {
             exist: [
@@ -180,10 +196,16 @@ main: kit: entity: isotope: {
           }
           method: "GET"
           orig: "/element/{element_id}/isotope"
-          parts: [
-            "element"
-            "{element_id}"
-            "isotope"
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
           ]
           select: {
             exist: [
@@ -221,17 +243,25 @@ main: kit: entity: isotope: {
           }
           method: "GET"
           orig: "/element/{element_id}/isotope/{isotope_id}"
-          parts: [
-            "element"
-            "{element_id}"
-            "isotope"
-            "{id}"
-          ]
           rename: {
             param: {
               isotope_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+          ]
           select: {
             exist: [
               "element_id"
@@ -269,17 +299,25 @@ main: kit: entity: isotope: {
           }
           method: "DELETE"
           orig: "/element/{element_id}/isotope/{isotope_id}"
-          parts: [
-            "element"
-            "{element_id}"
-            "isotope"
-            "{id}"
-          ]
           rename: {
             param: {
               isotope_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+          ]
           select: {
             exist: [
               "element_id"
@@ -317,17 +355,25 @@ main: kit: entity: isotope: {
           }
           method: "PUT"
           orig: "/element/{element_id}/isotope/{isotope_id}"
-          parts: [
-            "element"
-            "{element_id}"
-            "isotope"
-            "{id}"
-          ]
           rename: {
             param: {
               isotope_id: "id"
             }
           }
+          segments: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+          ]
           select: {
             exist: [
               "element_id"

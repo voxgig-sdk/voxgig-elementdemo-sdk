@@ -164,16 +164,23 @@
                   "kind": "http",
                   "method": "POST",
                   "orig": "/element/{element_id}/ionize",
-                  "parts": [
-                    "element",
-                    "{id}",
-                    "ionize"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "element_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "id"
+                    },
+                    {
+                      "lit": "ionize"
+                    }
+                  ],
                   "select": {
                     "$action": "ionize",
                     "exist": [
@@ -191,8 +198,11 @@
                   "kind": "http",
                   "method": "POST",
                   "orig": "/element",
-                  "parts": [
-                    "element"
+                  "parts": null,
+                  "segments": [
+                    {
+                      "lit": "element"
+                    }
                   ],
                   "select": {},
                   "transform": {
@@ -212,8 +222,11 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/element",
-                  "parts": [
-                    "element"
+                  "parts": null,
+                  "segments": [
+                    {
+                      "lit": "element"
+                    }
                   ],
                   "select": {},
                   "transform": {
@@ -244,15 +257,20 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/element/{element_id}",
-                  "parts": [
-                    "element",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "element_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "id"
@@ -286,15 +304,20 @@
                   "kind": "http",
                   "method": "DELETE",
                   "orig": "/element/{element_id}",
-                  "parts": [
-                    "element",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "element_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "id"
@@ -328,15 +351,20 @@
                   "kind": "http",
                   "method": "PUT",
                   "orig": "/element/{element_id}",
-                  "parts": [
-                    "element",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "element_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "id"
@@ -405,8 +433,11 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/group",
-                  "parts": [
-                    "group"
+                  "parts": null,
+                  "segments": [
+                    {
+                      "lit": "group"
+                    }
                   ],
                   "select": {},
                   "transform": {
@@ -437,15 +468,20 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/group/{group_id}",
-                  "parts": [
-                    "group",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "group_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "group"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "id"
@@ -587,18 +623,29 @@
                   "kind": "http",
                   "method": "POST",
                   "orig": "/element/{element_id}/isotope/{isotope_id}/decay",
-                  "parts": [
-                    "element",
-                    "{element_id}",
-                    "isotope",
-                    "{id}",
-                    "decay"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "element_id"
+                    },
+                    {
+                      "lit": "isotope"
+                    },
+                    {
+                      "var": "id"
+                    },
+                    {
+                      "lit": "decay"
+                    }
+                  ],
                   "select": {
                     "$action": "decay",
                     "exist": [
@@ -628,10 +675,17 @@
                   "kind": "http",
                   "method": "POST",
                   "orig": "/element/{element_id}/isotope",
-                  "parts": [
-                    "element",
-                    "{element_id}",
-                    "isotope"
+                  "parts": null,
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "element_id"
+                    },
+                    {
+                      "lit": "isotope"
+                    }
                   ],
                   "select": {
                     "exist": [
@@ -666,10 +720,17 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/element/{element_id}/isotope",
-                  "parts": [
-                    "element",
-                    "{element_id}",
-                    "isotope"
+                  "parts": null,
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "element_id"
+                    },
+                    {
+                      "lit": "isotope"
+                    }
                   ],
                   "select": {
                     "exist": [
@@ -712,17 +773,26 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/element/{element_id}/isotope/{isotope_id}",
-                  "parts": [
-                    "element",
-                    "{element_id}",
-                    "isotope",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "element_id"
+                    },
+                    {
+                      "lit": "isotope"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "element_id",
@@ -765,17 +835,26 @@
                   "kind": "http",
                   "method": "DELETE",
                   "orig": "/element/{element_id}/isotope/{isotope_id}",
-                  "parts": [
-                    "element",
-                    "{element_id}",
-                    "isotope",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "element_id"
+                    },
+                    {
+                      "lit": "isotope"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "element_id",
@@ -818,17 +897,26 @@
                   "kind": "http",
                   "method": "PUT",
                   "orig": "/element/{element_id}/isotope/{isotope_id}",
-                  "parts": [
-                    "element",
-                    "{element_id}",
-                    "isotope",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "element"
+                    },
+                    {
+                      "var": "element_id"
+                    },
+                    {
+                      "lit": "isotope"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "element_id",
@@ -902,8 +990,11 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/series",
-                  "parts": [
-                    "series"
+                  "parts": null,
+                  "segments": [
+                    {
+                      "lit": "series"
+                    }
                   ],
                   "select": {},
                   "transform": {
@@ -934,15 +1025,20 @@
                   "kind": "http",
                   "method": "GET",
                   "orig": "/series/{series_id}",
-                  "parts": [
-                    "series",
-                    "{id}"
-                  ],
+                  "parts": null,
                   "rename": {
                     "param": {
                       "series_id": "id"
                     }
                   },
+                  "segments": [
+                    {
+                      "lit": "series"
+                    },
+                    {
+                      "var": "id"
+                    }
+                  ],
                   "select": {
                     "exist": [
                       "id"

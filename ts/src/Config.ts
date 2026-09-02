@@ -254,6 +254,17 @@ class Config {
                   "element_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "id"
+                },
+                {
+                  "lit": "ionize"
+                }
+              ],
               "select": {
                 "$action": "ionize",
                 "exist": [
@@ -272,6 +283,11 @@ class Config {
               "orig": "/element",
               "parts": [
                 "element"
+              ],
+              "segments": [
+                {
+                  "lit": "element"
+                }
               ],
               "select": {},
               "transform": {
@@ -292,6 +308,11 @@ class Config {
               "orig": "/element",
               "parts": [
                 "element"
+              ],
+              "segments": [
+                {
+                  "lit": "element"
+                }
               ],
               "select": {},
               "transform": {
@@ -329,6 +350,14 @@ class Config {
                   "element_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "id"
@@ -369,6 +398,14 @@ class Config {
                   "element_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "id"
@@ -409,6 +446,14 @@ class Config {
                   "element_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "id"
@@ -466,6 +511,11 @@ class Config {
               "parts": [
                 "group"
               ],
+              "segments": [
+                {
+                  "lit": "group"
+                }
+              ],
               "select": {},
               "transform": {
                 "req": "`reqdata`",
@@ -502,6 +552,14 @@ class Config {
                   "group_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "group"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "id"
@@ -626,6 +684,23 @@ class Config {
                   "isotope_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "element_id"
+                },
+                {
+                  "lit": "isotope"
+                },
+                {
+                  "var": "id"
+                },
+                {
+                  "lit": "decay"
+                }
+              ],
               "select": {
                 "$action": "decay",
                 "exist": [
@@ -657,6 +732,17 @@ class Config {
                 "element",
                 "{element_id}",
                 "isotope"
+              ],
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "element_id"
+                },
+                {
+                  "lit": "isotope"
+                }
               ],
               "select": {
                 "exist": [
@@ -693,6 +779,17 @@ class Config {
                 "element",
                 "{element_id}",
                 "isotope"
+              ],
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "element_id"
+                },
+                {
+                  "lit": "isotope"
+                }
               ],
               "select": {
                 "exist": [
@@ -743,6 +840,20 @@ class Config {
                   "isotope_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "element_id"
+                },
+                {
+                  "lit": "isotope"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "element_id",
@@ -793,6 +904,20 @@ class Config {
                   "isotope_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "element_id"
+                },
+                {
+                  "lit": "isotope"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "element_id",
@@ -843,6 +968,20 @@ class Config {
                   "isotope_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "element_id"
+                },
+                {
+                  "lit": "isotope"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "element_id",
@@ -906,6 +1045,11 @@ class Config {
               "parts": [
                 "series"
               ],
+              "segments": [
+                {
+                  "lit": "series"
+                }
+              ],
               "select": {},
               "transform": {
                 "req": "`reqdata`",
@@ -942,6 +1086,14 @@ class Config {
                   "series_id": "id"
                 }
               },
+              "segments": [
+                {
+                  "lit": "series"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "select": {
                 "exist": [
                   "id"

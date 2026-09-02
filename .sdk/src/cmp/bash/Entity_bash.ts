@@ -9,15 +9,19 @@
 // Emitted content interpolates RESOLVED names (Content is verbatim; only
 // Copy/Fragment replace placeholders).
 
-import { cmp, each, Folder, File, Content } from '@voxgig/sdkgen'
+import { cmp, each, Folder, File, Content, pointSegments } from '@voxgig/sdkgen'
 
 
-// The path template as a bash expression: literal parts verbatim, `{x}`
-// parts URL-encoded from the function's named arguments.
-function pathExpr(parts: string[], enc: string): string {
-  return parts.map((part) => {
-    const m = part.match(/^\{(.+)\}$/)
-    return m ? `/$(${enc} "$${m[1]}")` : '/' + part
+// The path template as a bash expression: literal segments verbatim,
+// variable segments URL-encoded from the function's named arguments.
+//
+// Reads apidef's typed segment vector (its ADR-003) rather than matching
+// `^\{(.+)\}$` over a braced string. The model already knows which segments
+// are parameters, so this target does not re-derive it — and a literal
+// segment that happens to contain braces can no longer be mistaken for one.
+function pathExpr(segments: any[], enc: string): string {
+  return segments.map((seg) => {
+    return null != seg.var ? `/$(${enc} "$${seg.var}")` : '/' + String(seg.lit ?? '')
   }).join('')
 }
 
@@ -32,11 +36,11 @@ function opFunction(spec: {
   entity: string
   op: string
   method: string
-  parts: string[]
+  segments: any[]
   params: Array<{ name: string, reqd: boolean }>
   prefix: string
 }): string {
-  const { fname, label, entity, op, method, parts, params, prefix } = spec
+  const { fname, label, entity, op, method, segments, params, prefix } = spec
 
   const enc = '_' + prefix + 'encode'
   const err = '_' + prefix + 'error'
@@ -74,7 +78,7 @@ ${cases}${0 < params.length ? '\n' : ''}      *=*) _query="\${_query:+\${_query}
     esac
   done
 ${required}${0 < required.length ? '\n' : ''}${argjq}${body}
-  ${request} ${method} "${pathExpr(parts, enc)}" "${hasBody ? '$_body' : ''}" "$_query" "${entity}" "${op}" "$_args"
+  ${request} ${method} "${pathExpr(segments, enc)}" "${hasBody ? '$_body' : ''}" "$_query" "${entity}" "${op}" "$_args"
 }
 `
 }
@@ -102,7 +106,7 @@ const Entity = cmp(function Entity(props: any) {
         entity: entity.name,
         op: op.name,
         method: point.method,
-        parts: point.parts || [],
+        segments: pointSegments(point),
         params: each((point.args || {}).params || [])
           .map((p: any) => ({ name: p.name, reqd: !!p.reqd })),
         prefix,
@@ -118,7 +122,7 @@ const Entity = cmp(function Entity(props: any) {
         entity: entity.name,
         op: action,
         method: point.method,
-        parts: point.parts || [],
+        segments: pointSegments(point),
         params: each((point.args || {}).params || [])
           .map((p: any) => ({ name: p.name, reqd: !!p.reqd })),
         prefix,
