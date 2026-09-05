@@ -35,6 +35,9 @@ func init() {
 	core.NewRetryFeatureFunc = func() core.Feature {
 		return feature.NewRetryFeature()
 	}
+	core.NewSecretsFeatureFunc = func() core.Feature {
+		return feature.NewSecretsFeature()
+	}
 	core.NewTestFeatureFunc = func() core.Feature {
 		return feature.NewTestFeature()
 	}
@@ -75,5 +78,6 @@ func Test() *ElementdemoSDK { return TestSDK(nil, nil) }
 var NewBaseFeature = feature.NewBaseFeature
 var NewElementcardFeature = feature.NewElementcardFeature
 var NewRetryFeature = feature.NewRetryFeature
+var NewSecretsFeature = feature.NewSecretsFeature
 var NewTestFeature = feature.NewTestFeature
 var NewTimeoutFeature = feature.NewTimeoutFeature

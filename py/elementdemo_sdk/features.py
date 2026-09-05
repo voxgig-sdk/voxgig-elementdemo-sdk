@@ -3,6 +3,7 @@
 from elementdemo_sdk.feature.base_feature import ElementdemoBaseFeature
 from elementdemo_sdk.feature.elementcard_feature import ElementdemoElementcardFeature
 from elementdemo_sdk.feature.retry_feature import ElementdemoRetryFeature
+from elementdemo_sdk.feature.secrets_feature import ElementdemoSecretsFeature
 from elementdemo_sdk.feature.test_feature import ElementdemoTestFeature
 from elementdemo_sdk.feature.timeout_feature import ElementdemoTimeoutFeature
 
@@ -11,6 +12,7 @@ _FEATURES = {
     "base": lambda: ElementdemoBaseFeature(),
     "elementcard": lambda: ElementdemoElementcardFeature(),
     "retry": lambda: ElementdemoRetryFeature(),
+    "secrets": lambda: ElementdemoSecretsFeature(),
     "test": lambda: ElementdemoTestFeature(),
     "timeout": lambda: ElementdemoTimeoutFeature(),
 }

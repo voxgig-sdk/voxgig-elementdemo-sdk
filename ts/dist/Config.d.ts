@@ -1,6 +1,5 @@
 import { BaseFeature } from './feature/base/BaseFeature';
-import './feature/secrets/sekreto/provider/dotenv';
-import './feature/secrets/sekreto/provider/file';
+declare const FEATURE_PLUGINS: Record<string, any[]>;
 declare class Config {
     makeFeature(this: any, fn: string): BaseFeature;
     hasFeature(this: any, fn: string): boolean;
@@ -687,4 +686,4 @@ declare class Config {
     };
 }
 declare const config: Config;
-export { config };
+export { config, FEATURE_PLUGINS, };

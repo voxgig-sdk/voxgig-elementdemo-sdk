@@ -1,6 +1,14 @@
 # Elementdemo SDK configuration
 
 
+# The sekreto plugin DEFINITIONS the model selected per feature, imported
+# above by name from the modules the catalogue's active `plugin.def`
+# entries declare. Handed to each feature (secrets builds its Sekreto
+# with them): a provider kind not listed here is unknown to that SDK.
+FEATURE_PLUGINS = {
+}
+
+
 _shared_config = None
 
 
@@ -56,6 +64,27 @@ def make_config():
             503,
             504,
           ],
+        },
+        "transport": "wrap",
+      },
+            "secrets": {
+        "options": {
+          "active": False,
+          "cache": True,
+          "exchange": {
+            "active": False,
+            "method": "POST",
+            "path": "auth/token",
+            "refresh": "",
+            "request": "refresh_token",
+            "response": "access_token",
+            "retries": 1,
+            "statuses": [
+              401,
+            ],
+          },
+          "name": "apikey",
+          "providers": [],
         },
         "transport": "wrap",
       },

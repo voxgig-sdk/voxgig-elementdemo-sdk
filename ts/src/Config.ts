@@ -5,8 +5,6 @@ import { RetryFeature } from './feature/retry/RetryFeature'
 import { SecretsFeature } from './feature/secrets/SecretsFeature'
 import { TestFeature } from './feature/test/TestFeature'
 import { TimeoutFeature } from './feature/timeout/TimeoutFeature'
-import './feature/secrets/sekreto/provider/dotenv'
-import './feature/secrets/sekreto/provider/file'
 
 
 
@@ -17,6 +15,17 @@ const FEATURE_CLASS: Record<string, typeof BaseFeature> = {
  test: TestFeature,
  timeout: TimeoutFeature,
 
+}
+
+
+// Per-feature plugin DEFINITIONS (voxgig/plugin `Definition` values), from
+// the model's active plugin groups. A feature that takes a `plugins` option
+// (secrets over sekreto) reads its own entry; a feature with no plugins has
+// none. Named imports above make each definition statically reachable, so
+// an SDK carries exactly the plugin modules its model selects — the same
+// leanness the old side-effect registry imports bought, without a registry.
+const FEATURE_PLUGINS: Record<string, any[]> = {
+  
 }
 
 
@@ -1118,6 +1127,7 @@ class Config {
 const config = new Config()
 
 export {
-  config
+  config,
+  FEATURE_PLUGINS,
 }
 

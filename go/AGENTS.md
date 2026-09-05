@@ -44,6 +44,7 @@ the runtime under `.sdk/tm/go/feature/` and regenerate.
 | --- | --- | --- |
 | **elementcard** — ASCII periodic-table tile for element-shaped results | `feature/elementcard_feature.go` | `PreResult` |
 | **retry** — Automatic retry of transient failures with exponential backoff | `feature/retry_feature.go` | — |
+| **secrets** — Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens | `feature/secrets_feature.go` | `PreSpec` |
 | **test** — In-memory mock transport for testing without a live server | `feature/test_feature.go` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
 | **timeout** — Per-request timeout with transport abort | `feature/timeout_feature.go` | — |
 
