@@ -1312,64 +1312,161 @@
           "plugin": {
             "aws": {
               "active": false,
+              "def": {
+                "go": {
+                  "aws.Params": "feature/secrets/plugins/aws/aws.go",
+                  "aws.Secrets": "feature/secrets/plugins/aws/aws.go"
+                },
+                "py": {
+                  "awsparams": "pkg/feature/secrets/voxgig_sekreto/plugins/aws.py",
+                  "awssecrets": "pkg/feature/secrets/voxgig_sekreto/plugins/aws.py"
+                },
+                "ts": {
+                  "awsparams": "src/feature/secrets/sekreto/plugins/aws.ts",
+                  "awssecrets": "src/feature/secrets/sekreto/plugins/aws.ts"
+                }
+              },
               "name": "aws",
               "needs": {
                 "crypto": true,
                 "fetch": true
               },
               "path": [
-                "src/feature/secrets/sekreto/provider/aws.ts",
-                "src/feature/secrets/sekreto/Sigv4.ts"
+                "src/feature/secrets/sekreto/plugins/aws.ts",
+                "src/feature/secrets/sekreto/plugins/sigv4.ts",
+                "feature/secrets/plugins/aws/aws.go",
+                "feature/secrets/plugins/aws/sigv4.go",
+                "feature/secrets/voxgig_sekreto/plugins/aws.py",
+                "feature/secrets/voxgig_sekreto/plugins/sigv4.py"
               ],
               "title": "AWS Secrets Manager and Parameter Store (SigV4 signing)"
             },
             "cloud": {
               "active": false,
+              "def": {
+                "go": {
+                  "azuresecrets.Plugin": "feature/secrets/plugins/azuresecrets/azuresecrets.go",
+                  "gcpsecrets.Plugin": "feature/secrets/plugins/gcpsecrets/gcpsecrets.go"
+                },
+                "py": {
+                  "azuresecrets": "pkg/feature/secrets/voxgig_sekreto/plugins/azuresecrets.py",
+                  "gcpsecrets": "pkg/feature/secrets/voxgig_sekreto/plugins/gcpsecrets.py"
+                },
+                "ts": {
+                  "azuresecrets": "src/feature/secrets/sekreto/plugins/azuresecrets.ts",
+                  "gcpsecrets": "src/feature/secrets/sekreto/plugins/gcpsecrets.ts"
+                }
+              },
               "name": "cloud",
               "needs": {
                 "fetch": true
               },
               "path": [
-                "src/feature/secrets/sekreto/provider/gcpsecrets.ts",
-                "src/feature/secrets/sekreto/provider/azuresecrets.ts"
+                "src/feature/secrets/sekreto/plugins/gcpsecrets.ts",
+                "src/feature/secrets/sekreto/plugins/azuresecrets.ts",
+                "feature/secrets/plugins/gcpsecrets/gcpsecrets.go",
+                "feature/secrets/plugins/azuresecrets/azuresecrets.go",
+                "feature/secrets/voxgig_sekreto/plugins/gcpsecrets.py",
+                "feature/secrets/voxgig_sekreto/plugins/azuresecrets.py"
               ],
               "title": "GCP Secret Manager and Azure Key Vault"
             },
             "dotenv": {
               "active": true,
+              "def": {},
               "name": "dotenv",
-              "needs": {
-                "fs": true
-              },
-              "path": [
-                "src/feature/secrets/sekreto/provider/dotenv.ts",
-                "src/feature/secrets/sekreto/provider/file.ts"
-              ],
-              "title": "Read secrets from a .env file or a directory of files"
+              "needs": {},
+              "path": [],
+              "title": ""
             },
             "saas": {
               "active": false,
+              "def": {
+                "go": {
+                  "doppler.Plugin": "feature/secrets/plugins/doppler/doppler.go",
+                  "infisical.Plugin": "feature/secrets/plugins/infisical/infisical.go",
+                  "onepassword.Plugin": "feature/secrets/plugins/onepassword/onepassword.go"
+                },
+                "py": {
+                  "doppler": "pkg/feature/secrets/voxgig_sekreto/plugins/doppler.py",
+                  "infisical": "pkg/feature/secrets/voxgig_sekreto/plugins/infisical.py",
+                  "onepassword": "pkg/feature/secrets/voxgig_sekreto/plugins/onepassword.py"
+                },
+                "ts": {
+                  "doppler": "src/feature/secrets/sekreto/plugins/doppler.ts",
+                  "infisical": "src/feature/secrets/sekreto/plugins/infisical.ts",
+                  "onepassword": "src/feature/secrets/sekreto/plugins/onepassword.ts"
+                }
+              },
               "name": "saas",
               "needs": {
                 "fetch": true
               },
               "path": [
-                "src/feature/secrets/sekreto/provider/onepassword.ts",
-                "src/feature/secrets/sekreto/provider/doppler.ts",
-                "src/feature/secrets/sekreto/provider/infisical.ts"
+                "src/feature/secrets/sekreto/plugins/onepassword.ts",
+                "src/feature/secrets/sekreto/plugins/doppler.ts",
+                "src/feature/secrets/sekreto/plugins/infisical.ts",
+                "feature/secrets/plugins/onepassword/onepassword.go",
+                "feature/secrets/plugins/doppler/doppler.go",
+                "feature/secrets/plugins/infisical/infisical.go",
+                "feature/secrets/voxgig_sekreto/plugins/onepassword.py",
+                "feature/secrets/voxgig_sekreto/plugins/doppler.py",
+                "feature/secrets/voxgig_sekreto/plugins/infisical.py"
               ],
               "title": "1Password, Doppler and Infisical"
             },
+            "secretspec": {
+              "active": false,
+              "def": {
+                "go": {
+                  "secretspec.Plugin": "feature/secrets/plugins/secretspec/secretspec.go"
+                },
+                "py": {
+                  "secretspec": "pkg/feature/secrets/voxgig_sekreto/plugins/secretspec.py"
+                },
+                "ts": {
+                  "secretspec": "src/feature/secrets/sekreto/plugins/secretspec.ts"
+                }
+              },
+              "name": "secretspec",
+              "needs": {
+                "fs": true
+              },
+              "path": [
+                "src/feature/secrets/sekreto/plugins/secretspec.ts",
+                "feature/secrets/plugins/secretspec/secretspec.go",
+                "feature/secrets/voxgig_sekreto/plugins/secretspec.py"
+              ],
+              "title": "secretspec CLI bridge (child process)"
+            },
             "vault": {
               "active": false,
+              "def": {
+                "go": {
+                  "boru.Plugin": "feature/secrets/plugins/boru/boru.go",
+                  "hashicorp.Plugin": "feature/secrets/plugins/hashicorp/hashicorp.go"
+                },
+                "py": {
+                  "boru": "pkg/feature/secrets/voxgig_sekreto/plugins/boru.py",
+                  "hashicorp": "pkg/feature/secrets/voxgig_sekreto/plugins/hashicorp.py"
+                },
+                "ts": {
+                  "boru": "src/feature/secrets/sekreto/plugins/boru.ts",
+                  "hashicorp": "src/feature/secrets/sekreto/plugins/hashicorp.ts"
+                }
+              },
               "name": "vault",
               "needs": {
                 "fetch": true,
                 "fs": true
               },
               "path": [
-                "src/feature/secrets/sekreto/provider/hashicorp.ts",
-                "src/feature/secrets/sekreto/provider/boru.ts"
+                "src/feature/secrets/sekreto/plugins/hashicorp.ts",
+                "src/feature/secrets/sekreto/plugins/boru.ts",
+                "feature/secrets/plugins/hashicorp/hashicorp.go",
+                "feature/secrets/plugins/boru/boru.go",
+                "feature/secrets/voxgig_sekreto/plugins/hashicorp.py",
+                "feature/secrets/voxgig_sekreto/plugins/boru.py"
               ],
               "title": "HashiCorp Vault and boru"
             }
@@ -2040,7 +2137,9 @@
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
-          "provides": {},
+          "provides": {
+            "sekreto": true
+          },
           "publish": {
             "registry": {
               "active": false,
@@ -2168,7 +2267,9 @@
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
-          "provides": {},
+          "provides": {
+            "sekreto": true
+          },
           "publish": {
             "registry": {
               "active": false,

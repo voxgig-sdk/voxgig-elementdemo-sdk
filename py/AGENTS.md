@@ -45,6 +45,7 @@ the runtime under `.sdk/tm/py/feature/` and regenerate.
 | --- | --- | --- |
 | **elementcard** — ASCII periodic-table tile for element-shaped results | `feature/elementcard_feature.py` | `PreResult` |
 | **retry** — Automatic retry of transient failures with exponential backoff | `feature/retry_feature.py` | — |
+| **secrets** — Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens | `feature/secrets_feature.py` | `PreSpec` |
 | **test** — In-memory mock transport for testing without a live server | `feature/test_feature.py` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
 | **timeout** — Per-request timeout with transport abort | `feature/timeout_feature.py` | — |
 

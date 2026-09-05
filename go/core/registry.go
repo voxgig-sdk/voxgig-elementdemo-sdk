@@ -8,6 +8,8 @@ var NewElementcardFeatureFunc func() Feature
 
 var NewRetryFeatureFunc func() Feature
 
+var NewSecretsFeatureFunc func() Feature
+
 var NewTestFeatureFunc func() Feature
 
 var NewTimeoutFeatureFunc func() Feature
