@@ -6,7 +6,7 @@ The Golang SDK for the Elementdemo API — an entity-oriented client using stand
 
 It exposes the API as capitalised, semantic **Entities** — e.g. `client.Element(nil)` — each with the same small set of operations (`List`, `Load`, `Create`, `Update`, `Remove`) instead of raw URL paths and query strings. You call meaning, not endpoints, which keeps the cognitive load low.
 
-> Also generated from this model: `bash`, `java`, `py`, `ts` — see
+> Also generated from this model: `bash`, `java`, `py`, `rb`, `ts` — see
 > the [top-level README](../README.md).
 
 

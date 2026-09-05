@@ -1132,6 +1132,9 @@
             "py": {
               "deps": {}
             },
+            "rb": {
+              "deps": {}
+            },
             "ts": {
               "deps": {}
             }
@@ -1224,6 +1227,9 @@
               "deps": {}
             },
             "py": {
+              "deps": {}
+            },
+            "rb": {
               "deps": {}
             },
             "ts": {
@@ -1487,6 +1493,9 @@
             "py": {
               "deps": {}
             },
+            "rb": {
+              "deps": {}
+            },
             "ts": {
               "deps": {}
             }
@@ -1576,6 +1585,9 @@
             "py": {
               "deps": {}
             },
+            "rb": {
+              "deps": {}
+            },
             "ts": {
               "deps": {}
             }
@@ -1656,6 +1668,9 @@
               "deps": {}
             },
             "py": {
+              "deps": {}
+            },
+            "rb": {
               "deps": {}
             },
             "ts": {
@@ -2101,6 +2116,7 @@
             "version": "0.1.0"
           },
           "srcfeature": false,
+          "superseded": [],
           "title": "Bash"
         },
         "go": {
@@ -2165,6 +2181,7 @@
             "version": "0.1.0"
           },
           "srcfeature": false,
+          "superseded": [],
           "title": "Golang"
         },
         "java": {
@@ -2227,6 +2244,9 @@
             "version": "0.1.0"
           },
           "srcfeature": false,
+          "superseded": [
+            "test/StructRunner.java"
+          ],
           "title": "Java"
         },
         "py": {
@@ -2295,7 +2315,82 @@
             "version": "0.1.0"
           },
           "srcfeature": false,
+          "superseded": [],
           "title": "Python"
+        },
+        "rb": {
+          "active": true,
+          "author": {
+            "name": "",
+            "url": ""
+          },
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "comment": {
+            "line": "#"
+          },
+          "deps": {
+            "json": {
+              "active": true,
+              "kind": "prod",
+              "version": "0"
+            },
+            "voxgig-struct": {
+              "active": true,
+              "kind": "prod",
+              "version": "0.0.10"
+            }
+          },
+          "ext": "rb",
+          "feature": {
+            "fullset": [],
+            "trim": true
+          },
+          "module": {
+            "goversion": "",
+            "name": "elementdemo",
+            "package": "",
+            "path": ""
+          },
+          "name": "rb",
+          "origname": "",
+          "output": {
+            "adopt": false,
+            "create": true,
+            "path": "",
+            "repo": "",
+            "sdkrel": ""
+          },
+          "package": "@voxgig/sdkgen",
+          "provides": {},
+          "publish": {
+            "registry": {
+              "active": false,
+              "name": "rubygems",
+              "package": "",
+              "state": "pending",
+              "url": "https://rubygems.org",
+              "vault": {
+                "alias": "gem",
+                "env": "",
+                "recipe": "gem"
+              }
+            },
+            "tag": {
+              "active": true,
+              "prefix": "",
+              "vault": {
+                "alias": "github",
+                "recipe": "github"
+              },
+              "via": "port"
+            },
+            "version": "0.0.1"
+          },
+          "srcfeature": false,
+          "superseded": [
+            "test/struct_runner.rb"
+          ],
+          "title": "Ruby"
         },
         "ts": {
           "active": true,
@@ -2367,6 +2462,7 @@
             },
             "version": "0.1.0"
           },
+          "superseded": [],
           "title": "TypeScript"
         }
       },

@@ -12,7 +12,7 @@ There are companion guides deeper in the tree: one per language
 
 ## Project map
 
-**Targets** (5):
+**Targets** (6):
 
 | Target | Directory | Build guide |
 | --- | --- | --- |
@@ -20,6 +20,7 @@ There are companion guides deeper in the tree: one per language
 | `go` | `go/` | [`go/AGENTS.md`](./go/AGENTS.md) |
 | `java` | `java/` | [`java/AGENTS.md`](./java/AGENTS.md) |
 | `py` | `py/` | [`py/AGENTS.md`](./py/AGENTS.md) |
+| `rb` | `rb/` | [`rb/AGENTS.md`](./rb/AGENTS.md) |
 | `ts` | `ts/` | [`ts/AGENTS.md`](./ts/AGENTS.md) |
 
 **Features** (5): `elementcard`, `retry`, `secrets`, `test`, `timeout`.
