@@ -1,6 +1,6 @@
 "use strict";
-// VENDORED: @voxgig/omni 0.1.2 (typescript/src/Runner.ts)
-// Source: https://github.com/voxgig/omni @ 5956cc4e5ecdaeebd11eab8bb4b9462dfc76e018
+// VENDORED: @voxgig/omni 0.1.4 (typescript/src/Runner.ts)
+// Source: https://github.com/voxgig/omni @ 8c3e1b573a8d35796f7fc45e3226b977023cabf7  [tag: sdk-20260904-1610-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 // Omni: the shared multi-language test runner.
 //
@@ -254,6 +254,18 @@ function fixjsonval(val, donull) {
 // collapsing that to String(err) yields '[object Object]', which fails both
 // the `err` check and every `match.err.*` leaf. The struct repository's
 // original runner read `.message` regardless of the thrown value's class.
+// THE SPREAD IS THE CONTRACT, not an accident of JavaScript. An error's
+// OWN enumerable properties survive into the base, so a library whose
+// errors carry a `code` (or a `status`, or a `path`) can assert on it
+// with `match: {err: {code: 'x'}}` rather than pattern-matching prose.
+//
+// Only JavaScript gets that for free. A port whose subject reports
+// failure as a message string - rust, cpp, zig, ocaml, haskell - has
+// nothing to spread, and a port that builds `{name, message}` by hand
+// drops the fields even when it has them. `Provider.errify` is how those
+// ports reach the same place: it overrides this function entirely, so a
+// library supplies its own structured base and omni needs to know
+// nothing about the shape of it.
 function errify(err) {
     if (err instanceof Error) {
         return { ...err, name: err.name, message: err.message };
@@ -262,6 +274,12 @@ function errify(err) {
         return { name: 'Error', ...err };
     }
     return { name: 'Error', message: String(err) };
+}
+// The error base a `match.err` sees: the provider's own, when it has one.
+function errbase(err, provider) {
+    return null != provider && null != provider.errify
+        ? provider.errify(err)
+        : errify(err);
 }
 function errmessage(err) {
     return err instanceof Error ? err.message
@@ -324,7 +342,7 @@ function checkresult(flags, index, entry, args, res) {
         throw fail(flags, index, entry, 'result mismatch', (0, Util_1.stringify)(out), (0, Util_1.stringify)(res));
     }
 }
-function handleerror(flags, index, entry, err) {
+function handleerror(flags, index, entry, err, provider) {
     entry.thrown = err;
     const entryerr = entry.err;
     if (null != entryerr) {
@@ -334,7 +352,7 @@ function handleerror(flags, index, entry, err) {
                     in: entry.in,
                     out: entry.res,
                     ctx: entry.ctx,
-                    err: errify(err),
+                    err: errbase(err, provider),
                 });
             }
             return;
@@ -487,7 +505,7 @@ async function makeRunner(specref, provider) {
                     if (err instanceof OmniError) {
                         throw err;
                     }
-                    handleerror(useflags, index, entry, err);
+                    handleerror(useflags, index, entry, err, useprovider);
                 }
             }
         };

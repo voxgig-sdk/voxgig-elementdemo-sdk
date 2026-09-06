@@ -3,6 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SecretsFeature = void 0;
 const BaseFeature_1 = require("../base/BaseFeature");
 const sekreto_1 = require("./sekreto");
+// The plugin DEFINITIONS the model selected for this feature, emitted by
+// Config generically from the catalogue's active `plugin.def` entries.
+// Upstream sekreto's contract since the registry was retired: a kind not
+// passed in `plugins` is unknown to that Sekreto, so the model's choice of
+// plugin groups IS the SDK's provider vocabulary.
+const Config_1 = require("../../Config");
 // Secret access via a vendored @voxgig/sekreto provider chain, and the
 // access-token exchange some APIs require on top of it.
 //
@@ -94,6 +100,7 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
         this._cache = false !== fopts.cache;
         this._sekreto = new sekreto_1.Sekreto({
             providers,
+            plugins: Config_1.FEATURE_PLUGINS[this.name] || [],
             cache: this._cache,
         });
         client._secrets = this;

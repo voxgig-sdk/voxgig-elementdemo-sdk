@@ -104,4 +104,9 @@ main: kit: feature: secrets: active: true
 #
 # Turning one on is how a project that DOES read from AWS gets it — the
 # crypto edge is provisioned, not assumed.
+# (vendor-tag rollout: upstream sekreto made dotenv and file BUILT-INS -
+# they ship with the feature core and are no longer a trimmable plugin
+# group, so no activation is needed for the `[dotenv, env]` chain. The
+# line below is retained as a harmless no-op for older toolchains and
+# can be deleted once the fleet is past the tag.)
 main: kit: feature: secrets: plugin: dotenv: active: true

@@ -1,6 +1,6 @@
 "use strict";
-// VENDORED: @voxgig/sekreto 0.1.2 (typescript/src/Sekreto.ts)
-// Source: https://github.com/voxgig/sekreto @ 65009cb5758850db767785ab666e71895f86086b
+// VENDORED: @voxgig/sekreto 0.2.0 (typescript/src/Sekreto.ts)
+// Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 // sekreto: one interface for secrets, wherever they live.
 //
@@ -22,7 +22,16 @@ exports.awsparam = awsparam;
 exports.parsedotenv = parsedotenv;
 exports.redact = redact;
 exports.sekreto = sekreto;
-const Registry_1 = require("./provider/Registry");
+// THE CORE IMPORTS NO PROVIDER THAT OPENS A SOCKET, SPAWNS A PROCESS OR
+// SIGNS A REQUEST. The four built-in kinds - env, memory, dotenv, file -
+// read at most a local file; every other kind is a voxgig/plugin
+// definition under plugins/, and a chain may name one only if the
+// calling project handed it in through `plugins`. That is what keeps an
+// SDK whose chain is `[dotenv, env]` from carrying AWS request signing
+// and seven HTTP vault clients. See docs/design/plugin-providers.md.
+const plugin_1 = require("../plugin");
+const support_1 = require("./provider/support");
+const builtin_1 = require("./provider/builtin");
 /** Anything sekreto refuses to do: a bad name, a missing secret, a
  * provider that could not be reached. */
 class SekretoError extends Error {
@@ -163,27 +172,55 @@ function unescape(text) {
  *
  * Only values of four characters or more are replaced: shorter ones are
  * too likely to appear in ordinary text, and redacting them would make
- * logs unreadable without making them safer. */
+ * logs unreadable without making them safer.
+ *
+ * Longest first, which is not a detail. Replacing in the order the
+ * values arrived meant a shorter secret that prefixes a longer one ate
+ * the prefix and left the rest in the log: with `db.pass` = `abcd` from
+ * the environment and `api.token` = `abcd1234` from the vault, and the
+ * environment resolved first, `token=abcd1234` came out as
+ * `token=[redacted]1234` — four characters of the vault token still
+ * there. Longest first makes the longer secret match before anything can
+ * eat its head. */
 function redact(text, values) {
     let out = 'string' === typeof text ? text : '';
-    for (const value of values || []) {
-        if ('string' !== typeof value || 4 > value.length) {
-            continue;
-        }
+    const usable = (values || []).filter((value) => 'string' === typeof value && 4 <= value.length);
+    // A copy: `values` belongs to the caller (it is `seen` when called
+    // through Sekreto.redact), and sorting in place would reorder it.
+    for (const value of [...usable].sort((left, right) => right.length - left.length)) {
         out = out.split(value).join('[redacted]');
     }
     return out;
 }
-/** The store name a provider answers to when its spec does not say.
+/** The store name a live provider answers to.
  *
- * `describe()` opens with the provider's kind - `vault:...`, `dotenv:...`,
- * plain `env` - so the kind is the natural default, and a custom provider
- * gets a sensible name without having to implement anything extra. */
-function storename(provider, spec) {
-    if (spec && spec.name) {
-        return spec.name;
-    }
+ * `describe()` opens with the provider's kind - `hashicorp:...`,
+ * `dotenv:...`, plain `env` - so the kind is the natural default, and a
+ * custom provider gets a sensible name without having to implement
+ * anything extra. A spec'd provider's store is its `name` or its `kind`,
+ * decided before the provider exists. */
+function storename(provider) {
     return provider.describe().split(':')[0];
+}
+/** The message for a kind the catalog does not hold.
+ *
+ * A kind sekreto has never heard of is a typo; a kind that exists as a
+ * plugin but was not passed in is the split working as designed and
+ * telling you what to pass. Collapsing the two was the first thing that
+ * made the split confusing to use. */
+function unknownkind(kind, catalog) {
+    const known = -1 !== builtin_1.KINDS.plugin.indexOf(String(kind));
+    return ('sekreto: unknown provider kind: ' + String(kind) +
+        ' (available: ' + catalog.names().join(', ') + ')' +
+        (known ? ' - ' + String(kind) + ' is a sekreto plugin, not built in: pass it in the plugins option' : ''));
+}
+/** A SekretoError that crossed the plugin boundary comes back out as
+ * itself, byte for byte. Anything else is not sekreto's to rewrite. */
+function unwrap(err) {
+    if (err && support_1.ERROR_CODE === err.code && err.details && 'string' === typeof err.details.cause) {
+        return new SekretoError(err.details.cause);
+    }
+    return err;
 }
 /** The secrets facade: a chain of providers plus a cache.
  *
@@ -193,6 +230,13 @@ function storename(provider, spec) {
  * first for ordinary configuration, the second when *which* store holds a
  * secret is part of what you mean. */
 class Sekreto {
+    /** The voxgig/plugin host every spec'd provider is an instance of.
+     * Read it for introspection - `host.list()` names each store's ref and
+     * status - and nothing on it advances the chain. */
+    host;
+    /** The definitions this Sekreto can build: the built-ins plus what
+     * `plugins` handed in. */
+    catalog;
     entries;
     docache;
     cache;
@@ -202,18 +246,55 @@ class Sekreto {
     seen;
     constructor(options) {
         const opts = options || {};
+        // Built-ins first, then the plugins, into one catalog: a plugin that
+        // names a built-in kind replaces it, which is how a host substitutes
+        // an implementation and never an accident, because the four names
+        // are documented.
+        this.catalog = (0, plugin_1.makecatalog)(builtin_1.BUILTINS.concat(opts.plugins || []));
+        this.host = (0, plugin_1.makehost)({ catalog: this.catalog });
         this.entries = (opts.providers || []).map((entry) => {
             if ('function' === typeof entry.lookup) {
                 const provider = entry;
-                return { store: storename(provider), provider };
+                return { store: storename(provider), ref: '', provider };
             }
-            const spec = entry;
-            const provider = (0, Registry_1.makeprovider)(spec);
-            return { store: storename(provider, spec), provider };
+            return this.declare(entry);
         });
         this.docache = false === opts.cache ? false : true;
         this.cache = [];
         this.seen = [];
+    }
+    /** One chain entry, as a plugin instance.
+     *
+     * The instance is `kind` for a store named after its kind and
+     * `kind$store` otherwise - `hashicorp$prod` - so `host.list()` reads
+     * like the chain. A store name that is already taken gets a numbered
+     * tag from the host instead, because two providers MAY share a store
+     * name (a directed read walks both) and an instance ref may not. */
+    declare(spec) {
+        const kind = null == spec ? undefined : spec.kind;
+        if (undefined === kind || !this.catalog.has(kind)) {
+            throw new SekretoError(unknownkind(kind, this.catalog));
+        }
+        const store = spec.name || kind;
+        if (!(0, plugin_1.checktag)(store)) {
+            throw new SekretoError('sekreto: invalid store name: ' + store);
+        }
+        let ref = store === kind ? kind : (0, plugin_1.formatref)(kind, store);
+        if (undefined !== this.host.instance(ref)) {
+            ref = this.host.autotag(kind);
+        }
+        try {
+            // `load` runs the definition's `define`, which builds the provider
+            // from the spec; `activate` takes the instance live. Nothing is
+            // contacted by either: a provider opens nothing until its first
+            // lookup.
+            this.host.load(ref, { options: spec });
+            this.host.activate(ref);
+        }
+        catch (err) {
+            throw unwrap(err);
+        }
+        return { store, ref, provider: this.host.exports(ref + '/' + support_1.PROVIDER_EXPORT) };
     }
     /** The secret, or a SekretoError if no provider has it. */
     async get(name) {
@@ -285,6 +366,27 @@ class Sekreto {
         }
         return out;
     }
+    /** What a Sekreto shows of itself when something prints it.
+     *
+     * `console.log(sekreto)` and `JSON.stringify(sekreto)` both reach
+     * `cache` and `seen`, which between them hold every value this chain
+     * has ever resolved — so one ordinary logging call writes every secret
+     * to the log. `private` is a compile-time fiction: at run time the
+     * fields are ordinary and enumerable.
+     *
+     * `JSON.stringify` is the one that bites hardest, because a structured
+     * logger serialises its whole context object without anyone writing a
+     * line about secrets: `logger.info({ secrets: sekreto }, 'ready')`.
+     *
+     * Both hooks are needed. `toJSON` covers `JSON.stringify` and
+     * everything built on it; the inspect symbol covers `console.log`,
+     * `util.inspect` and the REPL. Neither reaches a value. */
+    toJSON() {
+        return { stores: this.stores() };
+    }
+    [Symbol.for('nodejs.util.inspect.custom')]() {
+        return 'Sekreto { stores: [ ' + this.stores().join(', ') + ' ] }';
+    }
     /** A description of each provider, in resolution order. */
     sources() {
         return this.entries.map((entry) => entry.provider.describe());
@@ -309,6 +411,16 @@ class Sekreto {
     }
     /** Drop cached values, so the next `get` asks the providers again. */
     refresh() {
+        this.cache = [];
+    }
+    /** Tear the chain down: every plugin instance is deactivated and
+     * unloaded, in reverse, releasing whatever a provider acquired at
+     * activation. Afterwards there is nothing to read from - `get` reports
+     * every secret unknown - and the cache is dropped, though `redact`
+     * still knows every value that was ever resolved. */
+    close() {
+        this.host.close();
+        this.entries = [];
         this.cache = [];
     }
 }

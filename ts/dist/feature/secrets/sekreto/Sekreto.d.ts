@@ -1,9 +1,16 @@
+import type { Catalog, Definition, Host } from '../plugin';
 import { Provider, ProviderSpec } from './provider/support';
 /** A secret name: dot-separated lowercase segments, e.g. `api.token`. */
 export type Name = string;
 export type SekretoOptions = {
-    /** The provider chain, in resolution order. */
+    /** The provider chain, in resolution order. An entry is a live
+     * provider, or the declarative spec of one - `{ kind, ...config }`. */
     providers?: (Provider | ProviderSpec)[];
+    /** The provider kinds beyond the built-ins that `providers` may name,
+     * as voxgig/plugin definitions. Static and explicit: the calling
+     * project imports the plugins it needs and passes them here, and a
+     * kind it did not pass is unknown to this Sekreto. */
+    plugins?: Definition[];
     /** Cache resolved values (default: true). */
     cache?: boolean;
 };
@@ -50,7 +57,16 @@ export declare function parsedotenv(text: string): Record<string, string>;
  *
  * Only values of four characters or more are replaced: shorter ones are
  * too likely to appear in ordinary text, and redacting them would make
- * logs unreadable without making them safer. */
+ * logs unreadable without making them safer.
+ *
+ * Longest first, which is not a detail. Replacing in the order the
+ * values arrived meant a shorter secret that prefixes a longer one ate
+ * the prefix and left the rest in the log: with `db.pass` = `abcd` from
+ * the environment and `api.token` = `abcd1234` from the vault, and the
+ * environment resolved first, `token=abcd1234` came out as
+ * `token=[redacted]1234` — four characters of the vault token still
+ * there. Longest first makes the longer secret match before anything can
+ * eat its head. */
 export declare function redact(text: string, values: string[]): string;
 /** The secrets facade: a chain of providers plus a cache.
  *
@@ -60,11 +76,26 @@ export declare function redact(text: string, values: string[]): string;
  * first for ordinary configuration, the second when *which* store holds a
  * secret is part of what you mean. */
 export declare class Sekreto {
+    /** The voxgig/plugin host every spec'd provider is an instance of.
+     * Read it for introspection - `host.list()` names each store's ref and
+     * status - and nothing on it advances the chain. */
+    readonly host: Host;
+    /** The definitions this Sekreto can build: the built-ins plus what
+     * `plugins` handed in. */
+    readonly catalog: Catalog;
     private entries;
     private docache;
     private cache;
     private seen;
     constructor(options?: SekretoOptions);
+    /** One chain entry, as a plugin instance.
+     *
+     * The instance is `kind` for a store named after its kind and
+     * `kind$store` otherwise - `hashicorp$prod` - so `host.list()` reads
+     * like the chain. A store name that is already taken gets a numbered
+     * tag from the host instead, because two providers MAY share a store
+     * name (a directed read walks both) and an instance ref may not. */
+    private declare;
     /** The secret, or a SekretoError if no provider has it. */
     get(name: Name): Promise<string>;
     /** The secret, or undefined if no provider has it. */
@@ -86,6 +117,22 @@ export declare class Sekreto {
     hasin(store: string, name: Name): Promise<boolean>;
     /** Every named secret at once. Missing ones are an error. */
     all(names: Name[]): Promise<Record<string, string>>;
+    /** What a Sekreto shows of itself when something prints it.
+     *
+     * `console.log(sekreto)` and `JSON.stringify(sekreto)` both reach
+     * `cache` and `seen`, which between them hold every value this chain
+     * has ever resolved — so one ordinary logging call writes every secret
+     * to the log. `private` is a compile-time fiction: at run time the
+     * fields are ordinary and enumerable.
+     *
+     * `JSON.stringify` is the one that bites hardest, because a structured
+     * logger serialises its whole context object without anyone writing a
+     * line about secrets: `logger.info({ secrets: sekreto }, 'ready')`.
+     *
+     * Both hooks are needed. `toJSON` covers `JSON.stringify` and
+     * everything built on it; the inspect symbol covers `console.log`,
+     * `util.inspect` and the REPL. Neither reaches a value. */
+    toJSON(): object;
     /** A description of each provider, in resolution order. */
     sources(): string[];
     /** The name of each store that can be named by `getfrom`, in resolution
@@ -98,6 +145,12 @@ export declare class Sekreto {
     redact(text: string): string;
     /** Drop cached values, so the next `get` asks the providers again. */
     refresh(): void;
+    /** Tear the chain down: every plugin instance is deactivated and
+     * unloaded, in reverse, releasing whatever a provider acquired at
+     * activation. Afterwards there is nothing to read from - `get` reports
+     * every secret unknown - and the cache is dropped, though `redact`
+     * still knows every value that was ever resolved. */
+    close(): void;
 }
 /** Make a Sekreto from options. */
 export declare function sekreto(options?: SekretoOptions): Sekreto;

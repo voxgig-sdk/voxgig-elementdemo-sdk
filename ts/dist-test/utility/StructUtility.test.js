@@ -213,6 +213,25 @@ const { equal, deepEqual } = node_assert_1.default;
         deepEqual(delprop(intarr0, 2), [2, 3, 7, 11]);
         deepEqual(delprop(intarr1, '2'), [2, 3, 7, 11]);
     });
+    // The struct.nullsem section: does a PRESENT key holding a JSON null
+    // read as "no value"? Opt-in per target (create-sdkgen ships it; an
+    // older project corpus may predate it - the skip below says so OUT
+    // LOUD rather than passing vacuously). All lanes run {null: false}:
+    // without the flag the runner rewrites every null to '__NULL__' and
+    // the section asserts nothing about null at all.
+    (0, node_test_1.test)('nullsem', async (t) => {
+        const nullsem = spec.nullsem;
+        if (null == nullsem) {
+            t.skip('corpus predates struct.nullsem - refresh .sdk/test/struct from create-sdkgen');
+            return;
+        }
+        const { getprop, getelem, getpath, haskey, keysof } = struct;
+        await runsetflags(nullsem.getprop, { null: false }, (vin) => undefined === vin.alt ? getprop(vin.val, vin.key) : getprop(vin.val, vin.key, vin.alt));
+        await runsetflags(nullsem.getelem, { null: false }, (vin) => undefined === vin.alt ? getelem(vin.val, vin.key) : getelem(vin.val, vin.key, vin.alt));
+        await runsetflags(nullsem.getpath, { null: false }, (vin) => undefined === vin.alt ? getpath(vin.store, vin.path) : getpath(vin.store, vin.path, vin.alt));
+        await runsetflags(nullsem.haskey, { null: false }, (vin) => haskey(vin.src, vin.key));
+        await runsetflags(nullsem.keysof, { null: false }, (vin) => keysof(vin));
+    });
     (0, node_test_1.test)('minor-haskey', async () => {
         await runsetflags(spec.minor.haskey, { null: false }, (vin) => struct.haskey(vin.src, vin.key));
     });
