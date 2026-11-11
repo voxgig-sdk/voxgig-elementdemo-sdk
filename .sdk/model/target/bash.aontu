@@ -1,8 +1,8 @@
 # Target: bash — the SDK as a sourceable Bash library.
 #
-# An entirely custom target, provided by this project's own sdkgen package
-# (ext/). Nothing in sdkgen knows the name `bash`: a target is just this
-# definition plus `src/cmp/bash/` plus `tm/bash/` in the same `.sdk`.
+# An entirely custom target, defined in this project's own `.sdk`. Nothing
+# in sdkgen knows the name `bash`: a target is just this definition plus
+# `src/cmp/bash/` plus `tm/bash/`, and `target add bash` registers it.
 #
 # The generated SDK is a library of shell functions (curl + jq) plus a thin
 # CLI. Entity operations are generated from the model by `Entity_bash`; the
@@ -17,8 +17,6 @@ main: kit: target: bash: {
 
   module: name: 'elementdemo'
 
-  base: '../ext/.sdk'
-  package: '@voxgig-sdk/sdkgen-elementdemo-ext'
 
   # Feature sources live at `feature/<name>.sh`, not under `src/feature/`,
   # so the neutral Feature component's src-layout copy does not apply. They

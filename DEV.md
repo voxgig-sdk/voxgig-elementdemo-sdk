@@ -1,9 +1,12 @@
 # Development notes
 
-- The generator lives in `.sdk/`; the customization content (the `bash`
-  target and the `elementcard` feature) lives in `ext/`, this repo's own
-  sdkgen package. Edit `ext/`, then `cd .sdk && npx voxgig-sdkgen package
-  add ../ext && npm run build && npm run generate`.
+- The generator lives in `.sdk/`, and so does the customization: the
+  `bash` target (`.sdk/model/target/bash.aontu`, `.sdk/src/cmp/bash/`,
+  `.sdk/tm/bash/`) and the `elementcard` feature
+  (`.sdk/model/feature/elementcard.aontu` and each target's feature folder
+  under `.sdk/tm/`). Edit them there, then `cd .sdk && npm run build && npm
+  run generate`. No package provides either name, so `target add bash` and
+  `feature add elementcard` register them and copy nothing.
 - `ts/ go/ py/ java/ bash/` are generated output. Never edit them.
 - `app/` is the standalone reference server (port 8902), independent of
   the SDKs. `cd app && npm run build && npm start`, then
@@ -54,10 +57,7 @@ themselves.
 
 ```bash
 cd .sdk && npx voxgig-sdkgen doctor
-npx voxgig-sdkgen package check ../ext
 ```
-
-`package check` expects no findings.
 
 `doctor` expects **1 additive** and exits zero:
 

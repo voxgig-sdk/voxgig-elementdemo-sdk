@@ -1,7 +1,7 @@
 # Feature: elementcard — render a result record as an ASCII periodic-table
 # tile.
 #
-# A CUSTOM feature, provided by this project's own sdkgen package (ext/).
+# A CUSTOM feature, defined in this project's own `.sdk`.
 # It is shape-triggered, not entity-bound: any single-record result carrying
 # `number`, `symbol`, `name` and `mass` gets a card, which is what lets the
 # language-neutral corpus cases in `.sdk/test/feature/elementcard.aon` drive
@@ -26,8 +26,6 @@ main: kit: feature: elementcard: {
   title: "ASCII periodic-table tile for element-shaped results"
   version: '0.1.0'
   active: true
-  base: '../ext/.sdk'
-  package: '@voxgig-sdk/sdkgen-elementdemo-ext'
   transport: 'none'
 
   config: {

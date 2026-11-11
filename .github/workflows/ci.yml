@@ -24,8 +24,8 @@ name: ci
 #   absent).
 #
 # PROJECT-SPECIFIC — this repo adds two more blocking jobs: `bash` (the
-# custom target from the ext/ sdkgen package) and `app` (the companion
-# reference server).
+# custom target defined in .sdk) and `app` (the companion reference
+# server).
 #
 # ADVISORY — marked continue-on-error until each has a green run here;
 # promote a job to blocking (drop continue-on-error) once it has passed.
@@ -127,8 +127,7 @@ jobs:
       - if: hashFiles('py/Makefile') != ''
         run: make -C py test
 
-  # Project-specific target from the ext/ sdkgen package: the custom Bash
-  # SDK. Fully offline; needs only bash, curl and jq, all preinstalled on
+  # Project-specific target defined in .sdk: the custom Bash SDK. Fully offline; needs only bash, curl and jq, all preinstalled on
   # the runner.
   bash:
     runs-on: ubuntu-latest
