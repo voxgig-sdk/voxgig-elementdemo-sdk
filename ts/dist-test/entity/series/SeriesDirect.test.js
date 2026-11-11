@@ -5,12 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = __importDefault(require("node:assert"));
+const live_runner_1 = require("../../live-runner");
 const __1 = require("../../..");
 const utility_1 = require("../../utility");
-// AFTER the imports on purpose: TypeScript hoists `import` above any
-// statement in the emitted CommonJS, so a loader placed above them would
-// run only after every imported module had already been evaluated - and
-// anything reading process.env at module scope would miss these values.
 (0, utility_1.loadEnvLocal)(__dirname + '/../../../.env.local');
 (0, node_test_1.describe)('SeriesDirect', async () => {
     // Per-test live pacing. Delay is read from sdk-test-control.json's
@@ -18,9 +15,6 @@ const utility_1 = require("../../utility");
     (0, node_test_1.afterEach)((0, utility_1.liveDelay)('ELEMENTDEMO_TEST_LIVE'));
     (0, node_test_1.test)('direct-exists', async () => {
         const sdk = new __1.ElementdemoSDK({
-            // Concrete base: a live construction must satisfy any server
-            // variables a templated base URL declares; overriding base with a
-            // literal (as the direct flow tests do) sidesteps the requirement.
             base: 'http://localhost:8080',
             system: { fetch: async () => ({}) }
         });
@@ -28,6 +22,10 @@ const utility_1 = require("../../utility");
         (0, node_assert_1.default)('function' === typeof sdk.prepare);
     });
     (0, node_test_1.test)('direct-load-series', async (t) => {
+        if (liveScenariosActive()) {
+            t.skip('Covered by live operation scenarios');
+            return;
+        }
         const setup = directSetup({ id: 'direct01' });
         if ((0, utility_1.maybeSkipControl)(t, 'direct', 'direct-load-series', setup.live))
             return;
@@ -40,16 +38,19 @@ const utility_1 = require("../../utility");
                 method: 'GET',
                 params: {},
             });
-            if (!listResult.ok) {
-                return; // skip: list call failed (likely synthetic IDs against live API)
+            if (!listResult.ok || listResult.status < 200 || listResult.status >= 300) {
+                return void (0, utility_1.liveMiss)(t, LIVE_STRICT, 'Live list discovery failed: ' + (0, utility_1.describeLive)(listResult));
             }
             const listArr = unwrapListData(listResult.data);
-            if (null == listArr || listArr.length === 0) {
-                return; // skip: no entities to load in live mode
+            if (null == listArr) {
+                return void (0, utility_1.liveMiss)(t, LIVE_STRICT, 'Live list discovery returned no list: ' + (0, utility_1.describeLive)(listResult));
             }
-            const candidateId = listArr[0]?.id ?? listArr[0]?.id;
+            if (0 === listArr.length) {
+                return void (0, utility_1.liveEmpty)(t, 'The account has no series record to load');
+            }
+            const candidateId = listArr[0]?.id;
             if (null == candidateId) {
-                return; // skip: list response shape does not expose load identifier
+                return void (0, utility_1.liveMiss)(t, LIVE_STRICT, 'Live load blocked: discovery returned no usable identity');
             }
             params.id = candidateId;
         }
@@ -63,17 +64,12 @@ const utility_1 = require("../../utility");
             query,
         });
         if (setup.live) {
-            // STRICT live mode: a non-2xx is a real failure - this project owns
-            // the server it points at, so there is nothing to be lenient about.
-            //
-            // What is NOT asserted here is the MOCK's own fixtures. `direct01`
-            // is a scripted id and `calls` records the mock transport; neither
-            // exists on a live run, so asserting them made strict mode mean
-            // "compare the live server against the mock's script" - a suite that
-            // could not pass against any real API, including this project's own.
-            (0, node_assert_1.default)(result.ok === true, 'live request failed: ' + result.status + ' ' + JSON.stringify(result.data));
-            (0, node_assert_1.default)(result.status >= 200 && result.status < 300);
-            (0, node_assert_1.default)(null != result.data);
+            if (!result.ok || result.status < 200 || result.status >= 300) {
+                return void (0, utility_1.liveMiss)(t, LIVE_STRICT, 'Live load failed: ' + (0, utility_1.describeLive)(result));
+            }
+            if (!(null != result.data)) {
+                return void (0, utility_1.liveMiss)(t, LIVE_STRICT, 'Live load returned no data: ' + (0, utility_1.describeLive)(result));
+            }
         }
         else {
             (0, node_assert_1.default)(result.ok === true);
@@ -86,6 +82,10 @@ const utility_1 = require("../../utility");
         }
     });
     (0, node_test_1.test)('direct-list-series', async (t) => {
+        if (liveScenariosActive()) {
+            t.skip('Covered by live operation scenarios');
+            return;
+        }
         const setup = directSetup([{ id: 'direct01' }, { id: 'direct02' }]);
         if ((0, utility_1.maybeSkipControl)(t, 'direct', 'direct-list-series', setup.live))
             return;
@@ -99,17 +99,12 @@ const utility_1 = require("../../utility");
             query,
         });
         if (setup.live) {
-            // STRICT live mode: a non-2xx is a real failure - this project owns
-            // the server it points at, so there is nothing to be lenient about.
-            //
-            // What is NOT asserted here is the MOCK's own fixtures. `direct01`
-            // is a scripted id and `calls` records the mock transport; neither
-            // exists on a live run, so asserting them made strict mode mean
-            // "compare the live server against the mock's script" - a suite that
-            // could not pass against any real API, including this project's own.
-            (0, node_assert_1.default)(result.ok === true, 'live request failed: ' + result.status + ' ' + JSON.stringify(result.data));
-            (0, node_assert_1.default)(result.status >= 200 && result.status < 300);
-            (0, node_assert_1.default)(null != result.data);
+            if (!result.ok || result.status < 200 || result.status >= 300) {
+                return void (0, utility_1.liveMiss)(t, LIVE_STRICT, 'Live list failed: ' + (0, utility_1.describeLive)(result));
+            }
+            if (!(Array.isArray(unwrapListData(result.data)))) {
+                return void (0, utility_1.liveMiss)(t, LIVE_STRICT, 'Live list returned no list: ' + (0, utility_1.describeLive)(result));
+            }
         }
         else {
             (0, node_assert_1.default)(result.ok === true);
@@ -123,6 +118,12 @@ const utility_1 = require("../../utility");
         }
     });
 });
+// main.kit.test.live.strict is true (the default is true): a live
+// request that fails, or a live test missing an input it needs,
+// fails the test.
+// An account with no record for a test to read skips it either way.
+const LIVE_STRICT = true;
+function liveScenariosActive() { return false && process.env.ELEMENTDEMO_TEST_LIVE === 'TRUE'; }
 function directSetup(mockres) {
     const calls = [];
     const env = (0, utility_1.envOverride)({
@@ -133,9 +134,10 @@ function directSetup(mockres) {
     });
     const live = 'TRUE' === env.ELEMENTDEMO_TEST_LIVE;
     if (live) {
+        const transport = (0, live_runner_1.createLiveTransport)();
         // Merged so the generated fields win: sdk-test-control.json's
         // test.client.options adds to the live client, it does not redirect it.
-        const client = new __1.ElementdemoSDK(Object.assign({}, (0, utility_1.liveClientOptions)(), {
+        const client = new __1.ElementdemoSDK(Object.assign({}, (0, utility_1.liveClientOptions)(), { system: { fetch: transport.fetch },
             apikey: env.ELEMENTDEMO_APIKEY,
             server: {
                 account_id: env.ELEMENTDEMO_SERVER_ACCOUNT_ID,
@@ -145,7 +147,7 @@ function directSetup(mockres) {
         if ('string' === typeof idmap && idmap.startsWith('{')) {
             idmap = JSON.parse(idmap);
         }
-        return { client, calls, live, idmap };
+        return { client, calls, live, idmap, transport };
     }
     const mockFetch = async (url, init) => {
         calls.push({ url, init });

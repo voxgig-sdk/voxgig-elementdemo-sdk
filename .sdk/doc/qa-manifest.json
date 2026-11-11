@@ -1,0 +1,34 @@
+{
+  "files": [
+    "SUMMARY.md"
+  ],
+  "config": ".sdk/doc/qa/vale.ini",
+  "routes": {},
+  "quoted": {
+    "SUMMARY.md": [
+      "A short-lived access token, sent as `Authorization: Bearer &lt;token&gt;`. Obtain one from POST /auth/token, which every client must be able to call again: the token expires after a fixed number of REQUESTS rather than after an interval, so `expires_in_requests` on the token response, not a clock, says when the next exchange is due.",
+      "CAS group designation.",
+      "Created",
+      "Display color used by the element card renderer.",
+      "Element identifier, the lowercase symbol.",
+      "Group identifier, g1 to g18.",
+      "Group number, 1 to 18.",
+      "Half-life, absent for stable isotopes.",
+      "Isotope identifier, symbol dash mass number.",
+      "Isotopic mass in daltons.",
+      "Natural abundance as a fraction, absent for synthetic isotopes.",
+      "No Content",
+      "OK",
+      "One-line description of the series.",
+      "Orbital block, one of s, p, d, f.",
+      "Parent element identifier.",
+      "Periodic table column, 1 to 18, absent for the f-block.",
+      "Series identifier.",
+      "Series name.",
+      "Standard atomic weight in daltons.",
+      "The Periodic Table API. Elements, isotopes, groups and series.",
+      "Trivial name, where one exists.",
+      "Year of discovery, absent for elements known since antiquity."
+    ]
+  }
+}

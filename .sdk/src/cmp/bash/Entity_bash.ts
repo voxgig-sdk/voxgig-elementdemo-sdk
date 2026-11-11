@@ -1,10 +1,11 @@
 // `bash`'s per-entity emitter, dispatched as `cmp/<t>/Entity_<t>`.
 //
 // One file per ACTIVE entity, one function per operation, generated from
-// the model's operation points: the path template, the named parameters
-// and their required flags, and the HTTP method all come from the point.
-// A point carrying `select.$action` is a non-CRUD action and becomes its
-// own <entity>_<action> function.
+// the model's operation points: the path template (`s`), the named
+// parameters and their required flags (`g.params`), and the HTTP method
+// (`m`) all come from the point. A point whose select (`q`) carries
+// `$action` is a non-CRUD action and becomes its own <entity>_<action>
+// function.
 //
 // Emitted content interpolates RESOLVED names (Content is verbatim; only
 // Copy/Fragment replace placeholders).
@@ -95,8 +96,8 @@ const Entity = cmp(function Entity(props: any) {
   each(entity.op || {}, (op: any) => {
     const points = op.points || []
 
-    const plain = points.filter((p: any) => null == (p.select || {})['$action'])
-    const actions = points.filter((p: any) => null != (p.select || {})['$action'])
+    const plain = points.filter((p: any) => null == (p.q || {})['$action'])
+    const actions = points.filter((p: any) => null != (p.q || {})['$action'])
 
     if (0 < plain.length) {
       const point = plain[0]
@@ -105,26 +106,26 @@ const Entity = cmp(function Entity(props: any) {
         label: entity.name + ' ' + op.name,
         entity: entity.name,
         op: op.name,
-        method: point.method,
+        method: point.m,
         segments: pointSegments(point),
-        params: each((point.args || {}).params || [])
-          .map((p: any) => ({ name: p.name, reqd: !!p.reqd })),
+        params: each((point.g || {}).params || [])
+          .map((p: any) => ({ name: p.n, reqd: !!p.r })),
         prefix,
       }))
     }
 
     for (const point of actions.sort((a: any, b: any) =>
-      String(a.select['$action']).localeCompare(String(b.select['$action'])))) {
-      const action = String(point.select['$action'])
+      String(a.q['$action']).localeCompare(String(b.q['$action'])))) {
+      const action = String(point.q['$action'])
       fns.push(opFunction({
         fname: prefix + entity.name + '_' + action,
         label: entity.name + ' ' + action + ' (action)',
         entity: entity.name,
         op: action,
-        method: point.method,
+        method: point.m,
         segments: pointSegments(point),
-        params: each((point.args || {}).params || [])
-          .map((p: any) => ({ name: p.name, reqd: !!p.reqd })),
+        params: each((point.g || {}).params || [])
+          .map((p: any) => ({ name: p.n, reqd: !!p.r })),
         prefix,
       }))
     }

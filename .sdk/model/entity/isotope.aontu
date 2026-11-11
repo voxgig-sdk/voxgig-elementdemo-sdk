@@ -1,0 +1,476 @@
+# Entity: isotope
+
+main: kit: entity: isotope: {
+
+  alias: field: {}
+
+  fields: {
+    abundance: {
+      fo: "float"
+      h: "Abundance"
+      n: "abundance"
+      r: false
+      sh: "Natural abundance as a fraction, absent for synthetic isotopes."
+      t: "`$NUMBER`"
+    }
+    element_id: {
+      h: "Element Id"
+      n: "element_id"
+      r: true
+      sh: "Parent element identifier."
+      t: "`$STRING`"
+    }
+    halflife: {
+      h: "Halflife"
+      n: "halflife"
+      r: false
+      sh: "Half-life, absent for stable isotopes."
+      t: "`$STRING`"
+    }
+    id: {
+      h: "Id"
+      n: "id"
+      r: true
+      sh: "Isotope identifier, symbol dash mass number."
+      t: "`$STRING`"
+    }
+    mass: {
+      fo: "float"
+      h: "Mass"
+      n: "mass"
+      r: true
+      sh: "Isotopic mass in daltons."
+      t: "`$NUMBER`"
+    }
+    mass_number: {
+      h: "Mass Number"
+      n: "mass_number"
+      r: true
+      sh: "Total protons and neutrons."
+      t: "`$INTEGER`"
+    }
+    mode: {
+      h: "Mode"
+      n: "mode"
+      r: false
+      sh: "Primary decay mode, absent for stable isotopes."
+      t: "`$STRING`"
+    }
+    name: {
+      h: "Name"
+      n: "name"
+      r: true
+      sh: "Isotope name."
+      t: "`$STRING`"
+    }
+    product: {
+      h: "Product"
+      n: "product"
+      r: false
+      sh: "Primary decay product isotope, absent for stable isotopes."
+      t: "`$STRING`"
+    }
+    stable: {
+      h: "Stable"
+      n: "stable"
+      r: true
+      sh: "True if the isotope is stable."
+      t: "`$BOOLEAN`"
+    }
+  }
+
+  id: {
+    field: "id"
+    name: "id"
+  }
+
+  name: "isotope"
+  op: {
+    create: {
+      name: "create"
+      points: [
+        {
+          bf: [
+            "steps"
+          ]
+          co: {
+            id: "POST /element/{element_id}/isotope/{isotope_id}/decay"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "element_id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+              {
+                k: "param"
+                n: "id"
+                or: "isotope_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "POST"
+          o: "/element/{element_id}/isotope/{isotope_id}/decay"
+          q: {
+            "$action": "decay"
+            exist: [
+              "element_id"
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              isotope_id: "id"
+            }
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+            {
+              lit: "decay"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+        {
+          bf: [
+            "abundance"
+            "element_id"
+            "halflife"
+            "id"
+            "mass"
+            "mass_number"
+            "mode"
+            "name"
+            "product"
+            "stable"
+          ]
+          co: {
+            id: "POST /element/{element_id}/isotope"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "element_id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "POST"
+          o: "/element/{element_id}/isotope"
+          q: {
+            exist: [
+              "element_id"
+            ]
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    list: {
+      name: "list"
+      points: [
+        {
+          co: {
+            id: "GET /element/{element_id}/isotope"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "element_id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "GET"
+          o: "/element/{element_id}/isotope"
+          q: {
+            exist: [
+              "element_id"
+            ]
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    load: {
+      name: "load"
+      points: [
+        {
+          co: {
+            id: "GET /element/{element_id}/isotope/{isotope_id}"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "element_id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+              {
+                k: "param"
+                n: "id"
+                or: "isotope_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "GET"
+          o: "/element/{element_id}/isotope/{isotope_id}"
+          q: {
+            exist: [
+              "element_id"
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              isotope_id: "id"
+            }
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    remove: {
+      name: "remove"
+      points: [
+        {
+          co: {
+            id: "DELETE /element/{element_id}/isotope/{isotope_id}"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "element_id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+              {
+                k: "param"
+                n: "id"
+                or: "isotope_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "DELETE"
+          o: "/element/{element_id}/isotope/{isotope_id}"
+          q: {
+            exist: [
+              "element_id"
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              isotope_id: "id"
+            }
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    update: {
+      name: "update"
+      points: [
+        {
+          bf: [
+            "abundance"
+            "element_id"
+            "halflife"
+            "id"
+            "mass"
+            "mass_number"
+            "mode"
+            "name"
+            "product"
+            "stable"
+          ]
+          co: {
+            id: "PUT /element/{element_id}/isotope/{isotope_id}"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "element_id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+              {
+                k: "param"
+                n: "id"
+                or: "isotope_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "PUT"
+          o: "/element/{element_id}/isotope/{isotope_id}"
+          q: {
+            exist: [
+              "element_id"
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              isotope_id: "id"
+            }
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "element_id"
+            }
+            {
+              lit: "isotope"
+            }
+            {
+              var: "id"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+  }
+
+
+  relations: ancestors: [
+    [path("$.main.kit.entity.element")]
+  ]
+
+}

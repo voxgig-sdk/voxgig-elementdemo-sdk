@@ -1,5 +1,5 @@
-// VENDORED: @voxgig/sekreto 0.2.0 (typescript/plugins/secretspec.ts)
-// Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/sekreto 0.3.0 (typescript/plugins/secretspec.ts)
+// Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 /* Copyright (c) 2025 Voxgig Ltd, MIT License */
 
@@ -7,15 +7,6 @@ import {
   ProviderSpec, Provider, SekretoError, envkey, nodemod, providerplugin,
 } from '../provider/support'
 
-/** SecretSpec — https://secretspec.dev
- *
- * A declaration plus a chain of its own backends: the same shape as
- * sekreto one level down. A project that has declared its secrets there
- * should not have to declare them again here, so this reads through the
- * `secretspec` CLI rather than reimplementing its resolution.
- *
- * SecretSpec audits every read and refuses without `--reason`; sekreto
- * sends `sekreto` unless configured otherwise. */
 export function secretspecprovider(options?: {
   command?: string
   file?: string
@@ -68,19 +59,6 @@ export function secretspecprovider(options?: {
   }
 }
 
-/** Does this SecretSpec failure mean "no such secret" rather than "I
- * could not answer"?
- *
- * SecretSpec says `Secret 'API_TOKEN' not found` for both a name it does
- * not declare and one declared with no value, and both are misses: this
- * store does not hold it, so the chain carries on.
- *
- * MATCHED ON THE WHOLE PHRASE, NOT ON "not found". SecretSpec also says
- * `Provider backend 'keyring' not found`, which is a store that could
- * not answer at all - and reading that as a miss is the worst failure
- * this library has, because the chain then falls through to a weaker
- * store without saying so. The key is required to appear, so the two
- * cannot be confused. */
 function secretspecmiss(why: string, key: string): boolean {
   return why.includes("Secret '" + key + "' not found")
 }

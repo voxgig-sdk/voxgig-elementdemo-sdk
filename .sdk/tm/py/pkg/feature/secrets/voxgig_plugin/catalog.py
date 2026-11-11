@@ -1,5 +1,5 @@
-# VENDORED: @voxgig/plugin 0.1.6 (python/voxgig_plugin/catalog.py)
-# Source: https://github.com/voxgig/plugin @ 8d8968afc0a2008fbd795b41ab166307d989f02a  [tag: sdk-20260904-1610-0]
+# VENDORED: @voxgig/plugin 0.2.0 (python/voxgig_plugin/catalog.py)
+# Source: https://github.com/voxgig/plugin @ caa404b2dfa206d77db6c2869e5b31c2a3202b2d  [tag: sdk-20261016-0845-0]
 # License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 """The definition catalog (section 10.1).
 

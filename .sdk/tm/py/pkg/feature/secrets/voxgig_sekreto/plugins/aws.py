@@ -1,5 +1,5 @@
 # VENDORED: @voxgig/sekreto 0.2.0 (python/voxgig_sekreto/plugins/aws.py)
-# Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+# Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 # License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 # The aws plugin: Secrets Manager and SSM Parameter Store, with requests
 # SigV4-signed in-tree (sigv4.py, beside this file). Needs HTTPS and
@@ -12,7 +12,7 @@ import os
 import time
 
 from ..addr import checkaddr
-from ..sekreto import SekretoError, awsparam, vaultref
+from ..sekreto import SekretoError, awsparam, vaultref, writejson
 from ..providers import Provider, providerplugin
 from .httpjson import fetchjson
 from .sigv4 import sigv4
@@ -56,7 +56,7 @@ def awscall(opts, service, target, payload):
     checkaddr(addr)
 
     url = addr.rstrip('/') + '/'
-    body = json.dumps(payload, separators=(',', ':'))
+    body = writejson(payload)
     headers = {
         'content-type': 'application/x-amz-json-1.1',
         'x-amz-target': target,

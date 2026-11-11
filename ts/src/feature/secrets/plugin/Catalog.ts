@@ -1,12 +1,6 @@
-// VENDORED: @voxgig/plugin 0.1.6 (typescript/src/Catalog.ts)
-// Source: https://github.com/voxgig/plugin @ 8d8968afc0a2008fbd795b41ab166307d989f02a  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/plugin 0.2.0 (typescript/src/Catalog.ts)
+// Source: https://github.com/voxgig/plugin @ caa404b2dfa206d77db6c2869e5b31c2a3202b2d  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
-/* The definition catalog (§10.1).
- *
- * A definition is registered once and may back many instances. Option
- * shapes are validated AT REGISTRATION, not when a document happens to
- * exercise a key — so a malformed shape fails once, and in the same
- * place everywhere (§9.4). */
 
 import { fail } from './Types'
 import { checkname } from './Ref'

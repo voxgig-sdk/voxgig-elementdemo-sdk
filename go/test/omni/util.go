@@ -1,13 +1,6 @@
-// VENDORED: @voxgig/omni sdk-20260904-1610-0 (go/util.go)
-// Source: https://github.com/voxgig/omni @ 8c3e1b573a8d35796f7fc45e3226b977023cabf7  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/omni sdk-20261016-0845-0 (go/util.go)
+// Source: https://github.com/voxgig/omni @ e9cb45a308a4da47ffdbc1b3149b9c59199190b2  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
-// Omni internal JSON utilities.
-//
-// This file is deliberately self-contained: the omni runner must be able to
-// test *any* library, including libraries that provide these same
-// operations, so it can never borrow them from the system under test.
-// Standard library only, by design.
-
 package omni
 
 import (
@@ -249,7 +242,6 @@ func DeepEqual(a any, b any) bool {
 	return reflect.DeepEqual(a, b)
 }
 
-// NumStr renders a number the same way in every port: 5.0 prints as 5.
 func NumStr(val float64) string {
 	if math.IsNaN(val) || math.IsInf(val, 0) {
 		return "null"
@@ -288,9 +280,11 @@ func Quote(val string) string {
 	return out.String()
 }
 
-// JsonStr is compact JSON text with map keys sorted, so that messages are
-// identical in every port regardless of local map ordering.
 func JsonStr(val any) string {
+	return jsonstrSeen(val, map[uintptr]bool{})
+}
+
+func jsonstrSeen(val any, seen map[uintptr]bool) string {
 	if IsAbsent(val) {
 		return "undefined"
 	}
@@ -315,14 +309,25 @@ func JsonStr(val any) string {
 	}
 
 	if list, is := val.([]any); is {
+		ptr := reflect.ValueOf(list).Pointer()
+		if seen[ptr] {
+			return Quote("[Circular]")
+		}
+		seen[ptr] = true
 		parts := make([]string, len(list))
 		for index, entry := range list {
-			parts[index] = JsonStr(entry)
+			parts[index] = jsonstrSeen(entry, seen)
 		}
+		delete(seen, ptr)
 		return "[" + strings.Join(parts, ",") + "]"
 	}
 
 	if amap, is := val.(map[string]any); is {
+		ptr := reflect.ValueOf(amap).Pointer()
+		if seen[ptr] {
+			return Quote("[Circular]")
+		}
+		seen[ptr] = true
 		keys := make([]string, 0, len(amap))
 		for key := range amap {
 			keys = append(keys, key)
@@ -330,8 +335,9 @@ func JsonStr(val any) string {
 		sort.Strings(keys)
 		parts := make([]string, len(keys))
 		for index, key := range keys {
-			parts[index] = Quote(key) + ":" + JsonStr(amap[key])
+			parts[index] = Quote(key) + ":" + jsonstrSeen(amap[key], seen)
 		}
+		delete(seen, ptr)
 		return "{" + strings.Join(parts, ",") + "}"
 	}
 

@@ -1679,7 +1679,11 @@
       "DEF": {
         "setup": {
           "a": {
-            "apikey": "APIKEY01"
+            "apikey": "APIKEY01",
+            "auth": {
+              "basic": false,
+              "prefix": ""
+            }
           }
         }
       },

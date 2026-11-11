@@ -6,7 +6,7 @@ The Golang SDK for the Elementdemo API — an entity-oriented client using stand
 
 It exposes the API as capitalised, semantic **Entities** — e.g. `client.Element(nil)` — each with the same small set of operations (`List`, `Load`, `Create`, `Update`, `Remove`) instead of raw URL paths and query strings. You call meaning, not endpoints, which keeps the cognitive load low.
 
-> Also generated from this model: `bash`, `java`, `py`, `rb`, `ts` — see
+> Other languages live alongside this one — see
 > the [top-level README](../README.md).
 
 
@@ -16,7 +16,7 @@ go get github.com/voxgig-sdk/voxgig-elementdemo-sdk/go@latest
 ```
 
 The Go module proxy resolves the version from the `go/vX.Y.Z` GitHub
-release tag — see [Releases](https://github.com/voxgig-sdk/voxgig-elementdemo-sdk/releases) for the available versions.
+release tag — see [Tags](https://github.com/voxgig-sdk/voxgig-elementdemo-sdk/tags) for the available versions.
 
 To vendor from a local checkout instead, clone this repo alongside your
 project and add a `replace` directive pointing at the checked-out
@@ -35,9 +35,10 @@ loading a specific record.
 ### Quickstart
 
 A complete program: create a client, then call the entity operations.
-Each operation returns `(value, error)` — the value is the data itself
-(there is no `{ok, data}` wrapper), so check `err` and use the value
-directly.
+Each operation returns `(value, error)` — the value is the entity, and for
+`List` a `[]any` of entities, one per record (there is no `{ok, data}`
+wrapper), so check `err` and read a record through the entity's
+`Data()`.
 
 ```go
 package main
@@ -56,42 +57,42 @@ func main() {
     },
     })
 
-    // List element records — the value is the array of records itself.
+    // List element records — the value is a []any of entities, one per record.
     elements, err := client.Element(nil).List(nil, nil)
     if err != nil {
         panic(err)
     }
     for _, item := range elements.([]any) {
-        fmt.Println(item)
+        fmt.Println(item.(sdk.Entity).Data())
     }
 
-    // Load a single element — the value is the loaded record.
+    // Load a single element — the value is the entity; Data() reads its record.
     element, err := client.Element(nil).Load(map[string]any{"id": "example_id"}, nil)
     if err != nil {
         panic(err)
     }
-    fmt.Println(element)
+    fmt.Println(element.(sdk.Entity).Data())
 
     // Create a element.
     created, err := client.Element(nil).Create(map[string]any{"block": "example_block", "id": "example_id", "mass": 1, "name": "example_name", "number": 1, "period": 1, "series_id": "example_series_id", "symbol": "example_symbol"}, nil)
     if err != nil {
         panic(err)
     }
-    fmt.Println(created)
+    fmt.Println(created.(sdk.Entity).Data())
 
     // Update a element.
-    updated, err := client.Element(nil).Update(map[string]any{"id": "example_id", "block": "example_block", "charge": 1}, nil)
+    updated, err := client.Element(nil).Update(map[string]any{"id": "example_id", "block": "example_block", "discovered": 1}, nil)
     if err != nil {
         panic(err)
     }
-    fmt.Println(updated)
+    fmt.Println(updated.(sdk.Entity).Data())
 
     // Remove a element.
     removed, err := client.Element(nil).Remove(map[string]any{"id": "example_id"}, nil)
     if err != nil {
         panic(err)
     }
-    fmt.Println(removed)
+    fmt.Println(removed.(sdk.Entity).Data())
 }
 ```
 
@@ -102,12 +103,12 @@ Every entity operation returns `(value, error)`. Check `err` before
 using the value — there is no exception to catch:
 
 ```go
-isotopes, err := client.Isotope(nil).List(nil, nil)
+seriess, err := client.Series(nil).List(nil, nil)
 if err != nil {
     // handle err
     return
 }
-_ = isotopes
+_ = seriess
 ```
 
 `Direct` follows the same `(value, error)` convention:
@@ -171,13 +172,16 @@ Create a mock client for unit testing — no server required:
 ```go
 client := sdk.Test()
 
-isotope, err := client.Isotope(nil).List(
+seriess, err := client.Series(nil).List(
     nil, nil,
 )
 if err != nil {
     panic(err)
 }
-fmt.Println(isotope) // the returned mock data
+// A []any of entities, one per mock record.
+for _, item := range seriess.([]any) {
+    fmt.Println(item.(sdk.Entity).Data())
+}
 ```
 
 ### Use a custom fetch function
@@ -256,22 +260,22 @@ Creates a test-mode client with mock transport. Both arguments may be `nil`.
 | `GetUtility` | `() *Utility` | Copy of the SDK utility object. |
 | `Prepare` | `(fetchargs map[string]any) (map[string]any, error)` | Build an HTTP request definition without sending. |
 | `Direct` | `(fetchargs map[string]any) (map[string]any, error)` | Build and send an HTTP request. |
-| `Element` | `(data map[string]any) ElementdemoEntity` | Create an Element entity instance. |
-| `Group` | `(data map[string]any) ElementdemoEntity` | Create a Group entity instance. |
-| `Isotope` | `(data map[string]any) ElementdemoEntity` | Create an Isotope entity instance. |
-| `Series` | `(data map[string]any) ElementdemoEntity` | Create a Series entity instance. |
+| `Element` | `(data map[string]any) ElementdemoEntityBase` | Create an Element entity instance. |
+| `Group` | `(data map[string]any) ElementdemoEntityBase` | Create a Group entity instance. |
+| `Isotope` | `(data map[string]any) ElementdemoEntityBase` | Create an Isotope entity instance. |
+| `Series` | `(data map[string]any) ElementdemoEntityBase` | Create a Series entity instance. |
 
-### Entity interface (ElementdemoEntity)
+### Entity interface (ElementdemoEntityBase)
 
-All entities implement the `ElementdemoEntity` interface.
+All entities implement the `ElementdemoEntityBase` interface.
 
 | Method | Signature | Description |
 | --- | --- | --- |
-| `Load` | `(reqmatch, ctrl map[string]any) (any, error)` | Load a single entity by match criteria. |
-| `List` | `(reqmatch, ctrl map[string]any) (any, error)` | List entities matching the criteria. |
-| `Create` | `(reqdata, ctrl map[string]any) (any, error)` | Create a new entity. |
-| `Update` | `(reqdata, ctrl map[string]any) (any, error)` | Update an existing entity. |
-| `Remove` | `(reqmatch, ctrl map[string]any) (any, error)` | Remove an entity. |
+| `Load` | `(reqmatch, ctrl map[string]any) (any, error)` | Load a single entity by match criteria, and return it. |
+| `List` | `(reqmatch, ctrl map[string]any) (any, error)` | List entities matching the criteria, one per record. |
+| `Create` | `(reqdata, ctrl map[string]any) (any, error)` | Create a new entity, and return it. |
+| `Update` | `(reqdata, ctrl map[string]any) (any, error)` | Update an existing entity, and return it. |
+| `Remove` | `(reqmatch, ctrl map[string]any) (any, error)` | Remove an entity, and return it marked as deleted. |
 | `Data` | `(args ...any) any` | Get or set entity data. |
 | `Match` | `(args ...any) any` | Get or set entity match criteria. |
 | `Make` | `() Entity` | Create a new instance with the same options. |
@@ -279,21 +283,21 @@ All entities implement the `ElementdemoEntity` interface.
 
 ### Result shape
 
-Entity operations return `(value, error)`. The `value` is the
-operation's data **directly** — there is no wrapper:
+Entity operations return `(value, error)`. The `value` is the entity
+itself — there is no wrapper:
 
 | Operation | `value` |
 | --- | --- |
-| `Load` / `Create` / `Update` / `Remove` | the entity record (`map[string]any`) |
-| `List` | a `[]any` of entity records |
+| `Load` / `Create` / `Update` / `Remove` | the entity, whose `Data()` reads its record (`map[string]any`) |
+| `List` | a `[]any` of entities, one per record |
 
 Check `err` first, then use the value directly (or the typed
 `...Typed` variants, which return the entity's model struct and a typed
 slice):
 
-    element, err := client.Element(nil).List(map[string]any{/* fields */}, nil)
+    element, err := client.Element(nil).List(nil, nil)
     if err != nil { /* handle */ }
-    // element is the returned record
+    // element is a []any of entities, one per record
 
 Only `Direct()` returns a response envelope — a `map[string]any` with
 `"ok"`, `"status"`, `"headers"`, and `"data"` keys.
@@ -305,15 +309,12 @@ Only `Direct()` returns a response envelope — a `map[string]any` with
 | Field | Description |
 | --- | --- |
 | `"block"` | Orbital block, one of s, p, d, f. |
-| `"charge"` |  |
 | `"discovered"` | Year of discovery, absent for elements known since antiquity. |
 | `"group"` | Periodic table column, 1 to 18, absent for the f-block. |
 | `"id"` | Element identifier, the lowercase symbol. |
-| `"ion"` |  |
 | `"mass"` | Standard atomic weight in daltons. |
 | `"name"` | Element name. |
 | `"number"` | Atomic number. |
-| `"ok"` |  |
 | `"period"` | Periodic table row, 1 to 7. |
 | `"phase"` | Phase at standard temperature and pressure. |
 | `"series_id"` | Chemical series this element belongs to. |
@@ -348,10 +349,8 @@ API path: `/group`
 | `"mass_number"` | Total protons and neutrons. |
 | `"mode"` | Primary decay mode, absent for stable isotopes. |
 | `"name"` | Isotope name. |
-| `"ok"` |  |
 | `"product"` | Primary decay product isotope, absent for stable isotopes. |
 | `"stable"` | True if the isotope is stable. |
-| `"steps"` |  |
 
 Operations: Create, List, Load, Remove, Update.
 
@@ -394,15 +393,12 @@ Create an instance: `element := client.Element(nil)`
 | Field | Type | Description |
 | --- | --- | --- |
 | `block` | `string` | Orbital block, one of s, p, d, f. |
-| `charge` | `int` |  |
 | `discovered` | `int` | Year of discovery, absent for elements known since antiquity. |
 | `group` | `int` | Periodic table column, 1 to 18, absent for the f-block. |
 | `id` | `string` | Element identifier, the lowercase symbol. |
-| `ion` | `string` |  |
 | `mass` | `float64` | Standard atomic weight in daltons. |
 | `name` | `string` | Element name. |
 | `number` | `int` | Atomic number. |
-| `ok` | `bool` |  |
 | `period` | `int` | Periodic table row, 1 to 7. |
 | `phase` | `string` | Phase at standard temperature and pressure. |
 | `series_id` | `string` | Chemical series this element belongs to. |
@@ -415,7 +411,7 @@ element, err := client.Element(nil).Load(map[string]any{"id": "element_id"}, nil
 if err != nil {
     panic(err)
 }
-fmt.Println(element) // the loaded record
+fmt.Println(element.(sdk.Entity).Data()) // the loaded entity's record
 ```
 
 #### Example: List
@@ -425,7 +421,10 @@ elements, err := client.Element(nil).List(nil, nil)
 if err != nil {
     panic(err)
 }
-fmt.Println(elements) // the array of records
+// A []any of entities, one per record.
+for _, item := range elements.([]any) {
+    fmt.Println(item.(sdk.Entity).Data())
+}
 ```
 
 #### Example: Create
@@ -444,7 +443,7 @@ result, err := client.Element(nil).Create(map[string]any{
 if err != nil {
     panic(err)
 }
-fmt.Println(result)
+fmt.Println(result.(sdk.Entity).Data()) // the created entity's record
 ```
 
 
@@ -475,7 +474,7 @@ group, err := client.Group(nil).Load(map[string]any{"id": "group_id"}, nil)
 if err != nil {
     panic(err)
 }
-fmt.Println(group) // the loaded record
+fmt.Println(group.(sdk.Entity).Data()) // the loaded entity's record
 ```
 
 #### Example: List
@@ -485,7 +484,10 @@ groups, err := client.Group(nil).List(nil, nil)
 if err != nil {
     panic(err)
 }
-fmt.Println(groups) // the array of records
+// A []any of entities, one per record.
+for _, item := range groups.([]any) {
+    fmt.Println(item.(sdk.Entity).Data())
+}
 ```
 
 
@@ -515,10 +517,8 @@ Create an instance: `isotope := client.Isotope(nil)`
 | `mass_number` | `int` | Total protons and neutrons. |
 | `mode` | `string` | Primary decay mode, absent for stable isotopes. |
 | `name` | `string` | Isotope name. |
-| `ok` | `bool` |  |
 | `product` | `string` | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | `bool` | True if the isotope is stable. |
-| `steps` | `int` |  |
 
 #### Example: Load
 
@@ -527,17 +527,20 @@ isotope, err := client.Isotope(nil).Load(map[string]any{"id": "isotope_id", "ele
 if err != nil {
     panic(err)
 }
-fmt.Println(isotope) // the loaded record
+fmt.Println(isotope.(sdk.Entity).Data()) // the loaded entity's record
 ```
 
 #### Example: List
 
 ```go
-isotopes, err := client.Isotope(nil).List(nil, nil)
+isotopes, err := client.Isotope(nil).List(map[string]any{"element_id": "example"}, nil)
 if err != nil {
     panic(err)
 }
-fmt.Println(isotopes) // the array of records
+// A []any of entities, one per record.
+for _, item := range isotopes.([]any) {
+    fmt.Println(item.(sdk.Entity).Data())
+}
 ```
 
 #### Example: Create
@@ -554,7 +557,7 @@ result, err := client.Isotope(nil).Create(map[string]any{
 if err != nil {
     panic(err)
 }
-fmt.Println(result)
+fmt.Println(result.(sdk.Entity).Data()) // the created entity's record
 ```
 
 
@@ -585,7 +588,7 @@ series, err := client.Series(nil).Load(map[string]any{"id": "series_id"}, nil)
 if err != nil {
     panic(err)
 }
-fmt.Println(series) // the loaded record
+fmt.Println(series.(sdk.Entity).Data()) // the loaded entity's record
 ```
 
 #### Example: List
@@ -595,12 +598,15 @@ seriess, err := client.Series(nil).List(nil, nil)
 if err != nil {
     panic(err)
 }
-fmt.Println(seriess) // the array of records
+// A []any of entities, one per record.
+for _, item := range seriess.([]any) {
+    fmt.Println(item.(sdk.Entity).Data())
+}
 ```
 
 ## Features
 
-This SDK ships 5 optional features. Each is **inactive until you
+This SDK ships 10 optional features. Each is **inactive until you
 switch it on**, so an SDK you have not configured behaves exactly as if none of
 them existed — no retries, no cache, no logging, no measurable overhead.
 
@@ -609,16 +615,33 @@ above:
 
 | Feature | What it does |
 |---|---|
+| [`debug`](#debug) | Debug capture |
 | [`elementcard`](#elementcard) | ASCII periodic-table tile for element-shaped results |
-| [`retry`](#retry) | Automatic retry of transient failures with exponential backoff |
-| [`secrets`](#secrets) | Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens |
-| [`test`](#test) | In-memory mock transport for testing without a live server |
-| [`timeout`](#timeout) | Per-request timeout with transport abort |
+| [`idempotency`](#idempotency) | Idempotency |
+| [`metrics`](#metrics) | Metrics |
+| [`paging`](#paging) | Paging |
+| [`ratelimit`](#ratelimit) | Rate limiting |
+| [`retry`](#retry) | Retry |
+| [`secrets`](#secrets) | Secrets |
+| [`test`](#test) | Test transport |
+| [`timeout`](#timeout) | Timeout |
 
-> **Order matters for `retry`, `secrets`, `timeout`.** These wrap the
+> **Order matters for `ratelimit`, `retry`, `secrets`, `timeout`.** These wrap the
 > transport, so each one wraps whatever is already installed: the order you
 > activate them in IS the nesting order. Activating them as an ordered list
 > rather than a map is what fixes that order.
+
+### debug
+
+Debug capture.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `max` | `100` |
+| `redact` | `['authorization', 'cookie', 'set-cookie', 'api-key', 'apikey', 'x-api-key', 'idempotency-key']` |
+
+Set `feature.debug.active` to enable it, then override any of the options above.
 
 ### elementcard
 
@@ -631,9 +654,64 @@ ASCII periodic-table tile for element-shaped results.
 
 Set `feature.elementcard.active` to enable it, then override any of the options above.
 
+### idempotency
+
+Idempotency.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `header` | `'Idempotency-Key'` |
+| `methods` | `['POST', 'PUT', 'PATCH', 'DELETE']` |
+| `ops` | `['create', 'update', 'remove']` |
+
+Set `feature.idempotency.active` to enable it, then override any of the options above.
+
+### metrics
+
+Metrics.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+
+Set `feature.metrics.active` to enable it, then override any of the options above.
+
+### paging
+
+Paging.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `afterVar` | `'after'` |
+| `cursorParam` | `'cursor'` |
+| `firstVar` | `'first'` |
+| `limitParam` | `'limit'` |
+| `pageParam` | `'page'` |
+| `startPage` | `1` |
+
+Set `feature.paging.active` to enable it, then override any of the options above.
+
+### ratelimit
+
+Rate limiting.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `burst` | `5` |
+| `rate` | `5` |
+
+Set `feature.ratelimit.active` to enable it, then override any of the options above.
+
+`ratelimit` wraps the transport, so its position among the other
+transport features decides what it sees. A feature activated later wraps one
+activated earlier.
+
 ### retry
 
-Automatic retry of transient failures with exponential backoff.
+Retry.
 
 | Option | Default |
 |---|---|
@@ -652,7 +730,7 @@ activated earlier.
 
 ### secrets
 
-Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens.
+Secrets.
 
 | Option | Default |
 |---|---|
@@ -670,7 +748,7 @@ activated earlier.
 
 ### test
 
-In-memory mock transport for testing without a live server.
+Test transport.
 
 | Option | Default |
 |---|---|
@@ -680,7 +758,7 @@ Set `feature.test.active` to enable it, then override any of the options above.
 
 ### timeout
 
-Per-request timeout with transport abort.
+Timeout.
 
 | Option | Default |
 |---|---|
@@ -732,11 +810,16 @@ stage names.
 
 The SDK ships with built-in features:
 
+- **DebugFeature**: Debug capture
 - **ElementcardFeature**: ASCII periodic-table tile for element-shaped results
-- **RetryFeature**: Automatic retry of transient failures with exponential backoff
-- **SecretsFeature**: Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens
-- **TestFeature**: In-memory mock transport for testing without a live server
-- **TimeoutFeature**: Per-request timeout with transport abort
+- **IdempotencyFeature**: Idempotency
+- **MetricsFeature**: Metrics
+- **PagingFeature**: Paging
+- **RatelimitFeature**: Rate limiting
+- **RetryFeature**: Retry
+- **SecretsFeature**: Secrets
+- **TestFeature**: Test transport
+- **TimeoutFeature**: Timeout
 
 Features are initialized in order. Hooks fire in the order features
 were added, so later features can override earlier ones.
@@ -747,7 +830,9 @@ The Go SDK uses `map[string]any` throughout rather than typed structs.
 This mirrors the dynamic nature of the API and keeps the SDK
 flexible — no code generation is needed when the API schema changes.
 
-Use `core.ToMapAny()` to safely cast results and nested data.
+An operation returns the entity, and its `Data()` returns the record. Use
+`core.ToMapAny()` to safely cast that record, or data nested in it, to
+`map[string]any`: it returns `nil` for anything else, an entity included.
 
 ### Package structure
 
@@ -771,11 +856,11 @@ Entity instances are stateful. After a successful `List`, the entity
 stores the returned data and match criteria internally.
 
 ```go
-isotope := client.Isotope(nil)
-isotope.List(nil, nil)
+series := client.Series(nil)
+series.List(nil, nil)
 
-// isotope.Data() now returns the isotope data from the last list
-// isotope.Match() returns the last match criteria
+// series.Data() now returns the series data from the last list
+// series.Match() returns the last match criteria
 ```
 
 Call `Make()` to create a fresh instance with the same configuration

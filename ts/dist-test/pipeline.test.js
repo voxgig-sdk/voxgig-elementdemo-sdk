@@ -1,10 +1,4 @@
 "use strict";
-// Direct unit tests for the operation-pipeline utilities. The generated
-// entity tests exercise the happy path; these drive the error and edge
-// branches (missing spec/response/result, 4xx handling, transport
-// failures, feature ordering, auth header shaping) that a normal
-// success-path op never reaches. All utilities are reached through
-// `stdutil`, so this suite is API-agnostic.
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
@@ -65,9 +59,34 @@ function utilWith(fetcher) {
         const preset = { method: 'GET' };
         (0, node_assert_1.strictEqual)(__1.stdutil.makePoint(base({ out: { point: preset } })), preset);
     });
+    (0, node_test_1.test)('an allow list names whole operations, in any case', () => {
+        const point = { method: 'GET', parts: ['a'] };
+        const op = { name: 'load', points: [point] };
+        (0, node_assert_1.strictEqual)(__1.stdutil.makePoint(base({ op, options: { allow: { op: 'reload,unload' } } })).code, 'point_op_allow');
+        (0, node_assert_1.strictEqual)(__1.stdutil.makePoint(base({ op, options: { allow: { op: 'list, LOAD' } } })), point);
+    });
+    (0, node_test_1.test)('an allow list names whole methods', () => {
+        const ctx = base({
+            op: { name: 'update', points: [] },
+            point: { method: 'pu', parts: ['a'] },
+            options: { allow: { method: 'GET,PUT' }, base: 'http://x' },
+        });
+        (0, node_assert_1.strictEqual)(__1.stdutil.makeSpec(ctx).code, 'spec_method_allow');
+    });
     (0, node_test_1.test)('makeSpec short-circuits a feature-supplied spec', () => {
         const preset = { method: 'GET' };
         (0, node_assert_1.strictEqual)(__1.stdutil.makeSpec(base({ out: { spec: preset } })), preset);
+    });
+});
+(0, node_test_1.describe)('pipeline:direct', () => {
+    (0, node_test_1.test)('direct and graphql answer a method allow.method refuses with a result map', async () => {
+        const sdk = __1.ElementdemoSDK.test({}, { allow: { method: 'GET' } });
+        const direct = await sdk.direct({ path: '/a', method: 'POST' });
+        (0, node_assert_1.strictEqual)(direct.ok, false);
+        (0, node_assert_1.strictEqual)(direct.err.code, 'spec_method_allow');
+        const graphql = await sdk.graphql('{ a }');
+        (0, node_assert_1.strictEqual)(graphql.ok, false);
+        (0, node_assert_1.strictEqual)(graphql.err.code, 'spec_method_allow');
     });
 });
 (0, node_test_1.describe)('pipeline:makeResponse', () => {
@@ -264,38 +283,154 @@ function utilWith(fetcher) {
         (0, node_assert_1.strictEqual)(o.__derived__.featureorder.join(','), 'cache,retry');
     });
 });
+(0, node_test_1.describe)('pipeline:makeOptions', () => {
+    (0, node_test_1.test)('clients built from one options object keep its maps and see its edits', () => {
+        const probe = { x: 1 };
+        const testopts = { active: true };
+        const options = { entity: { probe }, feature: { test: testopts } };
+        const first = new __1.ElementdemoSDK(options);
+        (0, node_assert_1.strictEqual)(options.entity.probe, probe);
+        (0, node_assert_1.strictEqual)(options.feature.test, testopts);
+        probe.x = 2;
+        const second = new __1.ElementdemoSDK(options);
+        (0, node_assert_1.strictEqual)(second.options().entity.probe.x, 2);
+        (0, node_assert_1.strictEqual)(first.options().entity.probe.x, 1);
+    });
+    (0, node_test_1.test)('a config option does not reach the caller\'s maps', () => {
+        const options = { entity: { probe: { x: 1 } } };
+        const ctx = { utility: __1.stdutil, options, config: { options: { entity: { probe: { y: 5 } } } } };
+        const o = __1.stdutil.makeOptions(ctx);
+        (0, node_assert_1.strictEqual)(o.entity.probe.x, 1);
+        (0, node_assert_1.strictEqual)(o.entity.probe.y, 5);
+        (0, node_assert_1.deepStrictEqual)(options, { entity: { probe: { x: 1 } } });
+    });
+});
+// A cookie credential as prepareAuth writes it: `<scheme>=K` for the probe
+// key, with no scheme prefix and nothing else in the bag.
+const COOKIE_PAIR = /^[^=;]+=K$/;
 (0, node_test_1.describe)('pipeline:prepareAuth', () => {
-    // Fake client so the exact options.auth / apikey shape is controlled.
-    function authCtx(options, headers) {
-        return base({ client: { options: () => options }, spec: headers == null ? null : { headers } });
+    function authCtx(options, spec) {
+        return base({ client: { options: () => options }, spec });
+    }
+    function bags() {
+        return { headers: {}, query: {} };
+    }
+    // `basic: false` is explicit: an HTTP Basic API's generated config carries
+    // `auth.basic: true`, and a client that merges it in takes the Basic
+    // branch, which base64-joins the key with a password rather than placing
+    // the key as it is.
+    function auth(prefix) {
+        return { prefix, basic: false };
+    }
+    // Run prepareAuth with both containers present and see which one the
+    // generated utility writes to, and under what name. Null means this SDK
+    // places no credential at all — a public API — which the cases below then
+    // assert instead.
+    // `pair` is the `<scheme>=` lead-in of a COOKIE credential, which rides the
+    // header bag under the key `cookie` rather than taking a header of its own.
+    function probe(options) {
+        const ctx = authCtx(options, bags());
+        __1.stdutil.prepareAuth(ctx);
+        for (const where of ['headers', 'query']) {
+            const name = Object.keys(ctx.spec[where])[0];
+            if (null == name)
+                continue;
+            const value = ctx.spec[where][name];
+            const pair = COOKIE_PAIR.test(String(value)) && 'cookie' === name && 'headers' === where
+                ? String(value).slice(0, -1)
+                : '';
+            return { where, name, value, pair };
+        }
+        return null;
+    }
+    const CRED = probe({ apikey: 'K', auth: auth('Bearer') });
+    // Every credential this SDK could possibly place: both credentials and
+    // Basic switched on, so whichever branch the API has, something lands
+    // unless the API is public.
+    const ANY = probe({ apikey: 'K', secret: 'S', auth: { prefix: 'Bearer', basic: true } });
+    function placed(options, seed) {
+        const spec = bags();
+        // Seed what prepareAuth would have written: CRED.pair is the `<scheme>=`
+        // lead-in for a cookie and '' for a header or query credential.
+        if (null != CRED && null != seed)
+            spec[CRED.where][CRED.name] = CRED.pair + seed;
+        const ctx = authCtx(options, spec);
+        __1.stdutil.prepareAuth(ctx);
+        return null == CRED ? undefined : ctx.spec[CRED.where][CRED.name];
     }
     (0, node_test_1.test)('guards a missing spec', () => {
-        (0, node_assert_1.strictEqual)(__1.stdutil.prepareAuth(authCtx({ auth: { prefix: '' }, apikey: 'K' }, null)).code, 'auth_no_spec');
+        (0, node_assert_1.strictEqual)(__1.stdutil.prepareAuth(authCtx({ auth: auth(''), apikey: 'K' }, null)).code, 'auth_no_spec');
     });
-    (0, node_test_1.test)('an apikey with a prefix is space-joined', () => {
-        const ctx = authCtx({ apikey: 'K', auth: { prefix: 'Bearer' } }, {});
-        __1.stdutil.prepareAuth(ctx);
-        (0, node_assert_1.strictEqual)(ctx.spec.headers.authorization, 'Bearer K');
+    // Without this the cases below cannot fail for an SDK whose credential the
+    // probe misses: every one of them takes the public-API path instead.
+    (0, node_test_1.test)('the probe finds the credential this SDK places', () => {
+        (0, node_assert_1.strictEqual)(null != CRED, null != ANY);
+    });
+    (0, node_test_1.test)('the apikey is placed where this API puts it', () => {
+        if (null == CRED) {
+            // A public API places nothing, and that is the whole assertion.
+            (0, node_assert_1.strictEqual)(placed({ apikey: 'K', auth: auth('Bearer') }), undefined);
+            return;
+        }
+        (0, node_assert_1.ok)('headers' === CRED.where || 'query' === CRED.where);
+        if ('' !== CRED.pair) {
+            // A cookie credential is a `<scheme>=<key>` pair, and the scheme name
+            // leaves no room for the option's prefix.
+            (0, node_assert_1.ok)(COOKIE_PAIR.test(String(CRED.value)), String(CRED.value));
+            return;
+        }
+        // A header credential is prefix-joined; a query credential is the raw
+        // key, because a query parameter has nowhere to put a scheme name.
+        (0, node_assert_1.strictEqual)(CRED.value, 'headers' === CRED.where ? 'Bearer K' : 'K');
     });
     (0, node_test_1.test)('a raw apikey (empty prefix) goes in as-is', () => {
-        const ctx = authCtx({ apikey: 'K', auth: { prefix: '' } }, {});
-        __1.stdutil.prepareAuth(ctx);
-        (0, node_assert_1.strictEqual)(ctx.spec.headers.authorization, 'K');
+        const raw = null == CRED ? undefined : CRED.pair + 'K';
+        (0, node_assert_1.strictEqual)(placed({ apikey: 'K', auth: auth('') }), raw);
     });
-    (0, node_test_1.test)('an empty apikey drops the header', () => {
-        const ctx = authCtx({ apikey: '', auth: { prefix: 'Bearer' } }, { authorization: 'stale' });
-        __1.stdutil.prepareAuth(ctx);
-        (0, node_assert_1.strictEqual)(ctx.spec.headers.authorization, undefined);
+    (0, node_test_1.test)('an empty apikey drops the credential', () => {
+        (0, node_assert_1.strictEqual)(placed({ apikey: '', auth: auth('Bearer') }, 'stale'), undefined);
     });
-    (0, node_test_1.test)('a public API (no auth block) drops the header', () => {
-        const ctx = authCtx({ apikey: 'K' }, { authorization: 'stale' });
-        __1.stdutil.prepareAuth(ctx);
-        (0, node_assert_1.strictEqual)(ctx.spec.headers.authorization, undefined);
+    (0, node_test_1.test)('a public API (no auth block) drops the credential', () => {
+        (0, node_assert_1.strictEqual)(placed({ apikey: 'K' }, 'stale'), undefined);
     });
-    (0, node_test_1.test)('a missing apikey option drops the header', () => {
-        const ctx = authCtx({ auth: { prefix: 'Bearer' } }, { authorization: 'stale' });
-        __1.stdutil.prepareAuth(ctx);
-        (0, node_assert_1.strictEqual)(ctx.spec.headers.authorization, undefined);
+    (0, node_test_1.test)('a missing apikey option drops the credential', () => {
+        (0, node_assert_1.strictEqual)(placed({ auth: auth('Bearer') }, 'stale'), undefined);
+    });
+    // HTTP Basic joins the key with a password, which may be empty (RFC 7617):
+    // Lob documents its key as the user with a blank password. An SDK for an
+    // API that is not HTTP Basic has no such branch, and the first placement
+    // below tells the two apart.
+    (0, node_test_1.test)('HTTP Basic sends the key with a blank password', () => {
+        if (null == CRED || 'headers' !== CRED.where || '' !== CRED.pair)
+            return;
+        const basic = { prefix: 'Basic', basic: true };
+        const b64 = (s) => Buffer.from(s).toString('base64');
+        if (placed({ apikey: 'K', secret: 'S', auth: basic }) !== 'Basic ' + b64('K:S'))
+            return;
+        (0, node_assert_1.strictEqual)(placed({ apikey: 'K', auth: basic }), 'Basic ' + b64('K:'));
+        (0, node_assert_1.strictEqual)(placed({ apikey: 'K', secret: '', auth: basic }), 'Basic ' + b64('K:'));
+        (0, node_assert_1.strictEqual)(placed({ apikey: '', secret: 'S', auth: basic }, 'stale'), undefined);
+    });
+});
+(0, node_test_1.describe)('pipeline:prepareQuery', () => {
+    // The generated config lists path parameters as args.params. A match field
+    // that fills the path must not be sent again as a query parameter, which a
+    // strict server rejects.
+    (0, node_test_1.test)('a path parameter stays out of the query', () => {
+        const point = { args: { params: [{ name: 'id', kind: 'param' }] } };
+        const ctx = base({ point, reqmatch: { id: 'i1', q: 'x' } });
+        (0, node_assert_1.deepStrictEqual)(__1.stdutil.prepareQuery(ctx), { q: 'x' });
+    });
+    (0, node_test_1.test)('an action is never a query parameter', () => {
+        const ctx = base({ point: { args: { params: [] } }, reqmatch: { $action: 'go', q: 'x' } });
+        (0, node_assert_1.deepStrictEqual)(__1.stdutil.prepareQuery(ctx), { q: 'x' });
+    });
+    // A query argument's orig is the name the API definition gives it, which
+    // the model may have renamed for the caller.
+    (0, node_test_1.test)('a query argument goes out under its orig', () => {
+        const point = { args: { query: [{ name: 'item_id', orig: 'itemIds', kind: 'query' }] } };
+        const ctx = base({ point, reqmatch: { item_id: ['i1'], q: 'x' } });
+        (0, node_assert_1.deepStrictEqual)(__1.stdutil.prepareQuery(ctx), { itemIds: ['i1'], q: 'x' });
     });
 });
 (0, node_test_1.describe)('pipeline:result helpers', () => {
@@ -308,6 +443,25 @@ function utilWith(fetcher) {
         const ctx = base({ response: { json: async () => ({ a: 1 }), body: null }, result: {} });
         await __1.stdutil.resultBody(ctx);
         (0, node_assert_1.strictEqual)(ctx.result.body, undefined);
+    });
+    // The agent and the body preview may carry a registered value; the body is
+    // cleaned before the bound so a split value cannot leave its prefix.
+    (0, node_test_1.test)('resultBody masks a registered value in the agent and across the preview bound', async () => {
+        const secret = 'PIPELINE-SECRET-a1b2c3d4e5f6';
+        const text = 'x'.repeat(150) + secret + 'y'.repeat(100);
+        const ctx = base({
+            options: { __derived__: { clean: { active: true, keys: [], values: [], mask: '[redacted]', hint: 0, min: 4 } } },
+            spec: { headers: { 'user-agent': 'Probe ' + secret } },
+            response: { body: 'body', json: async () => { throw Object.assign(new SyntaxError('bad json'), { text }); } },
+            result: { status: 200, headers: { 'content-type': 'text/html' } },
+        });
+        __1.stdutil.cleanAdd(ctx, secret);
+        await __1.stdutil.resultBody(ctx);
+        const message = String(ctx.result.err.message);
+        (0, node_assert_1.strictEqual)(ctx.result.err.code, 'response_content_type');
+        (0, node_assert_1.ok)(message.includes('user-agent Probe [redacted]'), message);
+        (0, node_assert_1.ok)(message.includes('body: ' + 'x'.repeat(150) + '[redacted]'), message);
+        (0, node_assert_1.ok)(!message.includes(secret.slice(0, 8)), message);
     });
 });
 //# sourceMappingURL=pipeline.test.js.map

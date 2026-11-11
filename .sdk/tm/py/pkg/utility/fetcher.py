@@ -2,99 +2,131 @@
 
 from __future__ import annotations
 import json
+import os
+import re
+import threading
+from http.cookiejar import DefaultCookiePolicy
 from projectname_sdk.utility.voxgig_struct import voxgig_struct as vs
+from projectname_sdk.core.error import ElementdemoError
 
 
 # Default User-Agent — many CDNs (notably Cloudflare) reject requests with
-# Python's default urllib UA ("Python-urllib/3.x"), returning 403 before
-# the request even reaches the origin. Set a Mozilla-shaped UA so the SDK
-# behaves like every other HTTP client by default. Users can still override
-# by passing a User-Agent header in fetchdef.
-_DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; ElementdemoSDK/1.0)"
+# a library's default UA, returning 403 before the request even reaches
+# the origin. The project's agent (main.kit.http.useragent) is browser-shaped
+# unless the model says otherwise. Users can still override by passing a
+# User-Agent header in fetchdef.
+_DEFAULT_USER_AGENT = "PROJECTUSERAGENT"
+
+
+_SESSION = None
+_SESSION_LOCK = threading.Lock()
+
+
+def _session():
+    # Pool connections without retaining response cookies between calls.
+    global _SESSION
+    if _SESSION is None:
+        import requests
+        with _SESSION_LOCK:
+            if _SESSION is None:
+                session = requests.Session()
+                session.max_redirects = 5
+                session.cookies.set_policy(DefaultCookiePolicy(allowed_domains=[]))
+                _SESSION = session
+    return _SESSION
+
+
+# Text as UTF-8, and bytes or a file object as they are.
+def _request_data(body):
+    if isinstance(body, str):
+        return body.encode("utf-8")
+    if isinstance(body, (bytearray, memoryview)):
+        return bytes(body)
+    if isinstance(body, bytes) or hasattr(body, "read"):
+        return body
+    return None
+
+
+_GETONLY_ENV = "VOXGIG_GETONLY_GUARD"
+
+
+# A GET-only live run refuses any other method before it is sent. The error
+# names the path alone: the query can carry a credential.
+def _getonly_refusal(fullurl, method):
+    method = str(method or "GET").upper()
+    if os.environ.get(_GETONLY_ENV) != "TRUE" or method == "GET":
+        return None
+    rest = fullurl
+    if "://" in rest:
+        rest = re.sub(r"^[^/?#]*", "", rest.split("://", 1)[1])
+    path = re.split(r"[?#]", rest, maxsplit=1)[0] or "/"
+    return ElementdemoError(
+        "fetch_getonly_block", "[GET-ONLY GUARD] blocked " + method + " " + path)
 
 
 def _default_http_fetch(fullurl, fetchdef):
-    import urllib.request
-    import urllib.error
-
     method = fetchdef.get("method", "GET")
-    body_str = fetchdef.get("body")
+    refused = _getonly_refusal(fullurl, method)
+    if refused is not None:
+        return None, refused
     headers = fetchdef.get("headers", {})
 
-    if not isinstance(body_str, str):
-        body_str = None
+    data = _request_data(fetchdef.get("body"))
 
-    data = body_str.encode("utf-8") if body_str is not None else None
-
-    req = urllib.request.Request(fullurl, data=data, method=method)
+    req_headers = {}
     has_ua = False
     for k, v in headers.items():
         if k.lower() == "user-agent":
             has_ua = True
-        req.add_header(k, v)
+        req_headers[k] = v
     if not has_ua:
-        req.add_header("User-Agent", _DEFAULT_USER_AGENT)
+        req_headers["User-Agent"] = _DEFAULT_USER_AGENT
+        headers["user-agent"] = _DEFAULT_USER_AGENT
 
     # Manual redirects: fetchdef["redirect"] == "manual" surfaces a 3xx as
-    # an ordinary response instead of auto-following it — urllib would
-    # otherwise replay the request, headers included, against whatever host
-    # Location names. Set by the station feature's transport middleware
-    # under an egress hosts policy (mirrors the ts fetch option).
-    opener = None
-    if fetchdef.get("redirect") == "manual":
-        class _NoRedirect(urllib.request.HTTPRedirectHandler):
-            def redirect_request(self, req, fp, code, msg, headers, newurl):
-                return None
-        opener = urllib.request.build_opener(_NoRedirect)
+    # an ordinary response instead of auto-following it, which would replay
+    # the request, headers included, against whatever host Location names.
+    # Set by the station feature's transport middleware under an egress
+    # hosts policy (mirrors the ts fetch option).
+    kwargs = {"allow_redirects": fetchdef.get("redirect") != "manual"}
+
+    proxy = fetchdef.get("proxy")
+    if isinstance(proxy, str) and proxy:
+        kwargs["proxies"] = {"http": proxy, "https": proxy}
+
+    timeout = fetchdef.get("timeout")
+    if isinstance(timeout, (int, float)) and timeout > 0:
+        kwargs["timeout"] = timeout
 
     try:
-        resp = opener.open(req) if opener is not None else urllib.request.urlopen(req)
-        body = resp.read().decode("utf-8")
-        resp_headers = {}
-        for k, v in resp.getheaders():
-            resp_headers[k.lower()] = v
-
-        json_body = None
-        if len(body) > 0:
-            try:
-                json_body = json.loads(body)
-            except Exception:
-                pass
-
-        status = resp.getcode()
-        status_text = "OK" if status < 400 else "Error"
-
-        return {
-            "status": status,
-            "statusText": status_text,
-            "headers": resp_headers,
-            "json": lambda: json_body,
-            "body": body,
-        }, None
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8")
-        resp_headers = {}
-        for k, v in e.headers.items():
-            resp_headers[k.lower()] = v
-
-        json_body = None
-        if len(body) > 0:
-            try:
-                json_body = json.loads(body)
-            except Exception:
-                pass
-
-        status_text = "OK" if e.code < 400 else "Error"
-
-        return {
-            "status": e.code,
-            "statusText": status_text,
-            "headers": resp_headers,
-            "json": lambda: json_body,
-            "body": body,
-        }, None
+        resp = _session().request(method, fullurl, data=data, headers=req_headers, **kwargs)
+        body = resp.content.decode("utf-8")
     except Exception as e:
         return None, str(e)
+
+    resp_headers = {}
+    for k, v in resp.headers.items():
+        resp_headers[k.lower()] = v
+
+    json_body = None
+    unreadable = False
+    if body.strip():
+        try:
+            json_body = json.loads(body)
+        except Exception:
+            unreadable = True
+
+    status = resp.status_code
+    status_text = resp.reason or ("OK" if status < 400 else "Error")
+
+    return {
+        "status": status,
+        "statusText": status_text,
+        "headers": resp_headers,
+        "json": lambda: json_body,
+        "body": body,
+        "unreadable": unreadable,
+    }, None
 
 
 def fetcher_util(ctx, fullurl, fetchdef):

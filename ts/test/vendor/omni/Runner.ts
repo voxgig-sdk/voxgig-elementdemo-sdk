@@ -1,13 +1,6 @@
-// VENDORED: @voxgig/omni 0.1.4 (typescript/src/Runner.ts)
-// Source: https://github.com/voxgig/omni @ 8c3e1b573a8d35796f7fc45e3226b977023cabf7  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/omni 0.1.5 (typescript/src/Runner.ts)
+// Source: https://github.com/voxgig/omni @ e9cb45a308a4da47ffdbc1b3149b9c59199190b2  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
-// Omni: the shared multi-language test runner.
-//
-// A test spec is plain JSON. The same spec file drives the same tests in
-// every language that ships an omni port, so behaviour is defined once and
-// verified everywhere.
-//
-// This file is CANONICAL. Every other port is a translation of it.
 
 import { readFileSync } from 'node:fs'
 
@@ -27,14 +20,11 @@ import {
   walk,
 } from './Util'
 
-// A test subject: the function under test.
 export type Subject = (...args: Json[]) => any
 
-// Run-time options for a set of test entries.
 export type Flags = {
   // Convert JSON nulls to the NULLMARK sentinel (default: true).
   null?: boolean
-  // Label used in failure messages (default: the runner name).
   name?: string
   [flag: string]: any
 }
@@ -42,13 +32,9 @@ export type Flags = {
 // The host of the system under test. Every hook is optional: a spec that
 // resolves its subjects explicitly needs no provider at all.
 export type Provider = {
-  // Resolve a test subject by name.
   subject?: (name: string) => Subject | undefined | null
-  // Build a sub-provider from a spec DEF.client entry's options.
   client?: (options: Json) => Provider | Promise<Provider>
-  // Wrap a map argument as a call context before it is passed in.
   contextify?: (val: Json) => Json
-  // Resolve references in client options against the runner store.
   inject?: (options: Json, store: Json) => Json
   // Build the `match.err` base from the raised error. See `errify`.
   errify?: (err: any) => Json
@@ -63,36 +49,31 @@ export type RunSetFlags = (
 ) => Promise<void>
 
 export type RunPack = {
-  // The resolved spec (the named section, or the whole file).
   spec: Json
-  // Run one set of test entries.
   runset: RunSet
-  // Run one set of test entries with flags.
   runsetflags: RunSetFlags
-  // The default subject, if the provider could resolve one.
   subject?: Subject
-  // The root provider.
   client?: Provider
 }
 
 export type Runner = (name?: string, store?: Json) => Promise<RunPack>
 
-// The newest spec format version this runner understands. A spec with no
-// OMNI block is version 0: the original, lenient format, frozen forever.
-// Version 1 turns on strict entry validation (see checkentry).
 export const SPECVERSION = 1
 
 // Capability strings this runner supports beyond the version baseline. A
 // spec's OMNI.requires list is checked against this: an unknown capability
 // refuses the spec loudly at load time, instead of a lagging port silently
-// mis-running it. (Empty today; future format features mint a string here.)
-export const CAPABILITIES: string[] = []
+// mis-running it. A spec turns each on only by requiring it.
+export const CAPABILITIES: string[] = ['ctxargs', 'fn', 'wait']
 
 // The complete set of fields an entry may carry. Under version 1 anything
 // else is an error: an unrecognised key is almost always a typo'd
 // assertion, and a typo'd assertion is a test that silently stopped
 // testing.
 const ENTRYFIELDS = ['in', 'args', 'ctx', 'out', 'err', 'match', 'client', 'id', 'doc']
+
+// Entry fields a capability adds, permitted only in a spec that requires it.
+const CAPFIELDS: Record<string, string> = { fn: 'fn', wait: 'wait' }
 
 // A test failure (or a malformed spec). Distinct from errors thrown by the
 // subject under test, which are candidates for an `err` expectation.
@@ -146,28 +127,49 @@ function resolveversion(alltests: Json): number {
   return meta.version
 }
 
+// The capabilities a spec requires, which resolveversion has already
+// checked against CAPABILITIES.
+function resolverequires(alltests: Json): string[] {
+  const meta = ismap(alltests) ? alltests.OMNI : undefined
+  return ismap(meta) && islist(meta.requires) ? meta.requires : []
+}
+
 // Strict entry validation, applied when the spec declares version 1 or
 // later. The lenient format converts each of these mistakes into a silent
 // pass or a dead field; here they fail with the entry named.
-function checkentry(flags: Flags, index: number, entry: Json): void {
+function checkentry(flags: Flags, index: number, entry: Json, requires: string[]): void {
   if (!ismap(entry)) {
     throw fail(flags, index, entry, 'entry is not a map')
   }
 
   for (const key of Object.keys(entry)) {
-    if (!ENTRYFIELDS.includes(key)) {
+    if (!ENTRYFIELDS.includes(key) && !(key in CAPFIELDS && requires.includes(CAPFIELDS[key]))) {
       throw fail(flags, index, entry, 'unknown entry field: ' + key)
     }
   }
 
-  let argsources = 0
-  for (const key of ['in', 'args', 'ctx']) {
-    if (undefined !== entry[key]) {
-      argsources++
+  if (requires.includes('ctxargs')) {
+    if (undefined !== entry.in && (undefined !== entry.args || undefined !== entry.ctx)) {
+      throw fail(flags, index, entry, 'entry has in beside args or ctx')
+    }
+  } else {
+    let argsources = 0
+    for (const key of ['in', 'args', 'ctx']) {
+      if (undefined !== entry[key]) {
+        argsources++
+      }
+    }
+    if (1 < argsources) {
+      throw fail(flags, index, entry, 'entry has more than one of in, args, ctx')
     }
   }
-  if (1 < argsources) {
-    throw fail(flags, index, entry, 'entry has more than one of in, args, ctx')
+
+  if (undefined !== entry.fn && ('string' !== typeof entry.fn || '' === entry.fn)) {
+    throw fail(flags, index, entry, 'entry fn is not a name')
+  }
+
+  if (undefined !== entry.wait && !iswait(entry.wait)) {
+    throw fail(flags, index, entry, 'entry wait has no cause')
   }
 
   if (null != entry.err && undefined !== entry.out) {
@@ -184,7 +186,7 @@ function checkentry(flags: Flags, index: number, entry: Json): void {
 // id: null) into a sentinel string and hide it from validation. A
 // malformed spec is a spec error, not a test result, so it fails before
 // any subject runs.
-function checkset(flags: Flags, testspec: Json, normalset: Json[]): void {
+function checkset(flags: Flags, testspec: Json, normalset: Json[], requires: string[]): void {
   const origset =
     ismap(testspec) && islist(testspec.set) ? testspec.set : normalset
 
@@ -193,7 +195,7 @@ function checkset(flags: Flags, testspec: Json, normalset: Json[]): void {
   }
 
   for (let index = 0; index < origset.length; index++) {
-    checkentry(flags, index, origset[index])
+    checkentry(flags, index, origset[index], requires)
   }
 }
 
@@ -261,7 +263,6 @@ function resolveflags(flags?: Flags): Flags {
   return out
 }
 
-// An entry with no `out` expects a null (or absent) result.
 function resolveentry(entry: Json, flags: Flags): Json {
   if (null == entry.out && flags.null) {
     entry.out = NULLMARK
@@ -272,9 +273,10 @@ function resolveentry(entry: Json, flags: Flags): Json {
 function resolvetestpack(
   name: string | undefined,
   entry: Json,
-  subject: Subject,
+  subject: Subject | undefined,
   provider: Provider,
   clients: Record<string, Provider>,
+  fnon: boolean,
 ) {
   const testpack = { client: provider, subject }
 
@@ -287,15 +289,31 @@ function resolvetestpack(
     testpack.subject = resolvesubject(name, client) || subject
   }
 
+  if (fnon && null != entry.fn) {
+    const fnsubject = resolvesubject(entry.fn, testpack.client)
+    if (null == fnsubject) {
+      throw new OmniError('omni: unknown fn: ' + entry.fn, entry)
+    }
+    testpack.subject = fnsubject
+  }
+
   return testpack
 }
 
 // Build the argument list for one entry: `ctx` (single context argument),
-// `args` (explicit list), or `in` (single value).
-function resolveargs(entry: Json, testpack: { client: Provider }, provider: Provider): Json[] {
+// `args` (explicit list), or `in` (single value). Under `ctxargs` an entry
+// with both passes the context first, then each argument.
+function resolveargs(
+  entry: Json,
+  testpack: { client: Provider },
+  provider: Provider,
+  ctxargs: boolean,
+): Json[] {
   let args: Json[]
 
-  if (undefined !== entry.ctx) {
+  if (ctxargs && undefined !== entry.ctx && undefined !== entry.args) {
+    args = [entry.ctx, ...entry.args]
+  } else if (undefined !== entry.ctx) {
     args = [entry.ctx]
   } else if (undefined !== entry.args) {
     args = entry.args
@@ -353,26 +371,6 @@ function fixjsonval(val: Json, donull: boolean): Json {
   return val
 }
 
-// The JSON form of an error: always at least {name,message}.
-//
-// A thrown value need not be an Error. Ports commonly rethrow an
-// error-SHAPED map ({name, message, ...}) - voxgig/sdkgen's generated
-// makeError rethrows the fixture's own error object verbatim - and
-// collapsing that to String(err) yields '[object Object]', which fails both
-// the `err` check and every `match.err.*` leaf. The struct repository's
-// original runner read `.message` regardless of the thrown value's class.
-// THE SPREAD IS THE CONTRACT, not an accident of JavaScript. An error's
-// OWN enumerable properties survive into the base, so a library whose
-// errors carry a `code` (or a `status`, or a `path`) can assert on it
-// with `match: {err: {code: 'x'}}` rather than pattern-matching prose.
-//
-// Only JavaScript gets that for free. A port whose subject reports
-// failure as a message string - rust, cpp, zig, ocaml, haskell - has
-// nothing to spread, and a port that builds `{name, message}` by hand
-// drops the fields even when it has them. `Provider.errify` is how those
-// ports reach the same place: it overrides this function entirely, so a
-// library supplies its own structured base and omni needs to know
-// nothing about the shape of it.
 function errify(err: any): Json {
   if (err instanceof Error) {
     return { ...err, name: err.name, message: err.message }
@@ -398,7 +396,6 @@ function errmessage(err: any): string {
       : String(err)
 }
 
-// The label of one entry, for failure messages.
 function entryref(flags: Flags, index: number, entry: Json): string {
   const label = flags.name || 'set'
   const id = null != entry && null != entry.id ? ' (' + entry.id + ')' : ''
@@ -424,7 +421,6 @@ function fail(
   return new OmniError(msg, entry)
 }
 
-// The spec-defined part of an entry (drop runner bookkeeping).
 function entrysummary(entry: Json): Json {
   if (!ismap(entry)) {
     return entry
@@ -528,14 +524,6 @@ function match(flags: Flags, index: number, entry: Json, check: Json, base: Json
     if (!isnode(val)) {
       const baseval = getpath(cbase, path)
 
-      // The sentinels are tested BEFORE the identity check below. Otherwise
-      // a subject returning the literal string "__UNDEF__" satisfies an
-      // assertion that the key is absent - two mutually exclusive states
-      // passing one check. A sentinel that accepts its own literal is not a
-      // sentinel. (NULLMARK still accepts NULLMARK: under the default null
-      // flag a real null has already been normalised to it, so the two are
-      // genuinely indistinguishable here - that one needs a raw-value
-      // escape, not an ordering change.)
 
       // Explicitly absent: satisfied only by a genuinely missing key, never
       // by a present null (the distinction the sentinels exist to keep).
@@ -546,7 +534,6 @@ function match(flags: Flags, index: number, entry: Json, check: Json, base: Json
         throw fail(flags, index, entry, 'expected absent at ' + at(path), 'absent', stringify(baseval))
       }
 
-      // Explicitly null: satisfied only by a present null.
       if (NULLMARK === val) {
         if (null === baseval || NULLMARK === baseval) {
           return val
@@ -554,7 +541,6 @@ function match(flags: Flags, index: number, entry: Json, check: Json, base: Json
         throw fail(flags, index, entry, 'expected null at ' + at(path), 'null', stringify(baseval))
       }
 
-      // Explicitly present: any present value, including null.
       if (EXISTSMARK === val) {
         if (undefined !== baseval) {
           return val
@@ -562,8 +548,6 @@ function match(flags: Flags, index: number, entry: Json, check: Json, base: Json
         throw fail(flags, index, entry, 'expected present at ' + at(path), 'present', 'absent')
       }
 
-      // Identical values match. This sits below the sentinel branches on
-      // purpose - see the note above.
       if (baseval === val) {
         return val
       }
@@ -634,10 +618,68 @@ function nullmodifier(val: Json, key: any, parent: Json) {
   }
 }
 
-// Make a runner for a spec file (or spec object) and a provider.
+function iswait(wait: Json): boolean {
+  return ismap(wait) && 'string' === typeof wait.cause && '' !== wait.cause
+}
+
+// The runner-side waits: entry id to its declaration. Each must name an
+// entry of the set, so a declaration cannot outlive the entry it held.
+function hasown(map: Record<string, Json>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(map, key)
+}
+
+function resolvewaits(flags: Flags, origset: Json[]): Record<string, Json> {
+  const waits = flags.wait
+  if (null == waits) {
+    return {}
+  }
+  if (!ismap(waits)) {
+    throw new OmniError('omni: ' + flags.name + ': wait flag is not a map')
+  }
+  const ids = origset.map((entry: Json) => (ismap(entry) ? entry.id : undefined))
+  for (const id of Object.keys(waits)) {
+    if (!ids.includes(id)) {
+      throw new OmniError('omni: ' + flags.name + ': wait names no entry: ' + id)
+    }
+    if (!iswait(waits[id])) {
+      throw new OmniError('omni: ' + flags.name + ': wait for ' + id + ' has no cause')
+    }
+  }
+  return waits
+}
+
+type TestPack = { client: Provider, subject: Subject }
+
+async function runentry(
+  flags: Flags,
+  index: number,
+  entry: Json,
+  testpack: TestPack,
+  provider: Provider,
+  ctxargs: boolean,
+): Promise<void> {
+  try {
+    const args = resolveargs(entry, testpack, provider, ctxargs)
+    let res = await testpack.subject(...args)
+    res = fixjson(res, flags)
+    entry.res = res
+
+    checkresult(flags, index, entry, args, res)
+  } catch (err: any) {
+    if (err instanceof OmniError) {
+      throw err
+    }
+    handleerror(flags, index, entry, err, provider)
+  }
+}
+
 async function makeRunner(specref: string | Json, provider?: Provider): Promise<Runner> {
   const alltests = loadspec(specref)
   const specversion = resolveversion(alltests)
+  const requires = resolverequires(alltests)
+  const ctxargs = requires.includes('ctxargs')
+  const fnon = requires.includes('fn')
+  const waiton = requires.includes('wait')
   const useprovider: Provider = provider || {}
 
   return async function runner(name?: string, store?: Json): Promise<RunPack> {
@@ -654,7 +696,7 @@ async function makeRunner(specref: string | Json, provider?: Provider): Promise<
       useflags.name = useflags.name || name || 'set'
 
       const subject = testsubject || defsubject
-      if (null == subject) {
+      if (null == subject && !fnon) {
         throw new OmniError('omni: no test subject for: ' + useflags.name)
       }
 
@@ -667,29 +709,71 @@ async function makeRunner(specref: string | Json, provider?: Provider): Promise<
       const testset: Json[] = testspecmap.set
 
       if (1 <= specversion) {
-        checkset(useflags, testspec, testset)
+        checkset(useflags, testspec, testset, requires)
       }
+
+      const origset = ismap(testspec) && islist(testspec.set) ? testspec.set : testset
+      const waits = resolvewaits(useflags, origset)
+      const failures: string[] = []
 
       for (let index = 0; index < testset.length; index++) {
         let entry = testset[index]
 
         try {
-          entry = resolveentry(entry, useflags)
+          let testpack: { client: Provider, subject: Subject | undefined } | undefined
+          let prestart: any = undefined
 
-          const testpack = resolvetestpack(name, entry, subject, useprovider, clients)
-          const args = resolveargs(entry, testpack, useprovider)
-
-          let res = await testpack.subject(...args)
-          res = fixjson(res, useflags)
-          entry.res = res
-
-          checkresult(useflags, index, entry, args, res)
-        } catch (err: any) {
-          if (err instanceof OmniError) {
-            throw err
+          // A hook's raw error before the subject starts is still the entry's.
+          try {
+            entry = resolveentry(entry, useflags)
+            testpack = resolvetestpack(name, entry, subject, useprovider, clients, fnon)
+          } catch (err: any) {
+            if (err instanceof OmniError) {
+              throw err
+            }
+            prestart = err
           }
-          handleerror(useflags, index, entry, err, useprovider)
+
+          if (undefined === prestart && null == testpack?.subject) {
+            throw new OmniError('omni: no test subject for: ' + useflags.name)
+          }
+
+          const wait = !ismap(entry) ? undefined
+            : waiton && undefined !== entry.wait ? entry.wait
+              : null != entry.id && hasown(waits, entry.id) ? waits[entry.id] : undefined
+
+          const run = async () => undefined === prestart
+            ? runentry(useflags, index, entry, testpack as TestPack, useprovider, ctxargs)
+            : handleerror(useflags, index, entry, prestart, useprovider)
+
+          if (undefined === wait) {
+            await run()
+          } else {
+            let held = false
+            try {
+              await run()
+            } catch (err: any) {
+              if (!(err instanceof OmniError)) {
+                throw err
+              }
+              held = true
+            }
+            if (!held) {
+              throw fail(useflags, index, entry, 'stale wait: ' + wait.cause)
+            }
+          }
+        } catch (err: any) {
+          if (true === useflags.all && err instanceof OmniError) {
+            failures.push(err.message)
+            continue
+          }
+          throw err
         }
+      }
+
+      if (0 < failures.length) {
+        throw new OmniError('omni: ' + useflags.name + ': ' + failures.length + ' of ' +
+          testset.length + ' entries failed\n' + failures.join('\n'))
       }
     }
 

@@ -1,13 +1,4 @@
 
-// Offline feature-test harness for the generated SDK.
-//
-// Feature behaviour (retry, cache, rbac, telemetry, ...) is unit-tested by
-// driving each feature class through a faithful miniature of the real
-// operation pipeline against a configurable mock transport — the same hook
-// order and short-circuit rules as the generated Entity*Op code, but with
-// no live server and no API-specific fixtures. Feature instances are built
-// via `config.makeFeature`, so only features actually present in this SDK
-// are exercised (see `hasFeature`).
 
 import { config, stdutil } from '../..'
 
@@ -69,7 +60,7 @@ function defaultServer(): ServerFn {
 
 function defaultMethod(op: string): string {
   if ('create' === op) return 'POST'
-  if ('update' === op) return 'PATCH'
+  if ('update' === op || 'patch' === op) return 'PATCH'
   if ('remove' === op) return 'DELETE'
   return 'GET'
 }
@@ -89,6 +80,9 @@ function makeClient(spec: {
 
   const utility: any = {
     struct,
+    // Features pass every record they emit through the SDK's own clean.
+    clean: (stdutil as any).clean,
+    cleanAdd: (stdutil as any).cleanAdd,
     fetcher: server,
     param: (ctx: any, name: string) => {
       const p = (ctx.spec && ctx.spec.params) || {}
@@ -97,10 +91,16 @@ function makeClient(spec: {
     },
   }
 
+  // One clean registry per client, as makeOptions gives a real one, so a value
+  // a feature registers with cleanAdd is masked by every clean after it.
+  const derived = (stdutil as any).makeOptions({
+    utility, options: { feature: { test: { active: true } } }, config: {},
+  }).__derived__
+
   const client: any = {
     _mode: spec.mode || 'test',
     _features: [],
-    _options: { base, headers: spec.headers || {}, feature: {} },
+    _options: { base, headers: spec.headers || {}, feature: {}, __derived__: derived },
     options() { return this._options },
     utility() { return utility },
   }
@@ -120,6 +120,7 @@ function makeClient(spec: {
       id: 'C' + idseq,
       client,
       utility,
+      options: client._options,
       out: {},
       ctrl: over.ctrl || {},
       meta: {},
@@ -250,6 +251,9 @@ function makeClient(spec: {
           method: ctx.spec.method,
           headers: ctx.spec.headers,
           body: ctx.spec.body,
+        }
+        if (null != ctx.ctrl.signal) {
+          fetchdef.signal = ctx.ctrl.signal
         }
         response = await utility.fetcher(ctx, fetchdef.url, fetchdef)
       }

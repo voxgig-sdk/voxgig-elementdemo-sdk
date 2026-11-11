@@ -1,20 +1,11 @@
 "use strict";
-// VENDORED: @voxgig/plugin 0.1.6 (typescript/src/Types.ts)
-// Source: https://github.com/voxgig/plugin @ 8d8968afc0a2008fbd795b41ab166307d989f02a  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/plugin 0.2.0 (typescript/src/Types.ts)
+// Source: https://github.com/voxgig/plugin @ caa404b2dfa206d77db6c2869e5b31c2a3202b2d  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
-/* Shared types. Deliberately small: the design's §19 budget says the
- * library owns naming, configuration, lifecycle, ordering, binding and
- * teardown, and nothing else. */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PluginError = exports.DETAIL_ORDER = void 0;
 exports.formaterror = formaterror;
 exports.fail = fail;
-/** §12's detail fields, IN THIS FIXED ORDER.
- *
- * The order is part of the contract, not a formatting preference. An
- * earlier draft named six fields while other sections promised
- * diagnostics that had nowhere to go, which would have left each port
- * inventing its own order and breaking message parity. */
 exports.DETAIL_ORDER = [
     'host', 'ref', 'name', 'tag', 'point', 'key', 'capability',
     'range', 'version', 'match', 'candidates', 'cycle', 'holders',
@@ -36,11 +27,6 @@ function formaterror(code, text, details) {
     const tail = 0 === parts.length ? '' : ' [' + parts.join(' ') + ']';
     return 'plugin/' + code + ': ' + text + tail;
 }
-/** Every error carries a §12 code. Ports compare by CODE and never by
- * message: wording is a port's own business, and pinning the words
- * would make every translation a corpus change. The FORMAT, however, is
- * pinned — a parseable message is what makes a log searchable across
- * twenty languages. */
 class PluginError extends Error {
     code;
     text;

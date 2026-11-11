@@ -12,7 +12,9 @@
 
 import * as Path from 'node:path'
 
-import { cmp, each, Folder, File, Content, Fragment } from '@voxgig/sdkgen'
+import {
+  cmp, each, Folder, File, Content, Fragment, entityRelationName,
+} from '@voxgig/sdkgen'
 
 import { KIT, getModelPath } from '@voxgig/apidef'
 
@@ -24,10 +26,12 @@ const Test = cmp(function Test(props: any) {
     .filter((e: any) => false !== e.active)
     .sort((a: any, b: any) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
 
+  // An ancestor is a model path (`$.main.kit.entity.element`); its id
+  // field is the entity's name plus `_id`.
   const parentsOf = (e: any) =>
     ((e.relations || {}).ancestors || [])
       .flat()
-      .map((a: string) => a + '_id')
+      .map((a: string) => entityRelationName(a) + '_id')
 
   const cardEntity = entities.find((e: any) =>
     null != (e.op || {}).load && 0 === parentsOf(e).length)

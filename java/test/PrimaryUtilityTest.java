@@ -45,7 +45,7 @@ public class PrimaryUtilityTest {
   static final String TEST_JSON_FILE = "../.sdk/test/test.json";
 
   // PENDING sections are the ones deliberately left empty in the shared
-  // corpus (.sdk/test/primary/<name>.aon). Everything else MUST contribute
+  // corpus (.sdk/test/primary/<name>.aontu). Everything else MUST contribute
   // cases.
   static final Set<String> PENDING = Set.of(
       "fetcher", "makeFetchDef", "makeResult",
@@ -98,6 +98,44 @@ public class PrimaryUtilityTest {
           + "would run; add cases, or mark the fixture PENDING in .sdk/test/primary/");
     }
     run.runset(basic, subject);
+  }
+
+  // Rename the corpus's `headers` bag to the real container, and the
+  // `authorization` key inside it to the real credential name. Applied only
+  // to the prepareAuth section, so real header assertions elsewhere are
+  // untouched.
+  @SuppressWarnings("unchecked")
+  static Object retargetAuth(Object node, PipelineTest.AuthCred cred) {
+    if (node instanceof List) {
+      List<Object> out = new ArrayList<>();
+      for (Object child : (List<Object>) node) {
+        out.add(retargetAuth(child, cred));
+      }
+      return out;
+    }
+    if (!(node instanceof Map)) {
+      return node;
+    }
+
+    Map<String, Object> out = new LinkedHashMap<>();
+    for (Map.Entry<String, Object> entry : ((Map<String, Object>) node).entrySet()) {
+      if ("headers".equals(entry.getKey())) {
+        Map<String, Object> bag = new LinkedHashMap<>();
+        Map<String, Object> inner = Helpers.toMapAny(entry.getValue());
+        if (inner != null) {
+          for (Map.Entry<String, Object> bagentry : inner.entrySet()) {
+            String name = "authorization".equals(bagentry.getKey())
+                ? cred.name() : bagentry.getKey();
+            bag.put(name, retargetAuth(bagentry.getValue(), cred));
+          }
+        }
+        out.put(cred.where(), bag);
+      }
+      else {
+        out.put(entry.getKey(), retargetAuth(entry.getValue(), cred));
+      }
+    }
+    return out;
   }
 
   // Helper: create basic test context.
@@ -374,6 +412,102 @@ public class PrimaryUtilityTest {
       assertTrue(String.valueOf(e.getMessage()).contains("blocked"),
           "expected error containing 'blocked', got: " + e.getMessage());
     }
+  }
+
+  // A Django route answers its slashless form with a relative Location. The
+  // transport follows each hop, and answers a "manual" fetch with the 3xx.
+  @Test
+  @SuppressWarnings("unchecked")
+  public void fetcherRedirect() throws Exception {
+    List<String> seen = java.util.Collections.synchronizedList(new ArrayList<>());
+    Map<String, Object[]> moved = Map.of(
+        "/redirect/r1", new Object[] {301, "/redirect/r1/"}, "/redirect/r1/", new Object[] {308, "done"});
+    com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(
+        new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext("/", (exchange) -> {
+      String path = exchange.getRequestURI().getRawPath();
+      seen.add(path);
+      Object[] hop = moved.get(path);
+      byte[] body = "/redirect/r1/done".equals(path) ? "{\"id\":\"r1\"}".getBytes() : new byte[0];
+      if (hop != null) {
+        exchange.getResponseHeaders().set("Location", (String) hop[1]);
+      }
+      exchange.getResponseHeaders().set("Content-Type", "application/json");
+      exchange.sendResponseHeaders(hop != null ? (int) hop[0] : 0 < body.length ? 200 : 404,
+          0 < body.length ? body.length : -1);
+      exchange.getResponseBody().write(body);
+      exchange.close();
+    });
+    server.start();
+    String base = "http://127.0.0.1:" + server.getAddress().getPort();
+    try {
+      ElementdemoSDK liveClient = new ElementdemoSDK(fhMap("base", base));
+      Utility liveUtility = liveClient.getUtility();
+      Context ctx = liveUtility.makeContext.apply(fhMap(
+          "opname", "load", "client", liveClient, "utility", liveUtility), null);
+
+      Map<String, Object> res = (Map<String, Object>) liveUtility.fetcher.fetch(ctx, base + "/redirect/r1",
+          fhMap("method", "GET", "headers", new LinkedHashMap<>()));
+      assertEquals(200, res.get("status"));
+      assertEquals("{\"id\":\"r1\"}", res.get("body"));
+      assertEquals(List.of("/redirect/r1", "/redirect/r1/", "/redirect/r1/done"), seen);
+
+      Map<String, Object> manual = (Map<String, Object>) liveUtility.fetcher.fetch(ctx,
+          base + "/redirect/r1", fhMap("method", "GET", "headers", new LinkedHashMap<>(), "redirect", "manual"));
+      assertEquals(301, manual.get("status"));
+    }
+    finally {
+      server.stop(0);
+    }
+  }
+
+  // Nothing listens on port 9: a request the guard let through fails there.
+  // A JVM cannot set its own environment, so the probe runs in a child JVM.
+  @Test
+  public void fetcherGetOnlyGuard() throws Exception {
+    String out;
+    if ("TRUE".equals(System.getenv("VOXGIG_GETONLY_GUARD"))) {
+      out = getOnlyProbe();
+    }
+    else {
+      ProcessBuilder pb = new ProcessBuilder(
+          ProcessHandle.current().info().command().orElse("java"),
+          "-cp", System.getProperty("java.class.path"), PrimaryUtilityTest.class.getName());
+      pb.environment().put("VOXGIG_GETONLY_GUARD", "TRUE");
+      pb.redirectErrorStream(true);
+      Process proc = pb.start();
+      out = new String(proc.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+      assertEquals(0, proc.waitFor(), out);
+    }
+    assertTrue(out.startsWith("fetch_getonly_block [GET-ONLY GUARD] blocked POST /planet/p1\n"), out);
+    assertTrue(out.trim().endsWith("\nsent"), out);
+    assertFalse(out.contains("GUARDKEY01"), out);
+  }
+
+  public static void main(String[] args) {
+    System.out.print(getOnlyProbe());
+  }
+
+  static String getOnlyProbe() {
+    ElementdemoSDK liveClient = new ElementdemoSDK(fhMap("base", "http://127.0.0.1:9"));
+    Utility liveUtility = liveClient.getUtility();
+    Context ctx = liveUtility.makeContext.apply(fhMap(
+        "opname", "create", "client", liveClient, "utility", liveUtility), null);
+    String url = "http://127.0.0.1:9/planet/p1?apikey=GUARDKEY01";
+    StringBuilder out = new StringBuilder();
+    for (String method : new String[] {"POST", "GET"}) {
+      try {
+        liveUtility.fetcher.fetch(ctx, url, fhMap("method", method, "headers", new LinkedHashMap<>()));
+        out.append("answered\n");
+      }
+      catch (SdkError e) {
+        out.append(e.code).append(' ').append(e.msg).append('\n');
+      }
+      catch (RuntimeException e) {
+        out.append("sent\n");
+      }
+    }
+    return out.toString();
   }
 
   @Test
@@ -684,15 +818,38 @@ public class PrimaryUtilityTest {
     ElementdemoSDK authClient = ElementdemoSDK.testSDK(null, setupOpts);
     Utility authUtility = authClient.getUtility();
 
-    runsection("prepareAuth", (args) -> {
-      Context ctx = OmniResolver.omniCtx(args[0], authClient, authUtility);
+    // The corpus writes the credential as `headers.authorization`: a
+    // PLACEHOLDER each runner points at the container and name this API
+    // actually uses. PipelineTest.authCredential (same package) discovers
+    // both by running prepareAuth once.
+    PipelineTest.AuthCred cred = PipelineTest.authCredential();
+    assertNotNull(cred, "prepareAuth placed no credential in headers or query");
 
-      authUtility.prepareAuth.apply(ctx);
+    // An absent section is runsection's report to make.
+    Map<String, Object> section = Helpers.toMapAny(run().spec.get("prepareAuth"));
+    boolean swap = section != null
+        && (!"headers".equals(cred.where()) || !"authorization".equals(cred.name()));
+    Object original = swap ? section.get("basic") : null;
+    if (swap) {
+      section.put("basic", retargetAuth(original, cred));
+    }
 
-      OmniResolver.omniSyncCtx(args[0], ctx);
+    try {
+      runsection("prepareAuth", (args) -> {
+        Context ctx = OmniResolver.omniCtx(args[0], authClient, authUtility);
 
-      return null;
-    });
+        authUtility.prepareAuth.apply(ctx);
+
+        OmniResolver.omniSyncCtx(args[0], ctx);
+
+        return null;
+      });
+    }
+    finally {
+      if (swap) {
+        section.put("basic", original);
+      }
+    }
   }
 
   @Test

@@ -41,12 +41,97 @@ def make_config():
             "target": "py",
         },
         "feature": {
+            "debug": {
+        "options": {
+          "active": False,
+          "max": 100,
+          "redact": [
+            "authorization",
+            "cookie",
+            "set-cookie",
+            "api-key",
+            "apikey",
+            "x-api-key",
+            "idempotency-key",
+          ],
+        },
+        "optspec": {
+          "now": "`$FUNCTION`",
+          "onEntry": "`$FUNCTION`",
+        },
+        "strict": False,
+        "transport": "none",
+      },
             "elementcard": {
         "options": {
           "active": False,
           "print": False,
         },
+        "optspec": {},
+        "strict": False,
         "transport": "none",
+      },
+            "idempotency": {
+        "options": {
+          "active": False,
+          "header": "Idempotency-Key",
+          "methods": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+          ],
+          "ops": [
+            "create",
+            "update",
+            "remove",
+          ],
+        },
+        "optspec": {
+          "keygen": "`$FUNCTION`",
+        },
+        "strict": False,
+        "transport": "none",
+      },
+            "metrics": {
+        "options": {
+          "active": False,
+        },
+        "optspec": {
+          "now": "`$FUNCTION`",
+        },
+        "strict": False,
+        "transport": "none",
+      },
+            "paging": {
+        "options": {
+          "active": False,
+          "afterVar": "after",
+          "cursorParam": "cursor",
+          "firstVar": "first",
+          "limitParam": "limit",
+          "pageParam": "page",
+          "startPage": 1,
+        },
+        "optspec": {
+          "limit": "`$NUMBER`",
+          "ops": "`$LIST`",
+        },
+        "strict": False,
+        "transport": "none",
+      },
+            "ratelimit": {
+        "options": {
+          "active": False,
+          "burst": 5,
+          "rate": 5,
+        },
+        "optspec": {
+          "now": "`$FUNCTION`",
+          "sleep": "`$FUNCTION`",
+        },
+        "strict": False,
+        "transport": "wrap",
       },
             "retry": {
         "options": {
@@ -65,6 +150,11 @@ def make_config():
             504,
           ],
         },
+        "optspec": {
+          "jitter": "`$BOOLEAN`",
+          "sleep": "`$FUNCTION`",
+        },
+        "strict": False,
         "transport": "wrap",
       },
             "secrets": {
@@ -86,12 +176,19 @@ def make_config():
           "name": "apikey",
           "providers": [],
         },
+        "optspec": {},
+        "strict": False,
         "transport": "wrap",
       },
             "test": {
         "options": {
           "active": False,
         },
+        "optspec": {
+          "entity": "`$MAP`",
+          "net": "`$MAP`",
+        },
+        "strict": False,
         "transport": "base",
       },
             "timeout": {
@@ -99,6 +196,12 @@ def make_config():
           "active": False,
           "ms": 30000,
         },
+        "optspec": {
+          "clearTimer": "`$FUNCTION`",
+          "now": "`$FUNCTION`",
+          "setTimer": "`$FUNCTION`",
+        },
+        "strict": False,
         "transport": "wrap",
       },
         },
@@ -125,80 +228,84 @@ def make_config():
         "fields": [
           {
             "name": "block",
+            "title": "Block",
+            "type": "`$STRING`",
             "req": True,
             "short": "Orbital block, one of s, p, d, f.",
-            "type": "`$STRING`",
-          },
-          {
-            "name": "charge",
-            "type": "`$INTEGER`",
           },
           {
             "name": "discovered",
-            "short": "Year of discovery, absent for elements known since antiquity.",
+            "title": "Discovered",
             "type": "`$INTEGER`",
+            "short": "Year of discovery, absent for elements known since antiquity.",
           },
           {
             "name": "group",
-            "short": "Periodic table column, 1 to 18, absent for the f-block.",
+            "title": "Group",
             "type": "`$INTEGER`",
+            "short": "Periodic table column, 1 to 18, absent for the f-block.",
           },
           {
             "name": "id",
+            "title": "Id",
+            "type": "`$STRING`",
             "req": True,
             "short": "Element identifier, the lowercase symbol.",
-            "type": "`$STRING`",
-          },
-          {
-            "name": "ion",
-            "type": "`$STRING`",
           },
           {
             "name": "mass",
+            "title": "Mass",
+            "type": "`$NUMBER`",
             "req": True,
             "short": "Standard atomic weight in daltons.",
-            "type": "`$NUMBER`",
+            "format": "float",
           },
           {
             "name": "name",
+            "title": "Name",
+            "type": "`$STRING`",
             "req": True,
             "short": "Element name.",
-            "type": "`$STRING`",
           },
           {
             "name": "number",
+            "title": "Number",
+            "type": "`$INTEGER`",
             "req": True,
             "short": "Atomic number.",
-            "type": "`$INTEGER`",
-          },
-          {
-            "name": "ok",
-            "type": "`$BOOLEAN`",
           },
           {
             "name": "period",
+            "title": "Period",
+            "type": "`$INTEGER`",
             "req": True,
             "short": "Periodic table row, 1 to 7.",
-            "type": "`$INTEGER`",
           },
           {
             "name": "phase",
-            "short": "Phase at standard temperature and pressure.",
+            "title": "Phase",
             "type": "`$STRING`",
+            "short": "Phase at standard temperature and pressure.",
           },
           {
             "name": "series_id",
+            "title": "Series Id",
+            "type": "`$STRING`",
             "req": True,
             "short": "Chemical series this element belongs to.",
-            "type": "`$STRING`",
           },
           {
             "name": "symbol",
+            "title": "Symbol",
+            "type": "`$STRING`",
             "req": True,
             "short": "Chemical symbol.",
-            "type": "`$STRING`",
           },
         ],
+        "id": {
+          "field": "id",
+          "name": "id",
+        },
         "name": "element",
         "op": {
           "create": {
@@ -206,30 +313,9 @@ def make_config():
             "name": "create",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "POST",
                 "orig": "/element/{element_id}/ionize",
-                "parts": [
-                  "element",
-                  "{id}",
-                  "ionize",
-                ],
-                "rename": {
-                  "param": {
-                    "element_id": "id",
-                  },
-                },
                 "segments": [
                   {
                     "lit": "element",
@@ -241,34 +327,64 @@ def make_config():
                     "lit": "ionize",
                   },
                 ],
+                "parts": [
+                  "element",
+                  "{id}",
+                  "ionize",
+                ],
+                "rename": {
+                  "param": {
+                    "element_id": "id",
+                  },
+                },
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "$action": "ionize",
                   "exist": [
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
               {
-                "args": {},
                 "kind": "http",
                 "method": "POST",
                 "orig": "/element",
-                "parts": [
-                  "element",
-                ],
                 "segments": [
                   {
                     "lit": "element",
                   },
                 ],
-                "select": {},
+                "parts": [
+                  "element",
+                ],
+                "rename": {},
                 "transform": {
                   "req": "`reqdata`",
                   "res": "`body`",
+                },
+                "args": {},
+                "select": {},
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -278,22 +394,27 @@ def make_config():
             "name": "list",
             "points": [
               {
-                "args": {},
                 "kind": "http",
                 "method": "GET",
                 "orig": "/element",
-                "parts": [
-                  "element",
-                ],
                 "segments": [
                   {
                     "lit": "element",
                   },
                 ],
-                "select": {},
+                "parts": [
+                  "element",
+                ],
+                "rename": {},
                 "transform": {
                   "req": "`reqdata`",
                   "res": "`body`",
+                },
+                "args": {},
+                "select": {},
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -303,20 +424,17 @@ def make_config():
             "name": "load",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "GET",
                 "orig": "/element/{element_id}",
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "parts": [
                   "element",
                   "{id}",
@@ -326,22 +444,29 @@ def make_config():
                     "element_id": "id",
                   },
                 },
-                "segments": [
-                  {
-                    "lit": "element",
-                  },
-                  {
-                    "var": "id",
-                  },
-                ],
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -351,20 +476,17 @@ def make_config():
             "name": "remove",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "DELETE",
                 "orig": "/element/{element_id}",
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "parts": [
                   "element",
                   "{id}",
@@ -374,22 +496,25 @@ def make_config():
                     "element_id": "id",
                   },
                 },
-                "segments": [
-                  {
-                    "lit": "element",
-                  },
-                  {
-                    "var": "id",
-                  },
-                ],
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "id",
                   ],
-                },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
                 },
               },
             ],
@@ -399,20 +524,17 @@ def make_config():
             "name": "update",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "PUT",
                 "orig": "/element/{element_id}",
+                "segments": [
+                  {
+                    "lit": "element",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "parts": [
                   "element",
                   "{id}",
@@ -422,22 +544,29 @@ def make_config():
                     "element_id": "id",
                   },
                 },
-                "segments": [
-                  {
-                    "lit": "element",
-                  },
-                  {
-                    "var": "id",
-                  },
-                ],
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -451,28 +580,36 @@ def make_config():
         "fields": [
           {
             "name": "cas",
+            "title": "Cas",
+            "type": "`$STRING`",
             "req": True,
             "short": "CAS group designation.",
-            "type": "`$STRING`",
           },
           {
             "name": "id",
+            "title": "Id",
+            "type": "`$STRING`",
             "req": True,
             "short": "Group identifier, g1 to g18.",
-            "type": "`$STRING`",
           },
           {
             "name": "name",
-            "short": "Trivial name, where one exists.",
+            "title": "Name",
             "type": "`$STRING`",
+            "short": "Trivial name, where one exists.",
           },
           {
             "name": "number",
+            "title": "Number",
+            "type": "`$INTEGER`",
             "req": True,
             "short": "Group number, 1 to 18.",
-            "type": "`$INTEGER`",
           },
         ],
+        "id": {
+          "field": "id",
+          "name": "id",
+        },
         "name": "group",
         "op": {
           "list": {
@@ -480,22 +617,27 @@ def make_config():
             "name": "list",
             "points": [
               {
-                "args": {},
                 "kind": "http",
                 "method": "GET",
                 "orig": "/group",
-                "parts": [
-                  "group",
-                ],
                 "segments": [
                   {
                     "lit": "group",
                   },
                 ],
-                "select": {},
+                "parts": [
+                  "group",
+                ],
+                "rename": {},
                 "transform": {
                   "req": "`reqdata`",
                   "res": "`body`",
+                },
+                "args": {},
+                "select": {},
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -505,20 +647,17 @@ def make_config():
             "name": "load",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "group_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "GET",
                 "orig": "/group/{group_id}",
+                "segments": [
+                  {
+                    "lit": "group",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "parts": [
                   "group",
                   "{id}",
@@ -528,22 +667,29 @@ def make_config():
                     "group_id": "id",
                   },
                 },
-                "segments": [
-                  {
-                    "lit": "group",
-                  },
-                  {
-                    "var": "id",
-                  },
-                ],
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "id",
+                      "orig": "group_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -557,69 +703,77 @@ def make_config():
         "fields": [
           {
             "name": "abundance",
-            "short": "Natural abundance as a fraction, absent for synthetic isotopes.",
+            "title": "Abundance",
             "type": "`$NUMBER`",
+            "short": "Natural abundance as a fraction, absent for synthetic isotopes.",
+            "format": "float",
           },
           {
             "name": "element_id",
+            "title": "Element Id",
+            "type": "`$STRING`",
             "req": True,
             "short": "Parent element identifier.",
-            "type": "`$STRING`",
           },
           {
             "name": "halflife",
-            "short": "Half-life, absent for stable isotopes.",
+            "title": "Halflife",
             "type": "`$STRING`",
+            "short": "Half-life, absent for stable isotopes.",
           },
           {
             "name": "id",
+            "title": "Id",
+            "type": "`$STRING`",
             "req": True,
             "short": "Isotope identifier, symbol dash mass number.",
-            "type": "`$STRING`",
           },
           {
             "name": "mass",
+            "title": "Mass",
+            "type": "`$NUMBER`",
             "req": True,
             "short": "Isotopic mass in daltons.",
-            "type": "`$NUMBER`",
+            "format": "float",
           },
           {
             "name": "mass_number",
+            "title": "Mass Number",
+            "type": "`$INTEGER`",
             "req": True,
             "short": "Total protons and neutrons.",
-            "type": "`$INTEGER`",
           },
           {
             "name": "mode",
-            "short": "Primary decay mode, absent for stable isotopes.",
+            "title": "Mode",
             "type": "`$STRING`",
+            "short": "Primary decay mode, absent for stable isotopes.",
           },
           {
             "name": "name",
+            "title": "Name",
+            "type": "`$STRING`",
             "req": True,
             "short": "Isotope name.",
-            "type": "`$STRING`",
-          },
-          {
-            "name": "ok",
-            "type": "`$BOOLEAN`",
           },
           {
             "name": "product",
-            "short": "Primary decay product isotope, absent for stable isotopes.",
+            "title": "Product",
             "type": "`$STRING`",
+            "short": "Primary decay product isotope, absent for stable isotopes.",
           },
           {
             "name": "stable",
+            "title": "Stable",
+            "type": "`$BOOLEAN`",
             "req": True,
             "short": "True if the isotope is stable.",
-            "type": "`$BOOLEAN`",
-          },
-          {
-            "name": "steps",
-            "type": "`$INTEGER`",
           },
         ],
+        "id": {
+          "field": "id",
+          "name": "id",
+        },
         "name": "isotope",
         "op": {
           "create": {
@@ -627,39 +781,9 @@ def make_config():
             "name": "create",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "element_id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "isotope_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "POST",
                 "orig": "/element/{element_id}/isotope/{isotope_id}/decay",
-                "parts": [
-                  "element",
-                  "{element_id}",
-                  "isotope",
-                  "{id}",
-                  "decay",
-                ],
-                "rename": {
-                  "param": {
-                    "isotope_id": "id",
-                  },
-                },
                 "segments": [
                   {
                     "lit": "element",
@@ -677,6 +801,40 @@ def make_config():
                     "lit": "decay",
                   },
                 ],
+                "parts": [
+                  "element",
+                  "{element_id}",
+                  "isotope",
+                  "{id}",
+                  "decay",
+                ],
+                "rename": {
+                  "param": {
+                    "isotope_id": "id",
+                  },
+                },
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "element_id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                    {
+                      "name": "id",
+                      "orig": "isotope_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "$action": "decay",
                   "exist": [
@@ -684,31 +842,15 @@ def make_config():
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "element_id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "POST",
                 "orig": "/element/{element_id}/isotope",
-                "parts": [
-                  "element",
-                  "{element_id}",
-                  "isotope",
-                ],
                 "segments": [
                   {
                     "lit": "element",
@@ -720,14 +862,35 @@ def make_config():
                     "lit": "isotope",
                   },
                 ],
+                "parts": [
+                  "element",
+                  "{element_id}",
+                  "isotope",
+                ],
+                "rename": {},
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "element_id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "element_id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -737,25 +900,9 @@ def make_config():
             "name": "list",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "element_id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "GET",
                 "orig": "/element/{element_id}/isotope",
-                "parts": [
-                  "element",
-                  "{element_id}",
-                  "isotope",
-                ],
                 "segments": [
                   {
                     "lit": "element",
@@ -767,14 +914,35 @@ def make_config():
                     "lit": "isotope",
                   },
                 ],
+                "parts": [
+                  "element",
+                  "{element_id}",
+                  "isotope",
+                ],
+                "rename": {},
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "element_id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "element_id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -784,38 +952,9 @@ def make_config():
             "name": "load",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "element_id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "isotope_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "GET",
                 "orig": "/element/{element_id}/isotope/{isotope_id}",
-                "parts": [
-                  "element",
-                  "{element_id}",
-                  "isotope",
-                  "{id}",
-                ],
-                "rename": {
-                  "param": {
-                    "isotope_id": "id",
-                  },
-                },
                 "segments": [
                   {
                     "lit": "element",
@@ -830,15 +969,48 @@ def make_config():
                     "var": "id",
                   },
                 ],
+                "parts": [
+                  "element",
+                  "{element_id}",
+                  "isotope",
+                  "{id}",
+                ],
+                "rename": {
+                  "param": {
+                    "isotope_id": "id",
+                  },
+                },
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "element_id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                    {
+                      "name": "id",
+                      "orig": "isotope_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "element_id",
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -848,38 +1020,9 @@ def make_config():
             "name": "remove",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "element_id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "isotope_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "DELETE",
                 "orig": "/element/{element_id}/isotope/{isotope_id}",
-                "parts": [
-                  "element",
-                  "{element_id}",
-                  "isotope",
-                  "{id}",
-                ],
-                "rename": {
-                  "param": {
-                    "isotope_id": "id",
-                  },
-                },
                 "segments": [
                   {
                     "lit": "element",
@@ -894,15 +1037,44 @@ def make_config():
                     "var": "id",
                   },
                 ],
+                "parts": [
+                  "element",
+                  "{element_id}",
+                  "isotope",
+                  "{id}",
+                ],
+                "rename": {
+                  "param": {
+                    "isotope_id": "id",
+                  },
+                },
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "element_id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                    {
+                      "name": "id",
+                      "orig": "isotope_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "element_id",
                     "id",
                   ],
-                },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
                 },
               },
             ],
@@ -912,38 +1084,9 @@ def make_config():
             "name": "update",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "element_id",
-                      "orig": "element_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "isotope_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "PUT",
                 "orig": "/element/{element_id}/isotope/{isotope_id}",
-                "parts": [
-                  "element",
-                  "{element_id}",
-                  "isotope",
-                  "{id}",
-                ],
-                "rename": {
-                  "param": {
-                    "isotope_id": "id",
-                  },
-                },
                 "segments": [
                   {
                     "lit": "element",
@@ -958,15 +1101,48 @@ def make_config():
                     "var": "id",
                   },
                 ],
+                "parts": [
+                  "element",
+                  "{element_id}",
+                  "isotope",
+                  "{id}",
+                ],
+                "rename": {
+                  "param": {
+                    "isotope_id": "id",
+                  },
+                },
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "element_id",
+                      "orig": "element_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                    {
+                      "name": "id",
+                      "orig": "isotope_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "element_id",
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -975,7 +1151,7 @@ def make_config():
         "relations": {
           "ancestors": [
             [
-              "element",
+              "$.main.kit.entity.element",
             ],
           ],
         },
@@ -984,29 +1160,37 @@ def make_config():
         "fields": [
           {
             "name": "color",
+            "title": "Color",
+            "type": "`$STRING`",
             "req": True,
             "short": "Display color used by the element card renderer.",
-            "type": "`$STRING`",
           },
           {
             "name": "description",
+            "title": "Description",
+            "type": "`$STRING`",
             "req": True,
             "short": "One-line description of the series.",
-            "type": "`$STRING`",
           },
           {
             "name": "id",
+            "title": "Id",
+            "type": "`$STRING`",
             "req": True,
             "short": "Series identifier.",
-            "type": "`$STRING`",
           },
           {
             "name": "name",
+            "title": "Name",
+            "type": "`$STRING`",
             "req": True,
             "short": "Series name.",
-            "type": "`$STRING`",
           },
         ],
+        "id": {
+          "field": "id",
+          "name": "id",
+        },
         "name": "series",
         "op": {
           "list": {
@@ -1014,22 +1198,27 @@ def make_config():
             "name": "list",
             "points": [
               {
-                "args": {},
                 "kind": "http",
                 "method": "GET",
                 "orig": "/series",
-                "parts": [
-                  "series",
-                ],
                 "segments": [
                   {
                     "lit": "series",
                   },
                 ],
-                "select": {},
+                "parts": [
+                  "series",
+                ],
+                "rename": {},
                 "transform": {
                   "req": "`reqdata`",
                   "res": "`body`",
+                },
+                "args": {},
+                "select": {},
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],
@@ -1039,20 +1228,17 @@ def make_config():
             "name": "load",
             "points": [
               {
-                "args": {
-                  "params": [
-                    {
-                      "kind": "param",
-                      "name": "id",
-                      "orig": "series_id",
-                      "reqd": True,
-                      "type": "`$STRING`",
-                    },
-                  ],
-                },
                 "kind": "http",
                 "method": "GET",
                 "orig": "/series/{series_id}",
+                "segments": [
+                  {
+                    "lit": "series",
+                  },
+                  {
+                    "var": "id",
+                  },
+                ],
                 "parts": [
                   "series",
                   "{id}",
@@ -1062,22 +1248,29 @@ def make_config():
                     "series_id": "id",
                   },
                 },
-                "segments": [
-                  {
-                    "lit": "series",
-                  },
-                  {
-                    "var": "id",
-                  },
-                ],
+                "transform": {
+                  "req": "`reqdata`",
+                  "res": "`body`",
+                },
+                "args": {
+                  "params": [
+                    {
+                      "name": "id",
+                      "orig": "series_id",
+                      "type": "`$STRING`",
+                      "kind": "param",
+                      "reqd": True,
+                    },
+                  ],
+                },
                 "select": {
                   "exist": [
                     "id",
                   ],
                 },
-                "transform": {
-                  "req": "`reqdata`",
-                  "res": "`body`",
+                "response": {
+                  "kind": "json",
+                  "media": "application/json",
                 },
               },
             ],

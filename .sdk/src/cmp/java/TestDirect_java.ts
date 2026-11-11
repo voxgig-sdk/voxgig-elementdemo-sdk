@@ -15,6 +15,17 @@ import {
   serverVarEnv,
   serverVariables, envName, envToken,
   pointParts,
+  pointSlash,
+  pointPlaceholders,
+  liveStrict,
+  liveStrictNote,
+  pointIsGraphql,
+  graphqlDirectSkip,
+  liveExampleIds,
+  liveQueryExamples,
+  liveEntity,
+  liveDirectGetOnly, liveExcludedLines, liveExcludedSummary, LIVE_GETONLY_ENV,
+  liveDirectDiscovery,
 } from '@voxgig/sdkgen'
 
 
@@ -32,10 +43,10 @@ function normalizePathParams(
       const snaked = snakify(rawName)
       const depluralized = depluralize(snaked)
       const param = params.find((p: any) =>
-          p.name === snaked || p.name === depluralized) ||
+          p.n === snaked || p.n === depluralized) ||
         params.find((p: any) =>
-          p.orig === snaked || p.orig === depluralized)
-      if (param) return '{' + param.name + '}'
+          p.or === snaked || p.or === depluralized)
+      if (param) return '{' + param.n + '}'
 
       if (rename) {
         for (const [origCamel, renamedTo] of Object.entries(rename)) {
@@ -43,10 +54,10 @@ function normalizePathParams(
             const origSnaked = snakify(origCamel)
             const origDepluralized = depluralize(origSnaked)
             const renamedParam = params.find(
-              (p: any) => p.orig === origSnaked || p.name === origSnaked ||
-                p.orig === origDepluralized || p.name === origDepluralized
+              (p: any) => p.or === origSnaked || p.n === origSnaked ||
+                p.or === origDepluralized || p.n === origDepluralized
             )
-            if (renamedParam) return '{' + renamedParam.name + '}'
+            if (renamedParam) return '{' + renamedParam.n + '}'
           }
         }
       }
@@ -57,13 +68,6 @@ function normalizePathParams(
 }
 
 
-// Render a JSON value as a Java literal for query examples.
-// A Java source literal for an example value from the model.
-//
-// An integer beyond Java's int range needs the L suffix: javac rejects a bare
-// 120615523104 outright ("integer number too large"), so one large id in a
-// spec's example makes the whole generated test package fail to compile.
-// A non-integral double is fine unsuffixed.
 function javaLiteral(v: any): string {
   if (null == v) return 'null'
   if ('boolean' === typeof v) return String(v)
@@ -77,12 +81,24 @@ function javaLiteral(v: any): string {
 }
 
 
+// A GET-only live run excludes a test needing an id that only a write gives.
+function getOnlyKeysBlock(model: any, entity: any, test: string, keys: string[]): string {
+  return liveDirectGetOnly(model, entity, test, keys).map((miss) =>
+    `    if (setup.live && "TRUE".equals(System.getenv(${javaLiteral(LIVE_GETONLY_ENV)}))
+        && setup.idmap.get(${javaLiteral(miss.key)}) == null) {
+      System.out.println(${javaLiteral(liveExcludedLines({ excluded: [miss] })[0])});
+      Assumptions.abort(${javaLiteral(liveExcludedSummary({ excluded: [miss] }))});
+    }
+`).join('')
+}
+
+
 const TestDirect = cmp(function TestDirect(props: any) {
   const ctx$ = props.ctx$
   const model: Model = ctx$.model
 
   const target = props.target
-  const entity: ModelEntity = props.entity
+  const entity: ModelEntity = liveEntity(ctx$, props.entity)
   const javapackage: string = props.javapackage
 
   const PROJECTNAME = envName(model)
@@ -117,17 +133,12 @@ const TestDirect = cmp(function TestDirect(props: any) {
 
   // Get load point info
   const loadPoint = loadOp?.points?.[0]
-  const loadPath = loadPoint ? normalizePathParams(pointParts(loadPoint), loadPoint?.args?.params || [], loadPoint?.rename?.param) : ''
-  const allLoadParams = loadPoint?.args?.params || []
+  const loadPath = loadPoint ? normalizePathParams(pointParts(loadPoint), loadPoint?.g?.params || [], loadPoint?.r?.param) + pointSlash(loadPoint) : ''
+  const allLoadParams = loadPoint?.g?.params || []
   // Only path params that actually appear in the URL template drive
   // direct-test path-param setup and URL-substitution asserts.
-  const _pathPlaceholders = new Set<string>()
-  for (const part of pointParts(loadPoint)) {
-    if (typeof part === 'string' && part.startsWith('{') && part.endsWith('}')) {
-      _pathPlaceholders.add(part.slice(1, -1))
-    }
-  }
-  const _renameMap = (loadPoint?.rename?.param || {}) as Record<string, string>
+  const _pathPlaceholders = new Set<string>(pointPlaceholders(loadPoint))
+  const _renameMap = (loadPoint?.r?.param || {}) as Record<string, string>
   const _renamedPlaceholders = new Set<string>()
   for (const ph of _pathPlaceholders) {
     _renamedPlaceholders.add(ph)
@@ -136,32 +147,33 @@ const TestDirect = cmp(function TestDirect(props: any) {
     }
   }
   const loadParams = allLoadParams.filter((p: any) =>
-    _renamedPlaceholders.has(p.name) || _renamedPlaceholders.has(p.orig))
+    _renamedPlaceholders.has(p.n) || _renamedPlaceholders.has(p.or))
 
   // Get list point info
   const listPoint = listOp?.points?.[0]
-  const listPath = listPoint ? normalizePathParams(pointParts(listPoint), listPoint?.args?.params || [], listPoint?.rename?.param) : ''
-  const listParams = listPoint?.args?.params || []
+  const listPath = listPoint ? normalizePathParams(pointParts(listPoint), listPoint?.g?.params || [], listPoint?.r?.param) + pointSlash(listPoint) : ''
+  const listParams = listPoint?.g?.params || []
 
   // Required query params with spec-provided examples — needed in live mode.
-  const loadQuery = loadPoint?.args?.query || []
-  const loadLiveQueryEntries = loadQuery
-    .filter((q: any) => q.reqd && undefined !== q.example && null !== q.example)
-  const loadLiveQueryLines = loadLiveQueryEntries
-    .map((q: any) => `      query.put("${q.name}", ${javaLiteral(q.example)});`)
+  const loadLiveQueryLines = liveQueryExamples(loadPoint)
+    .map(([name, ex]) => `      query.put("${name}", ${javaLiteral(ex)});`)
     .join('\n')
 
   // Path params with spec-provided examples — when ALL load params have
   // spec examples, prefer them over list-bootstrap.
   const loadAllHaveExamples =
     loadParams.length > 0 &&
-    loadParams.every((p: any) => undefined !== p.example && null !== p.example)
+    loadParams.every((p: any) => undefined !== p.ex && null !== p.ex)
   const loadExampleLines = loadAllHaveExamples
-    ? loadParams.map((p: any) => `      params.put("${p.name}", ${javaLiteral(p.example)});`).join('\n')
+    ? loadParams.map((p: any) => `      params.put("${p.n}", ${javaLiteral(p.ex)});`).join('\n')
     : ''
 
   // Build the ENTID env var name for this entity
   const entidEnvVar = `${PROJECTNAME}_TEST_${envToken(entity.name)}_ENTID`
+
+  const exampleIds = liveExampleIds(entity)
+  const listLiveQueryLines = liveQueryExamples(listPoint)
+    .map(([name, ex]) => `      query.put("${name}", ${javaLiteral(ex)});\n`).join('')
 
   File({ name: entity.Name + 'DirectTest.' + target.ext }, () => {
 
@@ -188,6 +200,15 @@ import ${javapackage}.utility.Json;
 @SuppressWarnings({"unchecked", "unused"})
 public class ${entity.Name}DirectTest {
 
+${liveStrictNote(liveStrict(model, target.name), '//', '  ')}
+  static final boolean LIVE_STRICT = ${liveStrict(model, target.name)};
+
+  static boolean liveOk(Map<String, Object> result) {
+    int status = Helpers.toInt(result.get("status"));
+    return result.get("err") == null && Boolean.TRUE.equals(result.get("ok"))
+        && status >= 200 && status < 300;
+  }
+
   static Map<String, Object> jm(Object... kv) {
     Map<String, Object> out = new LinkedHashMap<>();
     for (int i = 0; i < kv.length - 1; i += 2) {
@@ -199,27 +220,37 @@ public class ${entity.Name}DirectTest {
 `)
 
     // Generate list test first (load needs list results in live mode)
-    if (hasList && listPoint) {
+    if (hasList && pointIsGraphql(listPoint)) {
+      Content(`  @Test
+  public void directList${entity.Name}() {
+    Assumptions.assumeTrue(false, "${graphqlDirectSkip('list', entity.name)}");
+  }
+
+`)
+    }
+    else if (hasList && listPoint) {
       // Build live params for list
       const listLiveParams = listParams.map((p: any) => {
-        const key = p.name === 'id'
+        const key = p.n === 'id'
           ? entity.name + '01'
-          : p.name.replace(/_id$/, '') + '01'
-        return { name: p.name, key }
+          : p.n.replace(/_id$/, '') + '01'
+        return { name: p.n, key }
       })
 
       const listLiveIdKeys = listParams.length > 0
         ? listLiveParams.map((lp: any) => lp.key)
         : []
-      const listSkipBlock = listLiveIdKeys.length > 0
+      const listSkipBlock = getOnlyKeysBlock(model, entity, 'direct-list-' + entity.name, listLiveIdKeys) +
+        (listLiveIdKeys.length > 0
         ? `    if (setup.live) {
       for (String liveKey : new String[] { ${listLiveIdKeys.map((k: string) => `"${k}"`).join(', ')} }) {
-        Assumptions.assumeTrue(setup.idmap.get(liveKey) != null,
-            "live test needs " + liveKey + " via *_ENTID env var (synthetic IDs only)");
+        if (setup.idmap.get(liveKey) == null) {
+          RunnerSupport.liveMiss(LIVE_STRICT, "Live test blocked: needs " + liveKey + " via ${entidEnvVar}");
+        }
       }
     }
 `
-        : ''
+        : '')
 
       Content(`  @Test
   public void directList${entity.Name}() {
@@ -232,13 +263,17 @@ public class ${entity.Name}DirectTest {
     Assumptions.assumeTrue(reason == null,
         reason == null || "".equals(reason)
             ? "skipped via sdk-test-control.json" : reason);
-${listSkipBlock}    ${SDK} client = setup.client;
+${listSkipBlock}    if (setup.live) {
+      RunnerSupport.livePace();
+    }
+    ${SDK} client = setup.client;
 
 `)
 
-      if (listParams.length > 0) {
+      if (listParams.length > 0 || '' !== listLiveQueryLines) {
         Content(`    Map<String, Object> params = new LinkedHashMap<>();
-`)
+    Map<String, Object> query = new LinkedHashMap<>();
+${listLiveQueryLines ? '    if (setup.live) {\n' + listLiveQueryLines + '    }\n' : ''}`)
         listLiveParams.forEach((lp: any, i: number) => {
           const placeholder = 'direct0' + (i + 1)
           Content(`    if (setup.live) {
@@ -253,7 +288,8 @@ ${listSkipBlock}    ${SDK} client = setup.client;
     Map<String, Object> result = client.direct(jm(
         "path", "${listPath}",
         "method", "GET",
-        "params", params));
+        "params", params,
+        "query", query));
 `)
       } else {
         Content(`
@@ -265,14 +301,12 @@ ${listSkipBlock}    ${SDK} client = setup.client;
       }
 
       Content(`    if (setup.live) {
-      // Live mode is lenient: synthetic IDs frequently 4xx and the
-      // list-response shape varies wildly across public APIs. Skip
-      // rather than fail when the call doesn't return a usable list.
-      Assumptions.assumeTrue(Boolean.TRUE.equals(result.get("ok")),
-          "list call not ok (likely synthetic IDs against live API): " + result);
-      int status = Helpers.toInt(result.get("status"));
-      Assumptions.assumeTrue(status >= 200 && status < 300,
-          "expected 2xx status, got " + result.get("status"));
+      if (!liveOk(result)) {
+        RunnerSupport.liveMiss(LIVE_STRICT, "Live list failed: " + RunnerSupport.liveDescribe(result));
+      }
+      if (RunnerSupport.liveList(result.get("data")) == null) {
+        RunnerSupport.liveMiss(LIVE_STRICT, "Live list returned no list: " + RunnerSupport.liveDescribe(result));
+      }
     }
     else {
       assertEquals(true, result.get("ok"), "expected ok to be true");
@@ -309,31 +343,35 @@ ${listSkipBlock}    ${SDK} client = setup.client;
     }
 
     // Generate load test - in live mode, first list to get a real entity ID
-    if (hasLoad && loadPoint) {
-      // Identify ancestor params (not 'id') for live mode
-      const ancestorParams = loadParams.filter((p: any) => p.name !== 'id')
+    if (hasLoad && pointIsGraphql(loadPoint)) {
+      Content(`  @Test
+  public void directLoad${entity.Name}() {
+    Assumptions.assumeTrue(false, "${graphqlDirectSkip('load', entity.name)}");
+  }
 
+`)
+    }
+    else if (hasLoad && loadPoint) {
+      const discovery = liveDirectDiscovery(entity, loadParams, listPoint)
+      const ancestorParams = loadParams.filter((p: any) => p.n !== discovery?.param)
+
+      const liveKey = (p: any) => p.n === 'id' ? entity.name + '01' : p.n.replace(/_id$/, '') + '01'
       let loadLiveIdKeys: string[] = []
       if (loadParams.length > 0 && !loadAllHaveExamples) {
-        if (hasList) {
-          loadLiveIdKeys = listParams.map((p: any) => {
-            return p.name === 'id'
-              ? entity.name + '01'
-              : p.name.replace(/_id$/, '') + '01'
-          })
-        } else {
-          loadLiveIdKeys = loadParams.map((p: any) => p.name + '01')
-        }
+        loadLiveIdKeys = [...new Set((discovery ?
+          [...listParams, ...ancestorParams] : loadParams).map(liveKey))]
       }
-      const loadSkipBlock = loadLiveIdKeys.length > 0
+      const loadSkipBlock = getOnlyKeysBlock(model, entity, 'direct-load-' + entity.name, loadLiveIdKeys) +
+        (loadLiveIdKeys.length > 0
         ? `    if (setup.live) {
       for (String liveKey : new String[] { ${loadLiveIdKeys.map(k => `"${k}"`).join(', ')} }) {
-        Assumptions.assumeTrue(setup.idmap.get(liveKey) != null,
-            "live test needs " + liveKey + " via *_ENTID env var (synthetic IDs only)");
+        if (setup.idmap.get(liveKey) == null) {
+          RunnerSupport.liveMiss(LIVE_STRICT, "Live test blocked: needs " + liveKey + " via ${entidEnvVar}");
+        }
       }
     }
 `
-        : ''
+        : '')
 
       Content(`  @Test
   public void directLoad${entity.Name}() {
@@ -343,7 +381,10 @@ ${listSkipBlock}    ${SDK} client = setup.client;
     Assumptions.assumeTrue(reason == null,
         reason == null || "".equals(reason)
             ? "skipped via sdk-test-control.json" : reason);
-${loadSkipBlock}    ${SDK} client = setup.client;
+${loadSkipBlock}    if (setup.live) {
+      RunnerSupport.livePace();
+    }
+    ${SDK} client = setup.client;
 
 `)
 
@@ -362,34 +403,53 @@ ${loadSkipBlock}    ${SDK} client = setup.client;
 
         if (loadAllHaveExamples) {
           Content(loadExampleLines + '\n')
-        } else if (hasList && loadParams.length > 0) {
+        } else if (discovery) {
           Content(`      Map<String, Object> listParams = new LinkedHashMap<>();
 `)
           for (const p of listParams) {
-            const key = p.name === 'id'
+            const key = p.n === 'id'
               ? entity.name + '01'
-              : p.name.replace(/_id$/, '') + '01'
-            Content(`      listParams.put("${p.name}", setup.idmap.get("${key}"));
+              : p.n.replace(/_id$/, '') + '01'
+            Content(`      listParams.put("${p.n}", setup.idmap.get("${key}"));
 `)
+          }
+
+          // The list sends the query its route requires, as direct-list does.
+          const listQueryLines = liveQueryExamples(listPoint)
+            .map(([name, ex]) => `      listQuery.put(${JSON.stringify(name)}, ${javaLiteral(ex)});\n`).join('')
+          if ('' !== listQueryLines) {
+            Content(`      Map<String, Object> listQuery = new LinkedHashMap<>();
+` + listQueryLines)
           }
 
           Content(`      Map<String, Object> listResult = client.direct(jm(
           "path", "${listPath}",
           "method", "GET",
-          "params", listParams));
-      Assumptions.assumeTrue(Boolean.TRUE.equals(listResult.get("ok")),
-          "list call not ok (likely synthetic IDs against live API): " + listResult);
-
-      // Get first entity ID from list
-      List<Object> listData = listResult.get("data") instanceof List
-          ? (List<Object>) listResult.get("data") : new ArrayList<>();
-      Assumptions.assumeTrue(!listData.isEmpty(), "no entities to load in live mode");
+          "params", listParams${'' === listQueryLines ? '' : `,
+          "query", listQuery`}));
+      if (!liveOk(listResult)) {
+        RunnerSupport.liveMiss(LIVE_STRICT, "Live list discovery failed: " + RunnerSupport.liveDescribe(listResult));
+      }
+      List<Object> listData = RunnerSupport.liveList(listResult.get("data"));
+      if (listData == null) {
+        RunnerSupport.liveMiss(LIVE_STRICT, "Live list discovery returned no list: " + RunnerSupport.liveDescribe(listResult));
+      }
+      if (listData.isEmpty()) {
+        RunnerSupport.liveEmpty("The account has no ${entity.name} record to load");
+      }
       Map<String, Object> firstEnt = Helpers.toMapAny(listData.get(0));
-      params.put("id", firstEnt.get("id"));
+      if (firstEnt == null || firstEnt.get("${discovery.field}") == null) {
+        RunnerSupport.liveMiss(LIVE_STRICT, "Live load blocked: discovery returned no usable identity");
+      }
+      params.put("${discovery.param}", firstEnt.get("${discovery.field}"));
 `)
           for (const p of ancestorParams) {
-            const key = p.name.replace(/_id$/, '') + '01'
-            Content(`      params.put("${p.name}", setup.idmap.get("${key}"));
+            Content(`      params.put("${p.n}", setup.idmap.get("${liveKey(p)}"));
+`)
+          }
+        } else if (loadParams.length > 0) {
+          for (const p of loadParams) {
+            Content(`      params.put("${p.n}", setup.idmap.get("${liveKey(p)}"));
 `)
           }
         }
@@ -399,7 +459,7 @@ ${loadSkipBlock}    ${SDK} client = setup.client;
     else {
 `)
           for (let i = 0; i < loadParams.length; i++) {
-            Content(`      params.put("${loadParams[i].name}", "direct0${i + 1}");
+            Content(`      params.put("${loadParams[i].n}", "direct0${i + 1}");
 `)
           }
         }
@@ -425,14 +485,12 @@ ${loadSkipBlock}    ${SDK} client = setup.client;
       }
 
       Content(`    if (setup.live) {
-      // Live mode is lenient: synthetic IDs frequently 4xx. Skip rather
-      // than fail when the load endpoint isn't reachable with the IDs we
-      // can construct from setup.idmap.
-      Assumptions.assumeTrue(Boolean.TRUE.equals(result.get("ok")),
-          "load call not ok (likely synthetic IDs against live API): " + result);
-      int status = Helpers.toInt(result.get("status"));
-      Assumptions.assumeTrue(status >= 200 && status < 300,
-          "expected 2xx status, got " + result.get("status"));
+      if (!liveOk(result)) {
+        RunnerSupport.liveMiss(LIVE_STRICT, "Live load failed: " + RunnerSupport.liveDescribe(result));
+      }
+      if (result.get("data") == null) {
+        RunnerSupport.liveMiss(LIVE_STRICT, "Live load returned no data: " + RunnerSupport.liveDescribe(result));
+      }
     }
     else {
       assertEquals(true, result.get("ok"), "expected ok to be true");
@@ -508,7 +566,10 @@ ${authActive ? `      mergedOpts.put("apikey", env.get("${PROJECTNAME}_APIKEY"))
       else if (entidRaw instanceof Map) {
         idmap = (Map<String, Object>) entidRaw;
       }
-      setup.idmap = idmap;
+${0 === exampleIds.length ? '' : `      // A path parameter's example stands in for an id *_ENTID does not give.
+      idmap = new LinkedHashMap<>(idmap);
+${exampleIds.map(([key, ex]) => `      idmap.putIfAbsent("${key}", ${javaLiteral(ex)});
+`).join('')}`}      setup.idmap = idmap;
       return setup;
     }
 

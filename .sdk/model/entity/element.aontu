@@ -1,0 +1,381 @@
+# Entity: element
+
+main: kit: entity: element: {
+
+  alias: field: {}
+
+  fields: {
+    block: {
+      h: "Block"
+      n: "block"
+      r: true
+      sh: "Orbital block, one of s, p, d, f."
+      t: "`$STRING`"
+    }
+    discovered: {
+      h: "Discovered"
+      n: "discovered"
+      r: false
+      sh: "Year of discovery, absent for elements known since antiquity."
+      t: "`$INTEGER`"
+    }
+    group: {
+      h: "Group"
+      n: "group"
+      r: false
+      sh: "Periodic table column, 1 to 18, absent for the f-block."
+      t: "`$INTEGER`"
+    }
+    id: {
+      h: "Id"
+      n: "id"
+      r: true
+      sh: "Element identifier, the lowercase symbol."
+      t: "`$STRING`"
+    }
+    mass: {
+      fo: "float"
+      h: "Mass"
+      n: "mass"
+      r: true
+      sh: "Standard atomic weight in daltons."
+      t: "`$NUMBER`"
+    }
+    name: {
+      h: "Name"
+      n: "name"
+      r: true
+      sh: "Element name."
+      t: "`$STRING`"
+    }
+    number: {
+      h: "Number"
+      n: "number"
+      r: true
+      sh: "Atomic number."
+      t: "`$INTEGER`"
+    }
+    period: {
+      h: "Period"
+      n: "period"
+      r: true
+      sh: "Periodic table row, 1 to 7."
+      t: "`$INTEGER`"
+    }
+    phase: {
+      h: "Phase"
+      n: "phase"
+      r: false
+      sh: "Phase at standard temperature and pressure."
+      t: "`$STRING`"
+    }
+    series_id: {
+      h: "Series Id"
+      n: "series_id"
+      r: true
+      sh: "Chemical series this element belongs to."
+      t: "`$STRING`"
+    }
+    symbol: {
+      h: "Symbol"
+      n: "symbol"
+      r: true
+      sh: "Chemical symbol."
+      t: "`$STRING`"
+    }
+  }
+
+  id: {
+    field: "id"
+    name: "id"
+  }
+
+  name: "element"
+  op: {
+    create: {
+      name: "create"
+      points: [
+        {
+          bf: [
+            "charge"
+          ]
+          co: {
+            id: "POST /element/{element_id}/ionize"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "POST"
+          o: "/element/{element_id}/ionize"
+          q: {
+            "$action": "ionize"
+            exist: [
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              element_id: "id"
+            }
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+            {
+              lit: "ionize"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+        {
+          bf: [
+            "block"
+            "discovered"
+            "group"
+            "id"
+            "mass"
+            "name"
+            "number"
+            "period"
+            "phase"
+            "series_id"
+            "symbol"
+          ]
+          co: {
+            id: "POST /element"
+            source: "openapi3"
+            version: 2
+          }
+          m: "POST"
+          o: "/element"
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    list: {
+      name: "list"
+      points: [
+        {
+          co: {
+            id: "GET /element"
+            source: "openapi3"
+            version: 2
+          }
+          m: "GET"
+          o: "/element"
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    load: {
+      name: "load"
+      points: [
+        {
+          co: {
+            id: "GET /element/{element_id}"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "GET"
+          o: "/element/{element_id}"
+          q: {
+            exist: [
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              element_id: "id"
+            }
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    remove: {
+      name: "remove"
+      points: [
+        {
+          co: {
+            id: "DELETE /element/{element_id}"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "DELETE"
+          o: "/element/{element_id}"
+          q: {
+            exist: [
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              element_id: "id"
+            }
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+    update: {
+      name: "update"
+      points: [
+        {
+          bf: [
+            "block"
+            "discovered"
+            "group"
+            "id"
+            "mass"
+            "name"
+            "number"
+            "period"
+            "phase"
+            "series_id"
+            "symbol"
+          ]
+          co: {
+            id: "PUT /element/{element_id}"
+            source: "openapi3"
+            version: 2
+          }
+          g: {
+            params: [
+              {
+                k: "param"
+                n: "id"
+                or: "element_id"
+                r: true
+                t: "`$STRING`"
+              }
+            ]
+          }
+          m: "PUT"
+          o: "/element/{element_id}"
+          q: {
+            exist: [
+              "id"
+            ]
+          }
+          r: {
+            param: {
+              element_id: "id"
+            }
+          }
+          rs: {
+            kind: "json"
+            media: "application/json"
+          }
+          s: [
+            {
+              lit: "element"
+            }
+            {
+              var: "id"
+            }
+          ]
+          t: {
+            req: "`reqdata`"
+            res: "`body`"
+          }
+        }
+      ]
+    }
+  }
+
+
+
+}

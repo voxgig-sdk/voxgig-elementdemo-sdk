@@ -1,13 +1,7 @@
 "use strict";
-// VENDORED: @voxgig/omni 0.1.4 (typescript/src/Util.ts)
-// Source: https://github.com/voxgig/omni @ 8c3e1b573a8d35796f7fc45e3226b977023cabf7  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/omni 0.1.5 (typescript/src/Util.ts)
+// Source: https://github.com/voxgig/omni @ e9cb45a308a4da47ffdbc1b3149b9c59199190b2  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
-// Omni internal JSON utilities.
-//
-// This module is deliberately self-contained: the omni runner must be able
-// to test *any* library, including libraries that provide these same
-// operations, so it can never borrow them from the system under test.
-// Zero third-party dependencies, by design.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EXISTSMARK = exports.UNDEFMARK = exports.NULLMARK = void 0;
 exports.clone = clone;
@@ -144,18 +138,6 @@ function deepequal(a, b) {
     }
     return false;
 }
-// Compact JSON text with map keys sorted, so that messages are identical
-// in every port regardless of local map ordering.
-//
-// CYCLE SAFE. Building a FAILURE MESSAGE must never be the thing that
-// crashes: a port driving entries with live objects rather than pure JSON
-// can carry a cyclic value in the entry bookkeeping fail() prints, and this
-// recursed until the stack gave out. A cycle renders as "[Circular]", as
-// the struct repository's original runner did.
-//
-// `seen` tracks the ANCESTORS of the current value, not every value
-// visited: it is removed again on the way out, so the same object appearing
-// twice as siblings - a DAG, not a cycle - still renders in full.
 function jsonstr(val, seen) {
     if (undefined === val) {
         return 'undefined';

@@ -46,19 +46,22 @@ def make_error_util(ctx, err):
 
     spec = ctx.spec
 
-    if ctx.ctrl.explain is not None:
-        ctx.ctrl.explain["err"] = {"message": msg}
+    sdk_err = ElementdemoError(
+        err.code if isinstance(err, ElementdemoError) else "", msg, ctx)
 
-    sdk_err = ElementdemoError("", msg, ctx)
+    # The context stays reachable for a debugger (a slot on the error), and
+    # the error itself is cleaned in place; result and spec are cleaned
+    # COPIES, so masking them cannot mask the pipeline's own objects.
+    ctx.utility.clean(ctx, sdk_err)
     sdk_err.result = ctx.utility.clean(ctx, result)
     sdk_err.spec = ctx.utility.clean(ctx, spec)
+
+    if ctx.ctrl.explain is not None:
+        ctx.ctrl.explain["err"] = {"message": msg}
 
     # Promote the HTTP status to the top level, so a consumer can branch on
     # `err.status` / `err.not_found` instead of reaching into `err.result`.
     sdk_err.status = -1 if result.status is None else result.status
-
-    if isinstance(err, ElementdemoError):
-        sdk_err.code = err.code
 
     ctx.ctrl.err = sdk_err
 
@@ -68,6 +71,7 @@ def make_error_util(ctx, err):
     # error; features guard against double-recording when PreDone already fired.
     if getattr(ctx, "utility", None) is not None and \
             callable(getattr(ctx.utility, "feature_hook", None)):
+        ctx.unexpected_fired = True
         ctx.utility.feature_hook(ctx, "PreUnexpected")
 
     if ctx.ctrl.throw_err is False:

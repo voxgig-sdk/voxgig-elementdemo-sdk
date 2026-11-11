@@ -29,21 +29,34 @@ type Entity interface {
 	Data(data ...any) any
 	Match(match ...any) any
 
-	// Every operation resolves to the entity; Remove additionally marks it.
-	// The instance keeps the data it held — a caller can still read what was
-	// deleted — but it is no longer a live record.
 	MarkDeleted()
 	Deleted() bool
 }
 
-type ElementdemoEntity interface {
+// ElementdemoEntityBase is the full CRUD contract every generated entity
+// implements. Named `...Base`, as in the other targets, because an entity
+// struct is `<Entity>Entity`.
+type ElementdemoEntityBase interface {
 	Entity
 	Load(reqmatch map[string]any, ctrl map[string]any) (any, error)
 	List(reqmatch map[string]any, ctrl map[string]any) (any, error)
 	Create(reqdata map[string]any, ctrl map[string]any) (any, error)
 	Update(reqdata map[string]any, ctrl map[string]any) (any, error)
+	Patch(reqdata map[string]any, ctrl map[string]any) (any, error)
 	Remove(reqmatch map[string]any, ctrl map[string]any) (any, error)
-	Stream(action string, args map[string]any, callopts map[string]any) <-chan any
+	Stream(action string, args map[string]any, callopts map[string]any) <-chan StreamItem
+}
+
+// A StreamItem is one value from an entity's Stream channel: an item of the
+// result, or the error that ended the stream, which is sent last.
+type StreamItem struct {
+	Item any
+	Err  error
 }
 
 type FetcherFunc func(ctx *Context, fullurl string, fetchdef map[string]any) (any, error)
+
+// ElementdemoEntity is the former name of ElementdemoEntityBase.
+//
+// Deprecated: use ElementdemoEntityBase.
+type ElementdemoEntity = ElementdemoEntityBase

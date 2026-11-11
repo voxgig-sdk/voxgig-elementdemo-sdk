@@ -1,6 +1,7 @@
 package utility
 
 import (
+	"regexp"
 	"strings"
 
 	vs "github.com/voxgig/struct"
@@ -28,11 +29,6 @@ func terminalParam(point map[string]any) bool {
 	return strings.HasPrefix(last, "{")
 }
 
-// The entity's OWN route among an op's points: a terminal parameter first,
-// then the fewest path segments. Ties keep the earlier point, so the model's
-// sorted-key order decides. The same rule runs at generation time, in
-// helpers/opShape.ts — a template ships standalone, so both sides must move
-// together.
 func ownPoint(points []map[string]any) map[string]any {
 	best := points[0]
 	for _, cand := range points {
@@ -47,6 +43,26 @@ func ownPoint(points []map[string]any) map[string]any {
 		}
 	}
 	return best
+}
+
+var pathParamRe = regexp.MustCompile(`^\{([^{}/]+)\}$`)
+
+// The path parameters of a point that neither the call nor the entity gives
+// a value for, looked up as prepareParamsUtil looks them up.
+func unfilledParams(ctx *core.Context, point map[string]any) []string {
+	missing := []string{}
+	parts, _ := vs.GetProp(point, "parts").([]any)
+	for _, part := range parts {
+		text, _ := part.(string)
+		found := pathParamRe.FindStringSubmatch(text)
+		if nil == found {
+			continue
+		}
+		if nil == paramValue(ctx, point, found[1]) {
+			missing = append(missing, found[1])
+		}
+	}
+	return missing
 }
 
 func makePointUtil(ctx *core.Context) (map[string]any, error) {
@@ -66,8 +82,9 @@ func makePointUtil(ctx *core.Context) (map[string]any, error) {
 	op := ctx.Op
 	options := ctx.Options
 
-	allowOp, _ := vs.GetPath(options, []any{"allow", "op"}).(string)
-	if !strings.Contains(allowOp, op.Name) {
+	allowOpVal := vs.GetPath(options, []any{"allow", "op"})
+	allowOp, _ := allowOpVal.(string)
+	if !core.Allowed(allowOpVal, op.Name) {
 		return nil, ctx.MakeError("point_op_allow",
 			"Operation \""+op.Name+
 				"\" not allowed by SDK option allow.op value: \""+allowOp+"\"")
@@ -134,12 +151,6 @@ func makePointUtil(ctx *core.Context) (map[string]any, error) {
 		// so nothing matches — fall back to the entity's own route rather
 		// than whichever point came last.
 		if !matched {
-			// A request naming an action reaches here only because that
-			// action's own point failed its exist test, so it is unbuildable
-			// whatever we pick. Refuse it BEFORE choosing a fallback: the
-			// guard below compares the chosen point's $action and would wave
-			// the request through whenever the fallback lands on the action
-			// point itself.
 			if reqselector != nil && vs.GetProp(reqselector, "$action") != nil {
 				return nil, ctx.MakeError("point_action_invalid",
 					"Operation \""+op.Name+
@@ -147,7 +158,34 @@ func makePointUtil(ctx *core.Context) (map[string]any, error) {
 						"\" is not valid.")
 			}
 
-			point = ownPoint(op.Points)
+			// A call without an action falls back to a point without one, as
+			// generation does, and only to a route the call can fill.
+			plain := []map[string]any{}
+			for _, cand := range op.Points {
+				if nil == vs.GetProp(vs.GetProp(cand, "select"), "$action") {
+					plain = append(plain, cand)
+				}
+			}
+			if 0 == len(plain) {
+				return nil, ctx.MakeError("point_action_required",
+					"Operation \""+op.Name+
+						"\" has only action endpoints; pass $action to choose one.")
+			}
+			fillable := []map[string]any{}
+			for _, cand := range plain {
+				if 0 == len(unfilledParams(ctx, cand)) {
+					fillable = append(fillable, cand)
+				}
+			}
+
+			if 0 == len(fillable) {
+				return nil, ctx.MakeError("point_no_match",
+					"Operation \""+op.Name+
+						"\" has no endpoint whose path parameters are all given (missing: "+
+						strings.Join(unfilledParams(ctx, ownPoint(plain)), ", ")+").")
+			}
+
+			point = ownPoint(fillable)
 		}
 
 		if reqselector != nil {

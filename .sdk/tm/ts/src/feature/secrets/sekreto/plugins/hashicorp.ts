@@ -1,5 +1,5 @@
-// VENDORED: @voxgig/sekreto 0.2.0 (typescript/plugins/hashicorp.ts)
-// Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/sekreto 0.3.0 (typescript/plugins/hashicorp.ts)
+// Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 /* Copyright (c) 2025 Voxgig Ltd, MIT License */
 
@@ -9,20 +9,6 @@ import {
 import { checkaddr } from '../provider/addr'
 import { fetchjson } from './httpjson'
 
-/** HashiCorp Vault.
- *
- * KV v2 (the default): `api.token` reads `{addr}/v1/{mount}/data/api`
- * and takes the `token` field of `data.data`. KV v1 (`kv: 1`) reads
- * `{addr}/v1/{mount}/api` and takes the field of `data`. A 404 means
- * "not here" - a miss - so a vault can sit in a chain with fallbacks.
- *
- * A Vault Enterprise namespace rides the X-Vault-Namespace header, on
- * logins as well as reads.
- *
- * Instead of being handed a token, the provider can log in: Kubernetes
- * auth (the pod's service-account JWT, from its conventional path) or
- * AppRole. A failed login is an error, never a miss - it means this
- * store could not answer at all. */
 export function hashicorpprovider(
   addr: string,
   token: string,

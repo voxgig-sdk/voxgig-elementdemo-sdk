@@ -29,5 +29,17 @@
         "name": "sa3"
       }
     }
+  },
+  "requests": {
+    "GET /series": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "GET /series/{series_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    }
   }
 }

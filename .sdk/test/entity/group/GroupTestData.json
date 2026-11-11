@@ -5,19 +5,19 @@
         "cas": "s28",
         "id": "GROUP00",
         "name": "s2a",
-        "number": "s2b"
+        "number": 43
       },
       "GROUP01": {
         "cas": "s50",
         "id": "GROUP01",
         "name": "s52",
-        "number": "s53"
+        "number": 83
       },
       "GROUP02": {
         "cas": "s78",
         "id": "GROUP02",
         "name": "s7a",
-        "number": "s7b"
+        "number": 123
       }
     }
   },
@@ -26,8 +26,20 @@
       "group_ref01": {
         "cas": "sa0",
         "name": "sa2",
-        "number": "sa3"
+        "number": 163
       }
+    }
+  },
+  "requests": {
+    "GET /group": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "GET /group/{group_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
     }
   }
 }

@@ -27,7 +27,7 @@ make test
 
 | Source | Path | Edit when… |
 | --- | --- | --- |
-| Target definition | `.sdk/model/target/ts.aon` | deps, module, extension, phases change |
+| Target definition | `.sdk/model/target/ts.aontu` | deps, module, extension, phases change |
 | Templates | `.sdk/tm/ts/` | the file is the **same for every API** (runtime, transport, base classes) — copied verbatim with placeholder substitution |
 | Components | `.sdk/src/cmp/ts/` | the file's shape **depends on the API** (entities, constructor, README, tests) — TypeScript that walks the model |
 
@@ -37,11 +37,16 @@ component.* After editing a component run `npm run build` before
 
 ## Features in this target
 
+- [`debug`](./src/feature/debug/AGENTS.md) — Debug capture
 - [`elementcard`](./src/feature/elementcard/AGENTS.md) — ASCII periodic-table tile for element-shaped results
-- [`retry`](./src/feature/retry/AGENTS.md) — Automatic retry of transient failures with exponential backoff
-- [`secrets`](./src/feature/secrets/AGENTS.md) — Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens
-- [`test`](./src/feature/test/AGENTS.md) — In-memory mock transport for testing without a live server
-- [`timeout`](./src/feature/timeout/AGENTS.md) — Per-request timeout with transport abort
+- [`idempotency`](./src/feature/idempotency/AGENTS.md) — Idempotency
+- [`metrics`](./src/feature/metrics/AGENTS.md) — Metrics
+- [`paging`](./src/feature/paging/AGENTS.md) — Paging
+- [`ratelimit`](./src/feature/ratelimit/AGENTS.md) — Rate limiting
+- [`retry`](./src/feature/retry/AGENTS.md) — Retry
+- [`secrets`](./src/feature/secrets/AGENTS.md) — Secrets
+- [`test`](./src/feature/test/AGENTS.md) — Test transport
+- [`timeout`](./src/feature/timeout/AGENTS.md) — Timeout
 
 Each feature's runtime and its own guide live in `src/feature/<name>/`.
 

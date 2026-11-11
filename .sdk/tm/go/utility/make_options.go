@@ -1,6 +1,7 @@
 package utility
 
 import (
+	"encoding/json"
 	"regexp"
 	"sort"
 	"strings"
@@ -13,18 +14,43 @@ import (
 // {name} placeholders in a templated server URL (OpenAPI server variables).
 var serverVarRe = regexp.MustCompile(`\{[A-Za-z0-9_]+\}`)
 
+func canonNumbers(node any) {
+	switch n := node.(type) {
+	case map[string]any:
+		for k, v := range n {
+			if num, ok := v.(json.Number); ok {
+				n[k] = canonNumber(num)
+			} else {
+				canonNumbers(v)
+			}
+		}
+	case []any:
+		for i, v := range n {
+			if num, ok := v.(json.Number); ok {
+				n[i] = canonNumber(num)
+			} else {
+				canonNumbers(v)
+			}
+		}
+	}
+}
+
+func canonNumber(n json.Number) any {
+	if i, err := n.Int64(); err == nil {
+		return i
+	}
+	if f, err := n.Float64(); err == nil {
+		return f
+	}
+	return n
+}
+
 func makeOptionsUtil(ctx *core.Context) map[string]any {
 	options := ctx.Options
 	if options == nil {
 		options = map[string]any{}
 	}
 
-	// Merge custom utility overrides onto the utility object.
-	// Read from original options before clone, since vs.Clone strips functions.
-	//
-	// A key naming a real utility member REPLACES it (overrideUtil); anything
-	// else is attached as a custom extra. This mirrors ts, where the utility is
-	// an open object and `setprop` does both at once.
 	if customUtils := core.ToMapAny(options["utility"]); customUtils != nil {
 		utility := ctx.Utility
 		if utility != nil {
@@ -36,28 +62,41 @@ func makeOptionsUtil(ctx *core.Context) map[string]any {
 		}
 	}
 
-	// `auth: nil` is the documented way to disable auth outright, and
-	// prepareAuth honours it before it ever reads the apikey. But validate
-	// treats a stored nil as "no value", so the optspec's `auth` default
-	// fires and the suppression silently becomes "use default auth" —
-	// transmitting a credential the caller explicitly asked not to send.
-	//
-	// Suppliedness cannot be recovered after validate, hence here. The
-	// two-value form is required: options["auth"] reads nil both when the
-	// key is ABSENT and when it is present and nil, and only the second is
-	// a suppression. (ts gets this for free — `null === options.auth` is
-	// false for an omitted key, since that reads undefined.)
 	authval, authgiven := options["auth"]
 	authsuppressed := authgiven && authval == nil
 
 	opts := vs.Clone(options).(map[string]any)
 
-	// Feature add-order (feature #2). options.feature may be given as an ordered
-	// ARRAY of {name, active, ...opts} entries (the array position IS the order
-	// in which features are added), or as a {name:{opts}} map. Normalize an
-	// array to a map (so merge/validate/init are unchanged) and remember the
-	// explicit order; a map defaults to test-first so the `test` mock transport
-	// is installed as the base of the transport wrapper chain.
+	config := ctx.Config
+	if config == nil {
+		config = map[string]any{}
+	}
+	cfgopts := map[string]any{}
+	if co, ok := config["options"]; ok && co != nil {
+		if cm, ok := co.(map[string]any); ok {
+			cfgopts = cm
+		}
+	}
+
+	// The secret registry exists BEFORE validation, fed from the raw input, so
+	// the constructor's own rejection of a mistyped credential is clean too.
+	cleanraw := map[string]any{}
+	for _, layer := range []any{core.OPTSPEC["clean"], cfgopts["clean"], opts["clean"]} {
+		for k, v := range core.ToMapAny(layer) {
+			cleanraw[k] = v
+		}
+	}
+	cleancfg := makeCleanConfig(cleanraw)
+	cleanctx := &core.Context{Options: map[string]any{
+		"__derived__": map[string]any{"clean": cleancfg},
+	}}
+	cleanAddOptions(cleanctx, cleanOmit(opts, "clean"))
+	for _, block := range []map[string]any{cfgopts, opts} {
+		for _, s := range cleanSplit(vs.GetPath(block, []any{"clean", "values"})) {
+			cleancfg.add(s)
+		}
+	}
+
 	var featureorder []any
 	if farr, ok := opts["feature"].([]any); ok {
 		fmap := map[string]any{}
@@ -82,71 +121,7 @@ func makeOptionsUtil(ctx *core.Context) map[string]any {
 		opts["feature"] = fmap
 	}
 
-	config := ctx.Config
-	if config == nil {
-		config = map[string]any{}
-	}
-	cfgopts := map[string]any{}
-	if co, ok := config["options"]; ok && co != nil {
-		if cm, ok := co.(map[string]any); ok {
-			cfgopts = cm
-		}
-	}
-
-	optspec := map[string]any{
-		"apikey": "",
-		"base":   "http://localhost:8000",
-		"prefix": "",
-		"suffix": "",
-		"auth": map[string]any{
-			"prefix": "",
-		},
-		"headers": map[string]any{
-			"`$CHILD`": "`$STRING`",
-		},
-		"allow": map[string]any{
-			"method": "GET,PUT,POST,PATCH,DELETE,OPTIONS",
-			"op":     "create,update,load,list,remove,command,direct,graphql",
-		},
-		"entity": map[string]any{
-			"`$CHILD`": map[string]any{
-				"`$OPEN`": true,
-				"active":  false,
-				"alias":   map[string]any{},
-			},
-		},
-		"feature": map[string]any{
-			"`$CHILD`": map[string]any{
-				"`$OPEN`": true,
-				"active":  false,
-			},
-		},
-		"utility": map[string]any{},
-		// Feature INSTANCES supplied at construction (the station adopt
-		// path): consumed by the constructor's featureAdd loop, so they
-		// are class instances, not data - `$ANY` accepts them verbatim.
-		// Without this entry the seam is dead: the constructor reads
-		// options.extend, but validate rejected the key (mirrors
-		// MakeOptionsUtility.ts).
-		"extend": "`$ANY`",
-		"system": map[string]any{},
-		"test": map[string]any{
-			"active": false,
-			"entity": map[string]any{
-				"`$OPEN`": true,
-			},
-		},
-		"clean": map[string]any{
-			"keys": "key,token,id",
-		},
-		// Server-variable values for a templated base URL (OpenAPI server
-		// variables): {name} placeholders in "base" are substituted from this
-		// map at construction. Spec defaults arrive via the generated config;
-		// user values override them.
-		"server": map[string]any{
-			"`$CHILD`": "",
-		},
-	}
+	optspec := core.OPTSPEC
 
 	// Preserve system.fetch before merge/validate.
 	var sysFetch any
@@ -159,6 +134,12 @@ func makeOptionsUtil(ctx *core.Context) map[string]any {
 	// nested maps as merge TARGETS — one instance's options (server, headers,
 	// ...) would contaminate every instance constructed after it.
 	merged := vs.Merge([]any{map[string]any{}, vs.Clone(cfgopts), opts})
+
+	// To reflect a json.Number is a string, so the validator refuses one where
+	// the feature readers accept it. Canonicalise first: options decoded with
+	// UseNumber() are otherwise judged by a rule nothing else applies.
+	canonNumbers(merged)
+
 	validated, _ := vs.Validate(merged, optspec)
 	opts = validated.(map[string]any)
 
@@ -167,14 +148,6 @@ func makeOptionsUtil(ctx *core.Context) map[string]any {
 		opts["auth"] = nil
 	}
 
-	// Resolve a templated base URL (e.g. https://{tenant_id}.hanko.io).
-	// Every placeholder must resolve to a non-empty value: from
-	// options["server"] (user), else the config default. A placeholder that
-	// resolves to "" is a construction error in live mode — the URL cannot
-	// work — but in test mode substitutes the deterministic value
-	// "test-<name>" so offline tests need no configuration. The SDK
-	// constructor has no error return, so a missing required variable
-	// PANICS (construction-time misconfiguration, as regexp.MustCompile).
 	if base, ok := opts["base"].(string); ok && strings.Contains(base, "{") {
 		testmode := false
 		if ta, ok := vs.GetPath(opts, []any{"test", "active"}).(bool); ok && ta {
@@ -215,24 +188,6 @@ func makeOptionsUtil(ctx *core.Context) map[string]any {
 		}
 	}
 
-	// Derived clean config.
-	cleanKeys := "key,token,id"
-	if ck := vs.GetPath(opts, []any{"clean", "keys"}); ck != nil {
-		if cks, ok := ck.(string); ok {
-			cleanKeys = cks
-		}
-	}
-
-	parts := strings.Split(cleanKeys, ",")
-	var filtered []string
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			filtered = append(filtered, vs.EscRe(p))
-		}
-	}
-	keyre := strings.Join(filtered, "|")
-
 	// Resolve the feature add-order: an explicit array order (above) wins;
 	// otherwise order the map test-first, then the remaining names sorted, so
 	// the outcome is deterministic and `test` is always the base transport.
@@ -260,12 +215,6 @@ func makeOptionsUtil(ctx *core.Context) map[string]any {
 		} else {
 			ordered = append(ordered, names...)
 		}
-		// Station special case, mirroring test's: its transport wrap must
-		// sit immediately outside the base transport (inside retry/cache/
-		// netsim), so map-form activation hoists it to just after test -
-		// or first, when no test entry exists. Without this the sorted
-		// default would init station last and wrap OUTSIDE the recording
-		// features, turning its wire-truth events into fiction.
 		si := -1
 		for i, n := range ordered {
 			if n == "station" {
@@ -290,14 +239,60 @@ func makeOptionsUtil(ctx *core.Context) map[string]any {
 		}
 	}
 
-	derived := map[string]any{
-		"clean": map[string]any{},
+	opts["__derived__"] = map[string]any{
+		"clean":        cleancfg,
+		"featureorder": featureorder,
 	}
-	if keyre != "" {
-		derived["clean"] = map[string]any{"keyre": keyre}
-	}
-	derived["featureorder"] = featureorder
-	opts["__derived__"] = derived
+
+	// Again over the merged result: the config's own defaults can carry one.
+	cleanAddOptions(cleanctx, cleanOmit(opts, "clean", "__derived__"))
 
 	return opts
+}
+
+// A feature's name is not a field name: only the sensitive names inside its
+// settings count, so `secrets` does not make every setting a secret. Entity
+// blocks (per-entity settings, seeded records) hold no credential, and nor do
+// rbac's rules, keyed by entity and operation names.
+func cleanAddOptions(ctx *core.Context, opts map[string]any) {
+	top := cleanOmit(opts, "feature", "entity")
+	if test, ok := top["test"]; ok {
+		top["test"] = cleanPlain(test, "")
+	}
+	cleanAddSensitive(ctx, top)
+	switch feature := opts["feature"].(type) {
+	case map[string]any:
+		for name, fopts := range feature {
+			cleanAddSensitive(ctx, cleanPlain(fopts, name))
+		}
+	case []any:
+		for _, entry := range feature {
+			m, _ := entry.(map[string]any)
+			name, _ := m["name"].(string)
+			cleanAddSensitive(ctx, cleanPlain(entry, name))
+		}
+	default:
+		cleanAddSensitive(ctx, feature)
+	}
+}
+
+func cleanPlain(block any, name string) any {
+	if m, ok := block.(map[string]any); ok {
+		if "rbac" == name {
+			return cleanOmit(m, "entity", "rules")
+		}
+		return cleanOmit(m, "entity")
+	}
+	return block
+}
+
+func cleanOmit(m map[string]any, keys ...string) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	for _, k := range keys {
+		delete(out, k)
+	}
+	return out
 }

@@ -1,5 +1,5 @@
-// VENDORED: @voxgig/sekreto sdk-20260904-1610-0 (go/plugins/hashicorp/hashicorp.go)
-// Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/sekreto sdk-20261016-0845-0 (go/plugins/hashicorp/hashicorp.go)
+// Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 // The hashicorp plugin: HashiCorp Vault, and OpenBao. Needs HTTPS, and
 // the filesystem for a kubernetes service-account JWT. A port of
@@ -7,7 +7,6 @@
 package hashicorp
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"strconv"
@@ -19,20 +18,6 @@ import (
 	"GOMODULE/feature/secrets/sekreto"
 )
 
-// Provider reads HashiCorp Vault.
-//
-// KV v2 (the default): api.token reads {addr}/v1/{mount}/data/api and takes
-// the `token` field of data.data. KV v1 (KV: 1) reads {addr}/v1/{mount}/api
-// and takes the field of data. A 404 means "not here", which is a miss
-// rather than an error, so a vault can sit in a chain with fallbacks.
-//
-// A Vault Enterprise namespace rides the X-Vault-Namespace header, on
-// logins as well as reads.
-//
-// Instead of being handed a token, the provider can log in: Kubernetes
-// auth (the pod's service-account JWT, from its conventional path) or
-// AppRole. A failed login is an error, never a miss - it means this store
-// could not answer at all.
 type Provider struct {
 	Addr           string
 	Token          string
@@ -91,12 +76,12 @@ func (provider *Provider) login() (string, error) {
 			}
 			jwt = strings.TrimSpace(string(raw))
 		}
-		payload, _ = json.Marshal(struct {
+		payload, _ = sekreto.WriteJSON(struct {
 			Role string `json:"role"`
 			Jwt  string `json:"jwt"`
 		}{Role: auth.Role, Jwt: jwt})
 	case "approle":
-		payload, _ = json.Marshal(struct {
+		payload, _ = sekreto.WriteJSON(struct {
 			RoleID   string `json:"role_id"`
 			SecretID string `json:"secret_id"`
 		}{RoleID: auth.RoleID, SecretID: auth.SecretID})

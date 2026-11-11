@@ -13,7 +13,7 @@ class ElementdemoTestRunner:
     @staticmethod
     def load_env_local():
         try:
-            with open("../../.env.local", "r") as f:
+            with open("../../.env.local", "r", encoding="utf-8") as f:
                 content = f.read()
         except (FileNotFoundError, IOError):
             return
@@ -74,7 +74,7 @@ class ElementdemoTestRunner:
             return ElementdemoTestRunner._test_control
         ctrl_path = os.path.join(os.path.dirname(__file__), "sdk-test-control.json")
         try:
-            with open(ctrl_path, "r") as f:
+            with open(ctrl_path, "r", encoding="utf-8") as f:
                 ElementdemoTestRunner._test_control = json.load(f)
         except (FileNotFoundError, IOError, ValueError):
             ElementdemoTestRunner._test_control = {
@@ -195,3 +195,107 @@ def live_client_options():
 
 def live_delay_ms():
     return ElementdemoTestRunner.live_delay_ms()
+
+
+def live_miss(strict, reason):
+    """A live check that did not pass, as main.kit.test.live.strict decides:
+    strict fails the test, lenient skips it with the same reason."""
+    import pytest
+    if strict:
+        pytest.fail(reason, pytrace=False)
+    pytest.skip(reason)
+
+
+def live_empty(reason):
+    """An account holding no record for the test to read skips either way."""
+    import pytest
+    pytest.skip(reason)
+
+
+def live_list(data):
+    """A live list response's records: the body, or the first list an
+    envelope object holds."""
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for value in data.values():
+            if isinstance(value, list):
+                return value
+    return None
+
+
+def live_describe(result):
+    """A live response for a message: the SDK's error, or else its status
+    and content type, never its body."""
+    err = result.get("err") if isinstance(result, dict) else None
+    if err is not None:
+        return str(err)
+    headers = result.get("headers") if isinstance(result, dict) else None
+    ctype = None
+    if isinstance(headers, dict):
+        ctype = next((v for k, v in headers.items() if str(k).lower() == "content-type"), None)
+    return "HTTP " + str(result.get("status") if isinstance(result, dict) else None) + \
+        (" " + str(ctype).split(";")[0].strip() if ctype else "")
+
+
+def live_existing(setup, strict, name, list_call, field, fallback):
+    """Finds the record a create-less flow reads live: the first its list
+    returns, put where the flow reads the fixture's existing records. A
+    record with no value in the identity field takes the fallback identity."""
+    try:
+        found = list_call()
+    except Exception as err:
+        live_miss(strict, f"Live list discovery failed: {err}")
+    if not isinstance(found, list):
+        live_miss(strict, "Live list discovery returned no list")
+    if 0 == len(found):
+        live_empty(f"The account has no {name} record to load")
+    record = entity_data(found[0])
+    if not isinstance(record, dict) or record.get(field) is None:
+        if fallback is None:
+            live_miss(strict, f"Live entity test blocked: the listed {name} record has no {field}, "
+                      "and neither *_ENTID nor the load route's example gives one")
+        record = {**(record if isinstance(record, dict) else {}), field: fallback}
+    existing = setup["data"].setdefault("existing", {})
+    existing[name] = {"live01": record}
+
+
+def live_same_id(a, b):
+    """Identities compared by their string forms: a route parameter's
+    value is a string where the record may hold a number."""
+    if a is None or b is None:
+        return a is None and b is None
+    return _live_id_str(a) == _live_id_str(b)
+
+
+def _live_id_str(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
+def live_pace():
+    """Sleeps test.live.delayMs before a live request."""
+    import time
+    time.sleep(live_delay_ms() / 1000.0)
+
+
+def live_observe(live_env, strict):
+    """A flow test decorator: in a lenient live run a failing check skips
+    the test, observing the live API rather than failing on it."""
+    import functools
+
+    def wrap(fn):
+        @functools.wraps(fn)
+        def run(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except Exception as err:
+                if strict or "TRUE" != os.environ.get(live_env):
+                    raise
+                import pytest
+                pytest.skip(f"live run, main.kit.test.live.strict is false: {err!r}")
+        return run
+    return wrap

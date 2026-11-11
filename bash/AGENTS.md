@@ -1,8 +1,8 @@
 # AGENTS.md — Elementdemo SDK (Bash)
 
 Generated output. Do not edit anything in this directory: change the model
-or the `bash` target's templates and components (in the project's own
-sdkgen package, `ext/`) and regenerate from `.sdk/`.
+or the `bash` target's templates and components (`.sdk/tm/bash/` and
+`.sdk/src/cmp/bash/`) and regenerate from `.sdk/`.
 
 > This file orients an AI coding agent. Start here.
 

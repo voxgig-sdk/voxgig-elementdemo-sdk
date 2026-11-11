@@ -1,5 +1,5 @@
 // VENDORED: @voxgig/struct 0.1.1 (java/src/Struct.java)
-// Source: https://github.com/voxgig/struct @ 2caf7f448f265144c18dd6fab6ba270a7f3bca07  [tag: sdk-20260904-1610-0]
+// Source: https://github.com/voxgig/struct @ 621057e24eb5f3e3da6fd3820ff24a36aaacb21b  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 package JAVAPACKAGE.utility.struct;
 
@@ -473,13 +473,6 @@ public class Struct {
       }
       idx = (int) Math.floor(idx);
 
-      if (val == null) {
-        if (idx >= 0 && idx < l.size()) {
-          l.remove((int) idx);
-        }
-        return l;
-      }
-
       if (idx >= 0) {
         int target = Math.min(Math.max(idx, 0), l.size());
         if (target < l.size()) {
@@ -721,12 +714,18 @@ public class Struct {
 
   public static String reEscape(String s) { return escre(s); }
 
+  // Keeps what encodeURIComponent keeps: URLEncoder encodes `~!'()` and spaces as `+`.
   public static String escurl(Object s) {
     if (s == null || s == UNDEF) {
       return "";
     }
     return URLEncoder.encode(Objects.toString(s), StandardCharsets.UTF_8)
-        .replace("+", "%20");
+        .replace("+", "%20")
+        .replace("%7E", "~")
+        .replace("%21", "!")
+        .replace("%27", "'")
+        .replace("%28", "(")
+        .replace("%29", ")");
   }
 
   public static String join(Object arr, Object sep, Object url) {
@@ -1218,11 +1217,15 @@ public class Struct {
             }
             Object tval = dst[pI];
 
-            if (tval == null && (typify(v) & T_instance) == 0) {
-              cur[pI] = islist(v) ? new ArrayList<>() : new LinkedHashMap<String, Object>();
-            } else if (typify(v) == typify(tval)) {
+            if (typify(v) == typify(tval)) {
               cur[pI] = tval;
+            } else if ((typify(v) & T_instance) == 0) {
+              // Otherwise the override wins: a plain node is copied, taking
+              // nothing from the destination, so no later merge writes into it.
+              cur[pI] = islist(v) ? new ArrayList<>() : new LinkedHashMap<String, Object>();
+              dst[pI] = null;
             } else {
+              // A class instance is kept as is, so there is nothing to descend.
               cur[pI] = v;
               return null;
             }
@@ -1230,14 +1233,15 @@ public class Struct {
           return v;
         };
 
-        WalkApply after = (key, _val, _parent, path) -> {
+        WalkApply after = (key, _val, parent, path) -> {
           int cI = path.size();
           if (key == null || cI <= 0) {
             return cur[0];
           }
-          Object value = cur[cI];
-          cur[cI - 1] = setprop(cur[cI - 1], key, value);
-          return value;
+          cur[cI - 1] = setprop(cur[cI - 1], key, cur[cI]);
+          // walk writes this back into the override, so it is the override's
+          // own child, leaving the override unchanged.
+          return lookup(parent, key);
         };
 
         walk(obj, before, after, md);
@@ -2682,7 +2686,6 @@ public class Struct {
             slicedPath instanceof List<?> spl
                 ? new ArrayList<>((List<String>) spl)
                 : new ArrayList<>();
-        inj.key = strkey(getelem(inj.path, -1));
 
         Object tvalsRaw = slice(inj.parent, 1, null);
         List<Object> tvals =
@@ -2722,19 +2725,7 @@ public class Struct {
         }
 
         // No match; describe alternatives.
-        StringBuilder valdesc = new StringBuilder();
-        for (int i = 0; i < tvals.size(); i++) {
-          if (i > 0) valdesc.append(", ");
-          Object tv = tvals.get(i);
-          if (tv instanceof String s) {
-            Matcher m = R_TRANSFORM_NAME.matcher(s);
-            if (m.matches()) {
-              valdesc.append(m.group(1).toLowerCase(Locale.ROOT));
-              continue;
-            }
-          }
-          valdesc.append(stringify(tv));
-        }
+        String valdesc = _describeAlternatives(tvals);
         inj.errs.add(
             _invalidTypeMsg(
                 inj.path,
@@ -2744,6 +2735,22 @@ public class Struct {
                 "V0210"));
         return UNDEF;
       };
+
+  // Lowers every `$NAME` marker in the joined description, nested ones included.
+  private static String _describeAlternatives(List<Object> tvals) {
+    StringBuilder joined = new StringBuilder();
+    for (int i = 0; i < tvals.size(); i++) {
+      if (i > 0) joined.append(", ");
+      joined.append(stringify(tvals.get(i)));
+    }
+    Matcher m = R_TRANSFORM_NAME.matcher(joined);
+    StringBuilder out = new StringBuilder();
+    while (m.find()) {
+      m.appendReplacement(out, Matcher.quoteReplacement(m.group(1).toLowerCase(Locale.ROOT)));
+    }
+    m.appendTail(out);
+    return out.toString();
+  }
 
   /**
    * $EXACT: validate against any one of a list of literal alternatives.
@@ -2797,19 +2804,7 @@ public class Struct {
           }
 
           // No match.
-          StringBuilder valdesc = new StringBuilder();
-          for (int i = 0; i < tvals.size(); i++) {
-            if (i > 0) valdesc.append(", ");
-            Object tv = tvals.get(i);
-            if (tv instanceof String s) {
-              Matcher m = R_TRANSFORM_NAME.matcher(s);
-              if (m.matches()) {
-                valdesc.append(m.group(1).toLowerCase(Locale.ROOT));
-                continue;
-              }
-            }
-            valdesc.append(stringify(tv));
-          }
+          String valdesc = _describeAlternatives(tvals);
           inj.errs.add(
               _invalidTypeMsg(
                   inj.path,

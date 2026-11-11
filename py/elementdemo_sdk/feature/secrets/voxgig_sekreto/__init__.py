@@ -1,5 +1,5 @@
 # VENDORED: @voxgig/sekreto 0.2.0 (python/voxgig_sekreto/__init__.py)
-# Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+# Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 # License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 # voxgig_sekreto - one interface for secrets, wherever they live.
 #
@@ -11,7 +11,7 @@
 # or signs a request is a PLUGIN, is not imported by this package, and is
 # handed to `Sekreto` by the calling project:
 #
-#     from voxgig_sekreto import Sekreto
+#     from .. import Sekreto
 #     from voxgig_sekreto.plugins.hashicorp import hashicorp
 #
 #     secrets = Sekreto({
@@ -46,6 +46,7 @@ from .sekreto import (
     sekreto,
     validname,
     vaultref,
+    writejson,
 )
 
 __all__ = [
@@ -71,4 +72,5 @@ __all__ = [
     'sekreto',
     'validname',
     'vaultref',
+    'writejson',
 ]

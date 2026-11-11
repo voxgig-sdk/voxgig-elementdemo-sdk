@@ -1,5 +1,5 @@
 # VENDORED: @voxgig/omni 0.1.0 (python/voxgig_omni/__init__.py)
-# Source: https://github.com/voxgig/omni @ 8c3e1b573a8d35796f7fc45e3226b977023cabf7  [tag: sdk-20260904-1610-0]
+# Source: https://github.com/voxgig/omni @ e9cb45a308a4da47ffdbc1b3149b9c59199190b2  [tag: sdk-20261016-0845-0]
 # License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 """voxgig_omni - shared multi-language test runner."""
 

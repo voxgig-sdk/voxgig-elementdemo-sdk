@@ -1,24 +1,12 @@
 
-import { cmp, Content, isAuthActive, envName, canonKey, canonScalarKey, entityIdField, pickExampleEntity, opRequestShape } from '@voxgig/sdkgen'
+import { cmp, Content, isAuthActive, envName, canonKey, entityIdField, pickExampleEntity, requiredItems, javaMapOf, matchExampleItems, javaMapItems, requestExampleItems } from '@voxgig/sdkgen'
 
 import {
   KIT,
   getModelPath,
 } from '@voxgig/apidef'
 
-import { javaVarName } from './utility_java'
-
-
-// A type-correct Java literal for a field's canonical type.
-function javaLit(type: any): string {
-  const k = canonScalarKey(type)
-  if ('INTEGER' === k) return '1L'
-  if ('NUMBER' === k) return '1.0'
-  if ('BOOLEAN' === k) return 'true'
-  if ('ARRAY' === k) return 'List.of()'
-  if ('OBJECT' === k) return 'Map.of()'
-  return '"example"'
-}
+import { javaVarName, javaLit } from './utility_java'
 
 
 const ReadmeHowto = cmp(function ReadmeHowto(props: any) {
@@ -38,24 +26,38 @@ const ReadmeHowto = cmp(function ReadmeHowto(props: any) {
   const isMatchOp = 'load' === primaryOp || 'remove' === primaryOp
   let testArg = 'null'
   if (exampleEntity && isMatchOp) {
-    testArg = idF ? `Map.of("${idF}", "test01")` : 'null'
-  } else if (exampleEntity && ('create' === primaryOp || 'update' === primaryOp)) {
-    const items = opRequestShape(exampleEntity, primaryOp).items
+    const items = javaMapItems(matchExampleItems(exampleEntity, primaryOp, idF))
+      .sort((a: any, b: any) => (a.name === idF ? 0 : 1) - (b.name === idF ? 0 : 1))
+    testArg = 0 < items.length
+      ? javaMapOf(items.map((it: any) =>
+        `${JSON.stringify(it.name)}, ${it.name === idF ? '"test01"' : javaLit(it.type)}`))
+      : 'null'
+  } else if (exampleEntity && 'list' === primaryOp && 0 < requiredItems(exampleEntity, 'list').length) {
+    const chosen = javaMapItems(requiredItems(exampleEntity, 'list'))
+    testArg = javaMapOf(chosen.map((it: any) =>
+      `${JSON.stringify(it.name)}, ${javaLit(it.type)}`))
+  } else if (exampleEntity && ('create' === primaryOp || 'update' === primaryOp || 'patch' === primaryOp)) {
+    const items = javaMapItems(requestExampleItems(exampleEntity, primaryOp))
       .filter((it: any) => it.name !== idF && it.name !== 'id')
     const required = items.filter((it: any) => !it.optional)
     const chosen = required.length ? required : items.slice(0, 3)
-    testArg = `Map.of(${chosen.map((it: any) =>
-      `"${it.name}", ${javaLit(it.type)}`).join(', ')})`
+    testArg = javaMapOf(chosen.map((it: any) =>
+      `${JSON.stringify(it.name)}, ${javaLit(it.type)}`))
   }
 
   // The op-driven test-mode line, shown only when the SDK has an entity op.
   // A direct()-only SDK (no ops anywhere) shows a direct() call instead.
-  const testModeExample = primaryOp
-    ? `// Entity ops return the ENTITY and raises on error;
-// call data() for the record.
-Object ${eVar} = client.${accessor}(null).${primaryOp}(${testArg}, null);
-// ${eVar} holds the mock response record
-System.out.println(${eVar});`
+  const testModeExample = 'list' === primaryOp
+    ? `// list returns a list of entities, one per mock record; it raises on error.
+List<?> ${eVar}List = (List<?>) client.${accessor}(null).list(${testArg}, null);
+for (Object ${eVar}Item : ${eVar}List) {
+    System.out.println(((SdkEntity) ${eVar}Item).data());
+}`
+    : primaryOp
+    ? `// Entity ops return the entity; they raise on error.
+SdkEntity ${eVar} = (SdkEntity) client.${accessor}(null).${primaryOp}(${testArg}, null);
+// data() reads the entity's mock record
+System.out.println(${eVar}.data());`
     : `Map<String, Object> result = client.direct(Map.of(
     "path", "/api/resource",
     "method", "GET"));

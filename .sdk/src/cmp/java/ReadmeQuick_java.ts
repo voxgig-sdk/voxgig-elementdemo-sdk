@@ -1,5 +1,5 @@
 
-import { cmp, Content, isAuthActive, envName, canonKey, canonScalarKey, opRequestShape, entityIdField, entityOps , serverVariables} from '@voxgig/sdkgen'
+import { cmp, Content, isAuthActive, envName, canonKey, opRequestShape, entityIdField, entityOps , serverVariables, javaMapOf, matchExampleItems, requiredItems, javaMapItems, requestExampleItems, sendsId } from '@voxgig/sdkgen'
 
 import {
   KIT,
@@ -7,7 +7,7 @@ import {
   nom,
 } from '@voxgig/apidef'
 
-import { javaVarName, javaPackage } from './utility_java'
+import { javaVarName, javaPackage, javaListMatch, javaLit } from './utility_java'
 
 
 const ReadmeQuick = cmp(function ReadmeQuick(props: any) {
@@ -44,23 +44,14 @@ const ReadmeQuick = cmp(function ReadmeQuick(props: any) {
     'options.put("server", server);\n'
 
 
-  // A type-correct Java literal for a param — the loose object model means
-  // all values live in a Map<String, Object>.
-  const javaLit = (type: any, placeholder: string = 'example'): string => {
-    const k = canonScalarKey(type)
-    if ('INTEGER' === k) return '1L'
-    if ('NUMBER' === k) return '1.0'
-    if ('BOOLEAN' === k) return 'true'
-    if ('ARRAY' === k) return 'List.of()'
-    if ('OBJECT' === k) return 'Map.of()'
-    return `"${placeholder}"`
-  }
-
   if (authActive) {
     Content(`### 1. Create a client
 
 \`\`\`java
+import java.util.List;
+import java.util.Map;
 import ${javaPackage(model)}.core.${SDK};
+import ${javaPackage(model)}.core.SdkEntity;
 
 Map<String, Object> options = new java.util.LinkedHashMap<>();
 options.put("apikey", System.getenv("${envName(model)}_APIKEY"));
@@ -73,7 +64,10 @@ ${javaServerLines}${SDK} client = new ${SDK}(options);
     Content(`### 1. Create a client
 
 \`\`\`java
+import java.util.List;
+import java.util.Map;
 import ${javaPackage(model)}.core.${SDK};
+import ${javaPackage(model)}.core.SdkEntity;
 
 ${'' === javaServerLines
       ? `${SDK} client = new ${SDK}();`
@@ -91,20 +85,20 @@ ${'' === javaServerLines
     const eVar = javaVarName(exampleEntity.name)
     const accessor = javaVarName(exampleEntity.name)
     const opnames = entityOps(exampleEntity)
-    // Model-driven id key: `idF` is the entity's id-like MATCH field name, or
-    // null when it has none.
     const idF = entityIdField(exampleEntity)
 
     if (opnames.includes('list')) {
       Content(`### 2. List ${eName.toLowerCase()} records
 
-\`list(null, null)\` returns an aggregate list of records (as \`Object\`, an
-aggregate list) and raises on error.
+\`list(null, null)\` returns a list of entities, one per record (as \`Object\`),
+and raises on error; an entity's \`data()\` reads its record.
 
 \`\`\`java
 try {
-    Object ${eVar}List = client.${accessor}(null).list(null, null);
-    System.out.println(${eVar}List);
+    List<?> ${eVar}List = (List<?>) client.${accessor}(null).list(${javaListMatch(exampleEntity)}, null);
+    for (Object ${eVar}Item : ${eVar}List) {
+        System.out.println(((SdkEntity) ${eVar}Item).data());
+    }
 }
 catch (RuntimeException err) {
     System.out.println("list failed: " + err.getMessage());
@@ -123,15 +117,14 @@ catch (RuntimeException err) {
       // Model-driven match: every REQUIRED load-match key. Parent keys (e.g.
       // page_id) first, the entity's own id last.
       const neIdF = entityIdField(nestedEntity)
-      const neRequired = opRequestShape(nestedEntity, 'load').items
-        .filter((it: any) => !it.optional)
+      const neRequired = requiredItems(nestedEntity, 'load')
         .sort((a: any, b: any) =>
           (a.name === neIdF ? 1 : 0) - (b.name === neIdF ? 1 : 0))
       const parentItem = neRequired.find((it: any) => it.name !== neIdF) as any
       const parentParam = parentItem && parentItem.name
       const parentName = parentParam ? parentParam.replace(/_id$/, '') : 'its parent'
-      const neMatch = neRequired.map((it: any) =>
-        `"${it.name}", ${javaLit(it.type,
+      const neMatch = javaMapItems(neRequired).map((it: any) =>
+        `${JSON.stringify(it.name)}, ${javaLit(it.type,
           it.name === neIdF ? 'example_id' : 'example_' + it.name)}`)
 
       Content(`### 3. Load ${neArticle} ${neName.toLowerCase()}
@@ -141,8 +134,8 @@ ${neName} is nested under ${parentName}, so provide the \`${parentParam}\`.
 
 \`\`\`java
 try {
-    Object ${neVar} = client.${neAccessor}(null).load(Map.of(${neMatch.join(', ')}), null);
-    System.out.println(${neVar});
+    SdkEntity ${neVar} = (SdkEntity) client.${neAccessor}(null).load(${javaMapOf(neMatch)}, null);
+    System.out.println(${neVar}.data());
 }
 catch (RuntimeException err) {
     System.out.println("load failed: " + err.getMessage());
@@ -152,15 +145,13 @@ catch (RuntimeException err) {
 `)
     }
     else if (opnames.includes('load')) {
-      // Every REQUIRED load-match key (id first, then parent path params).
-      const loadRequired = opRequestShape(exampleEntity, 'load').items
-        .filter((it: any) => !it.optional || it.name === idF)
+      const loadRequired = javaMapItems(matchExampleItems(exampleEntity, 'load', idF))
         .sort((a: any, b: any) =>
           (a.name === idF ? 0 : 1) - (b.name === idF ? 0 : 1))
       const loadArg = 0 < loadRequired.length
-        ? `Map.of(${loadRequired.map((it: any) =>
-          `"${it.name}", ${javaLit(it.type,
-            it.name === idF ? 'example_id' : 'example_' + it.name)}`).join(', ')})`
+        ? javaMapOf(loadRequired.map((it: any) =>
+          `${JSON.stringify(it.name)}, ${javaLit(it.type,
+            it.name === idF ? 'example_id' : 'example_' + it.name)}`))
         : 'null'
 
       Content(`### 3. Load ${article} ${eName.toLowerCase()}
@@ -169,8 +160,8 @@ catch (RuntimeException err) {
 
 \`\`\`java
 try {
-    Object ${eVar} = client.${accessor}(null).load(${loadArg}, null);
-    System.out.println(${eVar});
+    SdkEntity ${eVar} = (SdkEntity) client.${accessor}(null).load(${loadArg}, null);
+    System.out.println(${eVar}.data());
 }
 catch (RuntimeException err) {
     System.out.println("load failed: " + err.getMessage());
@@ -183,7 +174,7 @@ catch (RuntimeException err) {
     // Model-driven example fields: derive the create/update body from the op
     // shape (opRequestShape) so the docs reference REAL writable fields.
     const examplePairs = (opname: string): string[] => {
-      const items = opRequestShape(exampleEntity, opname).items
+      const items = javaMapItems(requestExampleItems(exampleEntity, opname))
         .filter((it: any) => (it.name !== idF && it.name !== 'id') ||
           ('create' === opname && !it.optional))
       const required = items.filter((it: any) => !it.optional)
@@ -191,7 +182,7 @@ catch (RuntimeException err) {
       const chosen = 'create' === opname
         ? (required.length ? required : items.slice(0, 2))
         : required.concat(optional).slice(0, Math.max(2, required.length))
-      return chosen.map((it: any) => `"${it.name}", ${javaLit(it.type, 'example_' + it.name)}`)
+      return chosen.map((it: any) => `${JSON.stringify(it.name)}, ${javaLit(it.type, 'example_' + it.name)}`)
     }
 
     const idParamType = (opname: string): any => {
@@ -199,36 +190,43 @@ catch (RuntimeException err) {
       return it && it.type
     }
 
-    if (opnames.includes('create') || opnames.includes('update') || opnames.includes('remove')) {
+    if (opnames.includes('create') || opnames.includes('update') || opnames.includes('patch') ||
+      opnames.includes('remove')) {
       Content(`### 4. Create, update, and remove
 
 \`\`\`java
 `)
       if (opnames.includes('create')) {
         Content(`// Create — returns the ENTITY (call data() for the record)
-Object created = client.${accessor}(null).create(Map.of(${examplePairs('create').join(', ')}), null);
+Object created = client.${accessor}(null).create(${javaMapOf(examplePairs('create'))}, null);
 
 `)
       }
       if (opnames.includes('update')) {
-        const updatePairs = (idF ? [`"${idF}", ${javaLit(idParamType('update'), 'example_id')}`] : [])
+        const updatePairs = (sendsId(exampleEntity, 'update', idF) ? [`${JSON.stringify(idF)}, ${javaLit(idParamType('update'), 'example_id')}`] : [])
           .concat(examplePairs('update'))
-        Content(`// Update — supply the id in the match/data
-client.${accessor}(null).update(Map.of(${updatePairs.join(', ')}), null);
+        Content(`// Update${sendsId(exampleEntity, 'update', idF) ? ' — supply the id in the match/data' : ''}
+client.${accessor}(null).update(${javaMapOf(updatePairs)}, null);
+
+`)
+      }
+      if (opnames.includes('patch')) {
+        const patchPairs = (sendsId(exampleEntity, 'patch', idF) ? [`${JSON.stringify(idF)}, ${javaLit(idParamType('patch'), 'example_id')}`] : [])
+          .concat(examplePairs('patch'))
+        Content(`// Patch — sends only the fields given
+client.${accessor}(null).patch(${javaMapOf(patchPairs)}, null);
 
 `)
       }
       if (opnames.includes('remove')) {
-        // Every REQUIRED remove-match key: the id plus parent keys like page_id.
-        const removePairs = opRequestShape(exampleEntity, 'remove').items
-          .filter((it: any) => !it.optional || it.name === idF)
+        const removePairs = javaMapItems(matchExampleItems(exampleEntity, 'remove', idF))
           .sort((a: any, b: any) =>
             (a.name === idF ? 0 : 1) - (b.name === idF ? 0 : 1))
           .map((it: any) => it.name === idF
-            ? `"${it.name}", ${javaLit(idParamType('remove'), 'example_id')}`
-            : `"${it.name}", ${javaLit(it.type, 'example_' + it.name)}`)
+            ? `${JSON.stringify(it.name)}, ${javaLit(idParamType('remove'), 'example_id')}`
+            : `${JSON.stringify(it.name)}, ${javaLit(it.type, 'example_' + it.name)}`)
         Content(`// Remove
-client.${accessor}(null).remove(${removePairs.length ? `Map.of(${removePairs.join(', ')})` : 'null'}, null);
+client.${accessor}(null).remove(${removePairs.length ? javaMapOf(removePairs) : 'null'}, null);
 `)
       }
       Content(`\`\`\`

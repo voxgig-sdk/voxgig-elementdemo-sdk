@@ -50,7 +50,7 @@ public class FeatureCorpusTest {
 
   // The standard operation names, in the order the runner prefers them.
   private static final List<String> FEATURE_CORPUS_OPS =
-      List.of("load", "list", "create", "update", "remove");
+      List.of("load", "list", "create", "update", "patch", "remove");
 
   /** One discovered operation: the client accessor plus the entity method. */
   private static final class Op {
@@ -349,6 +349,37 @@ public class FeatureCorpusTest {
     return null;
   }
 
+  /**
+   * The first feature a case composes that this SDK does not generate, probed
+   * as a section's own feature is. Such a case is skipped rather than failed.
+   */
+  private static String missingFeature(Object kaseRaw, Map<String, Boolean> have) {
+    Object spec = kaseRaw instanceof Map ? ((Map<String, Object>) kaseRaw).get("feature") : null;
+    List<String> names = new ArrayList<>();
+    if (spec instanceof List) {
+      for (Object f : (List<Object>) spec) {
+        if (f instanceof Map && ((Map<String, Object>) f).get("name") instanceof String) {
+          names.add((String) ((Map<String, Object>) f).get("name"));
+        }
+      }
+    }
+    else if (spec instanceof Map) {
+      names.addAll(new TreeMap<>((Map<String, Object>) spec).keySet());
+    }
+    for (String name : names) {
+      Boolean known = have.get(name);
+      if (null == known) {
+        known = null != record(buildClient(Map.of("feature",
+            List.of(Map.of("name", name, "active", true)))), name);
+        have.put(name, known);
+      }
+      if (!known) {
+        return name;
+      }
+    }
+    return null;
+  }
+
   @Test
   public void corpusCarriesAFeatureSection() {
     // A corpus with no `feature` section is a SKIP, not a failure. Each
@@ -364,13 +395,12 @@ public class FeatureCorpusTest {
     assertNotNull(corpus().get("feature"));
   }
 
-  // At least one operation, or every case below would skip and this suite
-  // would report green having run nothing.
+  // With every operation needing an argument there is nothing to drive:
+  // skip and say so, as the clean test does, rather than fail.
   @Test
   public void sdkHasAnOperationTheCorpusCanDrive() {
-    assertTrue(0 < usableOps(2).size(),
-        "no declared operation completed against a plain 200 - the corpus "
-            + "cannot exercise a feature without one");
+    org.junit.jupiter.api.Assumptions.assumeTrue(0 < usableOps(2).size(),
+        "no declared operation completes against a plain 200 with no arguments (each needs a path parameter or a body); nothing for the corpus to drive");
   }
 
   @Test
@@ -385,6 +415,8 @@ public class FeatureCorpusTest {
         "this project's test.json has no `feature` section - recompile the "
             + "corpus (create-sdkgen .sdk/test/feature/) to run these cases");
 
+    List<String> failed = new ArrayList<>();
+    Map<String, Boolean> have = new LinkedHashMap<>();
     for (String name : new TreeMap<>(features).keySet()) {
       Object sectionRaw = features.get(name);
       if (!(sectionRaw instanceof Map)) {
@@ -405,6 +437,9 @@ public class FeatureCorpusTest {
       ElementdemoSDK probe = buildClient(Map.of("feature",
           List.of(Map.of("name", name, "active", true))));
       if (null == record(probe, name)) {
+        // The one line every runner prints for an inert section.
+        System.err.println(String.format(
+            "feature.%s: inert (this SDK does not generate the feature)", name));
         continue;
       }
 
@@ -416,8 +451,20 @@ public class FeatureCorpusTest {
 
       int ran = 0;
       for (Object rawCase : cases) {
+        String rawName = rawCase instanceof Map
+            ? String.valueOf(((Map<String, Object>) rawCase).get("name")) : "";
         int need = tokensUsed(rawCase);
         if (need > ops.size()) {
+          System.err.println(String.format(
+              "skip \"%s\": needs %d operations, this SDK offers %d", rawName, need, ops.size()));
+          continue;
+        }
+
+        String missing = missingFeature(rawCase, have);
+        if (null != missing) {
+          System.err.println(String.format(
+              "skip \"%s\": needs the %s feature, which this SDK does not generate",
+              rawName, missing));
           continue;
         }
 
@@ -426,54 +473,67 @@ public class FeatureCorpusTest {
           tokens.put("#OP" + (i + 1), ops.get(i).key);
         }
         Map<String, Object> kase = (Map<String, Object>) resolve(rawCase, tokens);
-
-        ElementdemoSDK client = buildClient(kase);
         String label = String.valueOf(kase.get("name"));
-
-        List<Object> steps = kase.get("op") instanceof List
-            ? (List<Object>) kase.get("op") : List.of();
-        for (Object stepRaw : steps) {
-          Map<String, Object> step = (Map<String, Object>) stepRaw;
-          Op op = byKey.get(step.get("op"));
-          assertNotNull(op, label + ": no operation " + step.get("op"));
-          Map<String, Object> ctrl = step.get("ctrl") instanceof Map
-              ? new LinkedHashMap<>((Map<String, Object>) step.get("ctrl"))
-              : new LinkedHashMap<>();
-          Object wanterr = step.get("err");
-
-          try {
-            invoke(client, op, ctrl);
-            if (null != wanterr) {
-              fail(label + ": " + step.get("op") + " was expected to fail, and did not");
-            }
-          }
-          catch (org.opentest4j.AssertionFailedError e) {
-            throw e;
-          }
-          catch (Exception err) {
-            assertNotNull(wanterr,
-                label + ": " + step.get("op") + " failed unexpectedly: " + err);
-            if (wanterr instanceof String) {
-              // The CODE, not the message: makeError prefixes and humanises
-              // the text, so matching it would pass on any error that
-              // happened to mention the word.
-              String code = err instanceof SdkError ? ((SdkError) err).code : null;
-              assertEquals(wanterr, code, label + ": wrong error code (" + err + ")");
-            }
-          }
-        }
-
-        subset(record(client, name), kase.get("out"), label + ": _" + name);
         ran++;
+
+        // Every failing case is reported, not only the first.
+        try {
+          ElementdemoSDK client = buildClient(kase);
+
+          List<Object> steps = kase.get("op") instanceof List
+              ? (List<Object>) kase.get("op") : List.of();
+          for (Object stepRaw : steps) {
+            Map<String, Object> step = (Map<String, Object>) stepRaw;
+            Op op = byKey.get(step.get("op"));
+            assertNotNull(op, label + ": no operation " + step.get("op"));
+            Map<String, Object> ctrl = step.get("ctrl") instanceof Map
+                ? new LinkedHashMap<>((Map<String, Object>) step.get("ctrl"))
+                : new LinkedHashMap<>();
+            Object wanterr = step.get("err");
+
+            try {
+              invoke(client, op, ctrl);
+              if (null != wanterr) {
+                fail(label + ": " + step.get("op") + " was expected to fail, and did not");
+              }
+            }
+            catch (org.opentest4j.AssertionFailedError e) {
+              throw e;
+            }
+            catch (Exception err) {
+              assertNotNull(wanterr,
+                  label + ": " + step.get("op") + " failed unexpectedly: " + err);
+              if (wanterr instanceof String) {
+                // The CODE, not the message: makeError prefixes and humanises
+                // the text, so matching it would pass on any error that
+                // happened to mention the word.
+                String code = err instanceof SdkError ? ((SdkError) err).code : null;
+                assertEquals(wanterr, code, label + ": wrong error code (" + err + ")");
+              }
+            }
+          }
+
+          subset(record(client, name), kase.get("out"), label + ": _" + name);
+        }
+        catch (AssertionError | Exception e) {
+          String msg = String.valueOf(e.getMessage());
+          failed.add(msg.startsWith(label) ? msg : label + ": " + msg);
+        }
       }
 
-      assertTrue(0 < ran, "every feature." + name + " case was skipped");
       // Say how many ran. A partial run is legitimate (an SDK with one
       // operation skips the cases needing two) but it should be visible
       // rather than inferred from a green tick.
       System.err.println(String.format(
           "feature.%s: ran %d of %d case(s) against %d operation(s)",
           name, ran, cases.size(), ops.size()));
+      if (0 == ran) {
+        failed.add("every feature." + name + " case was skipped");
+      }
+    }
+
+    if (!failed.isEmpty()) {
+      fail(failed.size() + " feature corpus case(s) failed:\n  " + String.join("\n  ", failed));
     }
   }
 }

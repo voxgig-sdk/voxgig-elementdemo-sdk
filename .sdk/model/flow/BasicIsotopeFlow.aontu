@@ -1,0 +1,118 @@
+# BasicIsotopeFlow
+
+main: kit: flow: BasicIsotopeFlow:
+{
+  entity: "isotope",
+  kind: "basic",
+  name: "BasicIsotopeFlow",
+  step: [
+    {
+      i: {
+        ref: "isotope_ref01"
+      }
+
+      m: {
+        element_id: "element01"
+      }
+
+      o: "create"
+    }
+
+    {
+      m: {
+        element_id: "element01"
+      }
+
+      o: "list",
+      v: [
+        {
+          apply: "ItemExists",
+          def: {
+            ref: "isotope_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      d: {
+        element_id: "element01"
+      }
+
+      i: {
+        ref: "isotope_ref01",
+        srcdatavar: "isotope_ref01_data",
+        suffix: "_up0",
+        textfield: "halflife"
+      }
+
+      o: "update",
+      s: [
+        {
+          apply: "TextFieldMark",
+          def: {
+            mark: "Mark01-isotope_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      i: {
+        ref: "isotope_ref01",
+        srcdatavar: "isotope_ref01_data",
+        suffix: "_dt0"
+      }
+
+      m: {
+        element_id: "element01",
+        id: "isotope01"
+      }
+
+      o: "load",
+      v: [
+        {
+          apply: "TextFieldMark",
+          def: {
+            mark: "Mark01-isotope_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      i: {
+        ref: "isotope_ref01",
+        suffix: "_rm0"
+      }
+
+      m: {
+        element_id: "element01",
+        id: "isotope01"
+      }
+
+      o: "remove"
+    }
+
+    {
+      i: {
+        suffix: "_rt0"
+      }
+
+      m: {
+        element_id: "element01"
+      }
+
+      o: "list",
+      v: [
+        {
+          apply: "ItemNotExists",
+          def: {
+            ref: "isotope_ref01"
+          }
+        }
+      ]
+    }
+  ],
+  "key$": "BasicIsotopeFlow"
+}

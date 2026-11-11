@@ -381,6 +381,146 @@ public final class RunnerSupport {
     return new SdkError(code, msg, null);
   }
 
+  // A live check that did not pass, as main.kit.test.live.strict decides:
+  // strict fails the test, lenient skips it with the same reason.
+  public static void liveMiss(boolean strict, String reason) {
+    if (strict) {
+      org.junit.jupiter.api.Assertions.fail(reason);
+    }
+    org.junit.jupiter.api.Assumptions.abort(reason);
+  }
+
+  // An account holding no record for the test to read skips either way.
+  public static void liveEmpty(String reason) {
+    org.junit.jupiter.api.Assumptions.abort(reason);
+  }
+
+  // A live list response's records: the body, or the first list an
+  // envelope holds.
+  public static List<Object> liveList(Object data) {
+    if (data instanceof List) {
+      return (List<Object>) data;
+    }
+    if (data instanceof Map) {
+      for (Object value : new TreeMap<>((Map<String, Object>) data).values()) {
+        if (value instanceof List) {
+          return (List<Object>) value;
+        }
+      }
+    }
+    return null;
+  }
+
+  // A live response for a message: the SDK's error, or else its status and
+  // content type, never its body.
+  public static String liveDescribe(Map<String, Object> result) {
+    if (result == null) {
+      return "no response";
+    }
+    Object err = result.get("err");
+    if (err instanceof Throwable) {
+      return ((Throwable) err).getMessage();
+    }
+    if (err != null) {
+      return String.valueOf(err);
+    }
+    String out = "HTTP " + result.get("status");
+    if (result.get("headers") instanceof Map) {
+      for (Map.Entry<String, Object> e : ((Map<String, Object>) result.get("headers")).entrySet()) {
+        if ("content-type".equalsIgnoreCase(e.getKey()) && e.getValue() != null) {
+          out += " " + String.valueOf(e.getValue()).split(";")[0].trim();
+        }
+      }
+    }
+    return out;
+  }
+
+  // The record a create-less flow reads live: the first its list returns,
+  // put where the flow reads the fixture's existing records. A record with
+  // no value in the identity field takes the fallback identity.
+  public static void liveExisting(Map<String, Object> data, boolean strict, String name,
+      String field, Object fallback, Supplier<Object> list) {
+    Object found = null;
+    try {
+      found = list.get();
+    }
+    catch (RuntimeException e) {
+      liveMiss(strict, "Live list discovery failed: " + e.getMessage());
+    }
+    if (!(found instanceof List)) {
+      liveMiss(strict, "Live list discovery returned no list");
+    }
+    List<Object> items = (List<Object>) found;
+    if (items.isEmpty()) {
+      liveEmpty("The account has no " + name + " record to load");
+    }
+    Object first = items.get(0);
+    Object record = first instanceof Entity ? ((Entity) first).data() : first;
+    Map<String, Object> fields = Helpers.toMapAny(record);
+    if (fields == null || fields.get(field) == null) {
+      if (fallback == null) {
+        liveMiss(strict, "Live entity test blocked: the listed " + name + " record has no " + field
+            + ", and neither *_ENTID nor the load route's example gives one");
+      }
+      Map<String, Object> filled = new LinkedHashMap<>();
+      if (fields != null) {
+        filled.putAll(fields);
+      }
+      filled.put(field, fallback);
+      record = filled;
+    }
+    Object existing = data.get("existing");
+    if (!(existing instanceof Map)) {
+      existing = new LinkedHashMap<String, Object>();
+      data.put("existing", existing);
+    }
+    Map<String, Object> holder = new LinkedHashMap<>();
+    holder.put("live01", record);
+    ((Map<String, Object>) existing).put(name, holder);
+  }
+
+  // Identities compared by their string forms: a route parameter's
+  // value is a string where the record may hold a number.
+  public static boolean liveSameId(Object a, Object b) {
+    if (a == null || b == null) {
+      return a == null && b == null;
+    }
+    return liveIdString(a).equals(liveIdString(b));
+  }
+
+  private static String liveIdString(Object v) {
+    if (v instanceof Double || v instanceof Float) {
+      double d = ((Number) v).doubleValue();
+      if (!Double.isInfinite(d) && d == Math.rint(d) && Math.abs(d) < 9.0e15) {
+        return Long.toString((long) d);
+      }
+    }
+    return String.valueOf(v);
+  }
+
+  // Sleeps test.live.delayMs before a live request.
+  public static void livePace() {
+    try {
+      Thread.sleep(liveDelayMs());
+    }
+    catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  // In a lenient live run a failing check skips, observing the live API.
+  public static void liveObserve(Throwable err, boolean live, boolean strict) {
+    if (strict || !live || err instanceof org.opentest4j.TestAbortedException) {
+      RunnerSupport.<RuntimeException>rethrow(err);
+    }
+    org.junit.jupiter.api.Assumptions.abort(
+        "live run, main.kit.test.live.strict is false: " + err.getMessage());
+  }
+
+  private static <T extends Throwable> void rethrow(Throwable err) throws T {
+    throw (T) err;
+  }
+
   // entityListToData extracts data maps from a list of Entity objects.
   public static List<Object> entityListToData(List<Object> list) {
     List<Object> out = new ArrayList<>();

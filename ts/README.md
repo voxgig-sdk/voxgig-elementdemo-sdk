@@ -9,15 +9,19 @@ The API is exposed as capitalised, semantic **Entities** — e.g.
 instead of raw URL paths and query parameters. This keeps the surface
 predictable and low-friction for both humans and AI agents.
 
-> Also generated from this model: `bash`, `go`, `java`, `py`, `rb` — see
+> Other languages live alongside this one — see
 > the [top-level README](../README.md).
 
 
 ## Install
 This package is not yet published to npm. Install it from the GitHub
-release tag (`ts/vX.Y.Z`):
+release tag (`ts/vX.Y.Z`, see [Tags](https://github.com/voxgig-sdk/voxgig-elementdemo-sdk/tags)), or from a
+clone, which carries the compiled `dist/`:
 
-- Releases: [https://github.com/voxgig-sdk/voxgig-elementdemo-sdk/releases](https://github.com/voxgig-sdk/voxgig-elementdemo-sdk/releases)
+```bash
+git clone https://github.com/voxgig-sdk/voxgig-elementdemo-sdk
+npm install ./voxgig-elementdemo-sdk/ts
+```
 
 
 ## Tutorial: your first API call
@@ -28,7 +32,7 @@ loading a specific record.
 ### 1. Create a client
 
 ```ts
-import { ElementdemoSDK } from '@voxgig-sdk/elementdemo'
+import { ElementdemoSDK } from '@voxgig-sdk/elementdemo-sdk'
 
 const client = new ElementdemoSDK({
   apikey: process.env.ELEMENTDEMO_APIKEY,
@@ -49,14 +53,14 @@ resolves to entities, not raw records. Iterate them directly, and call
 const elements = await client.Element().list()
 
 for (const element of elements) {
-  console.log(element)
+  console.log(element.data())
 }
 ```
 
 ### 3. Load an isotope
 
 Isotope is nested under element, so provide the `element_id`.
-`load()` returns the entity directly and throws on failure:
+`load()` returns the entity and throws on failure; `.data()` reads its record:
 
 ```ts
 try {
@@ -64,7 +68,7 @@ try {
     element_id: 'example_element_id',
     id: 'example_id',
   })
-  console.log(isotope)
+  console.log(isotope.data())
 } catch (err) {
   console.error('load failed:', err)
 }
@@ -89,7 +93,7 @@ const created = await client.Element().create({
 const updated = await client.Element().update({
   id: created.data().id!,
   block: 'example_block',
-  charge: 1,
+  discovered: 1,
 })
 
 // Remove
@@ -105,15 +109,16 @@ Entity operations reject on failure, so wrap them in `try` / `catch`:
 
 ```ts
 try {
-  const isotopes = await client.Isotope().list()
-  console.log(isotopes)
+  const seriess = await client.Series().list()
+  console.log(seriess.map((item) => item.data()))
 } catch (err) {
   console.error('list failed:', err)
 }
 ```
 
 The low-level `direct()` method does **not** throw — it returns the
-value or an `Error`, so check the result before using it:
+result envelope. Branch on `ok`; on failure `status` holds the HTTP status
+(for error responses) and `err` holds the error:
 
 ```ts
 const result = await client.direct({
@@ -122,8 +127,8 @@ const result = await client.direct({
   params: { id: 'example_id' },
 })
 
-if (result instanceof Error) {
-  throw result
+if (!result.ok) {
+  console.error('request failed:', result.status, result.err)
 }
 ```
 
@@ -141,9 +146,6 @@ const result = await client.direct({
   params: { id: 'example' },
 })
 
-if (result instanceof Error) {
-  throw result
-}
 if (result.ok) {
   console.log(result.status)  // 200
   console.log(result.data)    // response body
@@ -172,10 +174,9 @@ Create a mock client for unit testing — no server required:
 ```ts
 const client = ElementdemoSDK.test()
 
-const isotope = await client.Isotope().list()
-// isotope is the entity, populated with mock response data
-// — call isotope.data() for the record itself
-console.log(isotope)
+const seriess = await client.Series().list()
+// seriess is an array of Series entities, one per mock record
+console.log(seriess.map((series) => series.data()))
 ```
 
 You can also use the instance method:
@@ -190,7 +191,7 @@ const testClient = client.tester()
 Entity instances remember their last match and data:
 
 ```ts
-const entity = client.Isotope()
+const entity = client.Series()
 
 // First call runs the operation and stores its result
 await entity.list()
@@ -236,6 +237,11 @@ Then run:
 ```bash
 cd ts && npm test
 ```
+
+Live entity tests continue independent operations after errors and attempt
+supported cleanup. Their final result reports failures and missing prerequisites
+after the remaining work completes. The model and test inputs determine which
+API operations the generated scenarios cover.
 
 
 ## Reference
@@ -294,11 +300,11 @@ All entities share the same interface.
 
 | Method | Signature | Description |
 | --- | --- | --- |
-| `load` | `load(reqmatch?, ctrl?): Promise<Entity>` | Load a single entity by match criteria. |
-| `list` | `list(reqmatch?, ctrl?): Promise<Entity[]>` | List entities matching the criteria. |
-| `create` | `create(reqdata?, ctrl?): Promise<Entity>` | Create a new entity. |
-| `update` | `update(reqdata?, ctrl?): Promise<Entity>` | Update an existing entity. |
-| `remove` | `remove(reqmatch?, ctrl?): Promise<void>` | Remove an entity. |
+| `load` | `load(reqmatch?, ctrl?): Promise<Entity>` | Load a single entity by match criteria, and return it. |
+| `list` | `list(reqmatch?, ctrl?): Promise<Entity[]>` | List entities matching the criteria, one per record. |
+| `create` | `create(reqdata?, ctrl?): Promise<Entity>` | Create a new entity, and return it. |
+| `update` | `update(reqdata?, ctrl?): Promise<Entity>` | Update an existing entity, and return it. |
+| `remove` | `remove(reqmatch?, ctrl?): Promise<Entity>` | Remove an entity, and return it marked as deleted. |
 | `data` | `data(data?: Partial<Entity>): Entity` | Get or set entity data. |
 | `match` | `match(match?: Partial<Entity>): Partial<Entity>` | Get or set entity match criteria. |
 | `make` | `make(): Entity` | Create a new instance with the same options. |
@@ -307,13 +313,13 @@ All entities share the same interface.
 
 #### Return values
 
-Entity operations resolve to the entity data directly — there is no
-result envelope:
+Entity operations resolve to the entity itself — there is no result
+envelope, and an entity's `data()` reads its record:
 
 - `load`, `create` and `update` resolve to a single entity object.
 - `list` resolves to an **array** of entity objects (iterate it directly;
   there is no `.data` and no `.ok`).
-- `remove` resolves to `void`.
+- `remove` resolves to the entity, marked as deleted.
 
 On a failed request these methods **throw**, so wrap calls in
 `try`/`catch` to handle errors. Only `direct()` returns the result
@@ -354,15 +360,12 @@ The `prepare()` method returns:
 | Field | Description |
 | --- | --- |
 | `block` | Orbital block, one of s, p, d, f. |
-| `charge` |  |
 | `discovered` | Year of discovery, absent for elements known since antiquity. |
 | `group` | Periodic table column, 1 to 18, absent for the f-block. |
 | `id` | Element identifier, the lowercase symbol. |
-| `ion` |  |
 | `mass` | Standard atomic weight in daltons. |
 | `name` | Element name. |
 | `number` | Atomic number. |
-| `ok` |  |
 | `period` | Periodic table row, 1 to 7. |
 | `phase` | Phase at standard temperature and pressure. |
 | `series_id` | Chemical series this element belongs to. |
@@ -397,10 +400,8 @@ API path: `/group`
 | `mass_number` | Total protons and neutrons. |
 | `mode` | Primary decay mode, absent for stable isotopes. |
 | `name` | Isotope name. |
-| `ok` |  |
 | `product` | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | True if the isotope is stable. |
-| `steps` |  |
 
 Operations: create, list, load, remove, update.
 
@@ -443,15 +444,12 @@ Create an instance: `const element = client.Element()`
 | Field | Type | Description |
 | --- | --- | --- |
 | `block` | `string` | Orbital block, one of s, p, d, f. |
-| `charge` | `number` |  |
 | `discovered` | `number` | Year of discovery, absent for elements known since antiquity. |
 | `group` | `number` | Periodic table column, 1 to 18, absent for the f-block. |
 | `id` | `string` | Element identifier, the lowercase symbol. |
-| `ion` | `string` |  |
 | `mass` | `number` | Standard atomic weight in daltons. |
 | `name` | `string` | Element name. |
 | `number` | `number` | Atomic number. |
-| `ok` | `boolean` |  |
 | `period` | `number` | Periodic table row, 1 to 7. |
 | `phase` | `string` | Phase at standard temperature and pressure. |
 | `series_id` | `string` | Chemical series this element belongs to. |
@@ -544,10 +542,8 @@ Create an instance: `const isotope = client.Isotope()`
 | `mass_number` | `number` | Total protons and neutrons. |
 | `mode` | `string` | Primary decay mode, absent for stable isotopes. |
 | `name` | `string` | Isotope name. |
-| `ok` | `boolean` |  |
 | `product` | `string` | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | `boolean` | True if the isotope is stable. |
-| `steps` | `number` |  |
 
 #### Example: Load
 
@@ -609,7 +605,7 @@ const seriess = await client.Series().list()
 
 ## Features
 
-This SDK ships 5 optional features. Each is **inactive until you
+This SDK ships 10 optional features. Each is **inactive until you
 switch it on**, so an SDK you have not configured behaves exactly as if none of
 them existed — no retries, no cache, no logging, no measurable overhead.
 
@@ -618,16 +614,33 @@ above:
 
 | Feature | What it does |
 |---|---|
+| [`debug`](#debug) | Debug capture |
 | [`elementcard`](#elementcard) | ASCII periodic-table tile for element-shaped results |
-| [`retry`](#retry) | Automatic retry of transient failures with exponential backoff |
-| [`secrets`](#secrets) | Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens |
-| [`test`](#test) | In-memory mock transport for testing without a live server |
-| [`timeout`](#timeout) | Per-request timeout with transport abort |
+| [`idempotency`](#idempotency) | Idempotency |
+| [`metrics`](#metrics) | Metrics |
+| [`paging`](#paging) | Paging |
+| [`ratelimit`](#ratelimit) | Rate limiting |
+| [`retry`](#retry) | Retry |
+| [`secrets`](#secrets) | Secrets |
+| [`test`](#test) | Test transport |
+| [`timeout`](#timeout) | Timeout |
 
-> **Order matters for `retry`, `secrets`, `timeout`.** These wrap the
+> **Order matters for `ratelimit`, `retry`, `secrets`, `timeout`.** These wrap the
 > transport, so each one wraps whatever is already installed: the order you
 > activate them in IS the nesting order. Activating them as an ordered list
 > rather than a map is what fixes that order.
+
+### debug
+
+Debug capture.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `max` | `100` |
+| `redact` | `['authorization', 'cookie', 'set-cookie', 'api-key', 'apikey', 'x-api-key', 'idempotency-key']` |
+
+Set `feature.debug.active` to enable it, then override any of the options above.
 
 ### elementcard
 
@@ -640,9 +653,64 @@ ASCII periodic-table tile for element-shaped results.
 
 Set `feature.elementcard.active` to enable it, then override any of the options above.
 
+### idempotency
+
+Idempotency.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `header` | `'Idempotency-Key'` |
+| `methods` | `['POST', 'PUT', 'PATCH', 'DELETE']` |
+| `ops` | `['create', 'update', 'remove']` |
+
+Set `feature.idempotency.active` to enable it, then override any of the options above.
+
+### metrics
+
+Metrics.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+
+Set `feature.metrics.active` to enable it, then override any of the options above.
+
+### paging
+
+Paging.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `afterVar` | `'after'` |
+| `cursorParam` | `'cursor'` |
+| `firstVar` | `'first'` |
+| `limitParam` | `'limit'` |
+| `pageParam` | `'page'` |
+| `startPage` | `1` |
+
+Set `feature.paging.active` to enable it, then override any of the options above.
+
+### ratelimit
+
+Rate limiting.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `burst` | `5` |
+| `rate` | `5` |
+
+Set `feature.ratelimit.active` to enable it, then override any of the options above.
+
+`ratelimit` wraps the transport, so its position among the other
+transport features decides what it sees. A feature activated later wraps one
+activated earlier.
+
 ### retry
 
-Automatic retry of transient failures with exponential backoff.
+Retry.
 
 | Option | Default |
 |---|---|
@@ -661,7 +729,7 @@ activated earlier.
 
 ### secrets
 
-Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens.
+Secrets.
 
 | Option | Default |
 |---|---|
@@ -679,7 +747,7 @@ activated earlier.
 
 ### test
 
-In-memory mock transport for testing without a live server.
+Test transport.
 
 | Option | Default |
 |---|---|
@@ -689,7 +757,7 @@ Set `feature.test.active` to enable it, then override any of the options above.
 
 ### timeout
 
-Per-request timeout with transport abort.
+Timeout.
 
 | Option | Default |
 |---|---|
@@ -741,11 +809,16 @@ a function that receives the context.
 
 The SDK ships with built-in features:
 
+- **DebugFeature**: Debug capture
 - **ElementcardFeature**: ASCII periodic-table tile for element-shaped results
-- **RetryFeature**: Automatic retry of transient failures with exponential backoff
-- **SecretsFeature**: Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens
-- **TestFeature**: In-memory mock transport for testing without a live server
-- **TimeoutFeature**: Per-request timeout with transport abort
+- **IdempotencyFeature**: Idempotency
+- **MetricsFeature**: Metrics
+- **PagingFeature**: Paging
+- **RatelimitFeature**: Rate limiting
+- **RetryFeature**: Retry
+- **SecretsFeature**: Secrets
+- **TestFeature**: Test transport
+- **TimeoutFeature**: Timeout
 
 Features are initialized in order. Hooks fire in the order features
 were added, so later features can override earlier ones.
@@ -766,7 +839,7 @@ elementdemo/
 Import the SDK from the package root:
 
 ```ts
-import { ElementdemoSDK } from '@voxgig-sdk/elementdemo'
+import { ElementdemoSDK } from '@voxgig-sdk/elementdemo-sdk'
 ```
 
 ### Entity state
@@ -776,11 +849,11 @@ stores the returned data and match criteria internally. Subsequent
 calls on the same instance can rely on this state.
 
 ```ts
-const isotope = client.Isotope()
-await isotope.list()
+const series = client.Series()
+await series.list()
 
-// isotope.data() now returns the isotope data from the last `list`
-// isotope.match() returns the last match criteria
+// series.data() now returns the series data from the last `list`
+// series.match() returns the last match criteria
 ```
 
 Call `make()` to create a fresh instance with the same configuration

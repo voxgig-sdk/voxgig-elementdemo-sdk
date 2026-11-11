@@ -45,6 +45,9 @@ Object.defineProperty(exports, "config", { enumerable: true, get: function () { 
 const ElementdemoEntityBase_1 = require("./ElementdemoEntityBase");
 Object.defineProperty(exports, "ElementdemoEntityBase", { enumerable: true, get: function () { return ElementdemoEntityBase_1.ElementdemoEntityBase; } });
 const Utility_1 = require("./utility/Utility");
+const ResultBodyUtility_1 = require("./utility/ResultBodyUtility");
+const MakeRequestUtility_1 = require("./utility/MakeRequestUtility");
+const PrepareMethodUtility_1 = require("./utility/PrepareMethodUtility");
 const BaseFeature_1 = require("./feature/base/BaseFeature");
 Object.defineProperty(exports, "BaseFeature", { enumerable: true, get: function () { return BaseFeature_1.BaseFeature; } });
 const sekreto = __importStar(require("./feature/secrets/sekreto"));
@@ -67,6 +70,11 @@ class ElementdemoSDK {
             shared: new WeakMap()
         });
         this._options = this._utility.makeOptions(this._rootctx);
+        for (const key of ['_options', '_rootctx', '_features']) {
+            Object.defineProperty(this, key, {
+                value: this[key], enumerable: false, writable: true, configurable: true
+            });
+        }
         const struct = this._utility.struct;
         const getpath = struct.getpath;
         if (true === getpath(this._options.feature, 'test.active')) {
@@ -126,13 +134,17 @@ class ElementdemoSDK {
             ctrl: fetchargs.ctrl || {},
         }, this._rootctx);
         const options = this._options;
-        // Build spec directly from SDK options + user-provided fetch args.
+        const method = String(fetchargs.method || 'GET').toUpperCase();
+        if (!(0, PrepareMethodUtility_1.allowed)(options.allow.method, method)) {
+            return ctx.error('spec_method_allow', 'Method "' + method +
+                '" not allowed by SDK option allow.method value: "' + options.allow.method + '"');
+        }
         const spec = {
             base: options.base,
             prefix: options.prefix,
             suffix: options.suffix,
             path: fetchargs.path || '',
-            method: fetchargs.method || 'GET',
+            method,
             params: fetchargs.params || {},
             query: fetchargs.query || {},
             headers: prepareHeaders(ctx),
@@ -140,12 +152,17 @@ class ElementdemoSDK {
             step: 'start',
         };
         ctx.spec = spec;
-        // Merge user-provided headers over SDK defaults.
         if (fetchargs.headers) {
             const uheaders = fetchargs.headers;
             for (let key in uheaders) {
                 spec.headers[key] = uheaders[key];
             }
+        }
+        // A raw request has no point to declare its response type, so it asks
+        // for the JSON it reads: an API that negotiates on Accept otherwise
+        // answers in its own default format. A caller's own accept wins.
+        if (!Object.keys(spec.headers).some((key) => 'accept' === key.toLowerCase())) {
+            spec.headers.accept = 'application/json';
         }
         if (null != this._secrets) {
             try {
@@ -155,7 +172,6 @@ class ElementdemoSDK {
                 return err instanceof Error ? err : new Error(String(err));
             }
         }
-        // Apply SDK auth (apikey, auth prefix, etc.)
         const authResult = prepareAuth(ctx);
         if (authResult instanceof Error) {
             return authResult;
@@ -166,7 +182,7 @@ class ElementdemoSDK {
     // Blocking it means denying BOTH the 'direct' and 'graphql' tokens, since
     // either one reaches the same endpoint.
     async direct(fetchargs) {
-        if (!this._options.allow.op.includes('direct')) {
+        if (!(0, PrepareMethodUtility_1.allowed)(this._options.allow.op, 'direct')) {
             return {
                 ok: false,
                 err: new Error('ElementdemoSDK: direct: operation not allowed by' +
@@ -185,19 +201,22 @@ class ElementdemoSDK {
         const makeContext = utility.makeContext;
         const fetchdef = await this.prepare(fetchargs);
         if (fetchdef instanceof Error) {
-            return fetchdef;
+            return { ok: false, err: utility.clean(this._rootctx, fetchdef) };
         }
         let ctx = makeContext({
             opname: 'direct',
             ctrl: (fetchargs || {}).ctrl || {},
         }, this._rootctx);
         try {
+            if (true === fetchdef.signal?.aborted) {
+                throw fetchdef.signal.reason;
+            }
             const fetched = await fetcher(ctx, fetchdef.url, fetchdef);
             if (null == fetched) {
                 return { ok: false, err: ctx.error('direct_no_response', 'response: undefined') };
             }
             else if (fetched instanceof Error) {
-                return { ok: false, err: fetched };
+                return { ok: false, err: utility.clean(ctx, (0, MakeRequestUtility_1.abortError)(ctx, fetched)) };
             }
             const status = fetched.status;
             // No body responses (204 No Content, 304 Not Modified) and explicit
@@ -209,42 +228,45 @@ class ElementdemoSDK {
                 : (headers || {})['content-length'];
             const noBody = 204 === status || 304 === status || '0' === String(contentLength);
             let json = undefined;
+            let err = undefined;
             if (!noBody) {
+                let text = undefined;
                 try {
-                    json = 'function' === typeof fetched.json ? await fetched.json() : fetched.json;
+                    const raw = fetched;
+                    if ('function' === typeof raw.text) {
+                        text = await raw.text();
+                        json = '' === text.trim() ? undefined : JSON.parse(text);
+                    }
+                    else {
+                        json = 'function' === typeof fetched.json ? await fetched.json() : fetched.json;
+                    }
                 }
                 catch (parseErr) {
-                    // Body wasn't valid JSON — surface the raw response rather than
-                    // throwing. data stays undefined; callers can inspect status/headers.
-                    json = undefined;
+                    if ('SyntaxError' !== parseErr?.name) {
+                        throw parseErr;
+                    }
+                    err = (0, ResultBodyUtility_1.unreadableBody)(ctx, {
+                        status, headers, text: text ?? parseErr.text, sent: fetchdef.headers,
+                        failed: 200 <= status && status < 300 ? undefined :
+                            ctx.error('request_status', 'request: ' + status + ': ' + fetched.statusText),
+                    });
                 }
             }
             return {
-                ok: status >= 200 && status < 300,
+                ok: null == err && status >= 200 && status < 300,
                 status,
                 headers: fetched.headers,
                 data: json,
+                ...(null == err ? {} : { err: utility.clean(ctx, err) }),
             };
         }
         catch (err) {
-            return { ok: false, err };
+            return { ok: false, err: utility.clean(ctx, (0, MakeRequestUtility_1.abortError)(ctx, err)) };
         }
     }
-    // Raw GraphQL access: the pressure valve that makes the generated
-    // surface's deliberate omissions (per-call selection sets, typed filter
-    // builders, batching, subscriptions) livable — the whole schema stays
-    // reachable.
-    //
-    // Thin wrapper over the same prepare/fetch path `direct` uses, with the
-    // one thing raw `direct` cannot do for GraphQL: a GraphQL failure rides
-    // HTTP 200 as a top-level `errors` array, so status alone would report a
-    // failed query as ok.
-    //
-    // NOTE: like `direct`, this bypasses the feature pipeline — no retry,
-    // ratelimit or paging features apply.
     async graphql(query, variables, ctrl) {
         const options = this._options;
-        if (!options.allow.op.includes('graphql')) {
+        if (!(0, PrepareMethodUtility_1.allowed)(options.allow.op, 'graphql')) {
             return {
                 ok: false,
                 err: new Error('ElementdemoSDK: graphql: operation not allowed by' +
@@ -257,9 +279,6 @@ class ElementdemoSDK {
             body: { query, variables: variables || {} },
             ctrl,
         });
-        if (res instanceof Error) {
-            return res;
-        }
         // Errors are read BEFORE any status check: a GraphQL parse or validation
         // failure comes back as HTTP 400 carrying the standard { errors: [...] }
         // body, and the raw path represents a non-2xx as { ok: false } with no

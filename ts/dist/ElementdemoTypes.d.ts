@@ -1,14 +1,11 @@
 export interface Element {
     block: string;
-    charge?: number;
     discovered?: number;
     group?: number;
     id: string;
-    ion?: string;
     mass: number;
     name: string;
     number: number;
-    ok?: boolean;
     period: number;
     phase?: string;
     series_id: string;
@@ -19,15 +16,12 @@ export interface ElementLoadMatch {
 }
 export interface ElementListMatch {
     block?: string;
-    charge?: number;
     discovered?: number;
     group?: number;
     id?: string;
-    ion?: string;
     mass?: number;
     name?: string;
     number?: number;
-    ok?: boolean;
     period?: number;
     phase?: string;
     series_id?: string;
@@ -35,15 +29,12 @@ export interface ElementListMatch {
 }
 export interface ElementCreateData {
     block: string;
-    charge?: number;
     discovered?: number;
     group?: number;
     id: string;
-    ion?: string;
     mass: number;
     name: string;
     number: number;
-    ok?: boolean;
     period: number;
     phase?: string;
     series_id: string;
@@ -54,14 +45,11 @@ export interface ElementCreateData {
 export interface ElementUpdateData {
     id: string;
     block?: string;
-    charge?: number;
     discovered?: number;
     group?: number;
-    ion?: string;
     mass?: number;
     name?: string;
     number?: number;
-    ok?: boolean;
     period?: number;
     phase?: string;
     series_id?: string;
@@ -94,10 +82,8 @@ export interface Isotope {
     mass_number: number;
     mode?: string;
     name: string;
-    ok?: boolean;
     product?: string;
     stable: boolean;
-    steps?: number;
 }
 export interface IsotopeLoadMatch {
     element_id: string;
@@ -115,10 +101,8 @@ export interface IsotopeCreateData {
     mass_number: number;
     mode?: string;
     name: string;
-    ok?: boolean;
     product?: string;
     stable: boolean;
-    steps?: number;
     $action?: string;
     [action: string]: any;
 }
@@ -131,10 +115,8 @@ export interface IsotopeUpdateData {
     mass_number?: number;
     mode?: string;
     name?: string;
-    ok?: boolean;
     product?: string;
     stable?: boolean;
-    steps?: number;
 }
 export interface IsotopeRemoveMatch {
     element_id: string;

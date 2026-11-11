@@ -1,20 +1,4 @@
 
-// Feature behaviour, driven by the SHARED corpus.
-//
-// This is the route PrimaryUtility.test.ts already takes for the utilities:
-// language-neutral cases in .sdk/test/test.json, executed against the REAL
-// generated SDK. Features here are ordinary classes in ordinary compiled
-// source, unit-tested the ordinary way — no transpiled templates, and no
-// miniature of the pipeline standing in for the pipeline (which is what
-// harness.ts does, and why its assertions can only be as right as the
-// miniature is). A feature is built through the generated config, wrapped
-// into a client built by the generated constructor, and driven by a real
-// entity operation. What is asserted is what ships.
-//
-// Everything in a case is data: features are activated by name, options are
-// plain JSON, the transport is scripted by `res`, and the assertion is a
-// subset of the client's own record. Turning `res` into a fetcher is the one
-// piece each language writes for itself.
 
 import { test, describe, before } from 'node:test'
 import { ok, deepStrictEqual } from 'node:assert'
@@ -25,12 +9,6 @@ import { join } from 'node:path'
 import { SDK, TEST_JSON_FILE } from '../utility/index'
 
 
-// Features with a corpus section — read from the corpus itself, so a
-// project-authored section (a custom feature added under
-// .sdk/test/feature/) runs without editing this file. Read eagerly: the
-// node test runner collects the per-feature tests at describe time,
-// before any `before` hook fires. An SDK generated without a listed
-// feature still skips, not fails.
 const FEATURES = Object.keys((() => {
   try {
     return JSON.parse(readFileSync(
@@ -86,14 +64,6 @@ function scriptedFetcher(res: any[]) {
 
 
 function makeClient(kase: any): any {
-  // `test: { active: true }` is the OPTION, not the `test` FEATURE.
-  //
-  // It says "this client is not live", which is what makes a REQUIRED
-  // OpenAPI server variable resolve to a deterministic `test-<name>`
-  // rather than refuse to construct (see makeOptions). It installs no
-  // transport, so the scripted fetcher below still stands — the FEATURE
-  // is transport: 'base' and would shadow it, which is why this cannot
-  // just turn the feature on.
   return new (SDK as any)({
     test: { active: true },
     feature: kase.feature,
@@ -102,13 +72,6 @@ function makeClient(kase: any): any {
 }
 
 
-// Every operation this SDK declares, in a stable order.
-//
-// The corpus cannot name an entity — it is shared by SDKs that have none in
-// common — so the runner finds them here. The generated client exposes one
-// capitalised, zero-argument accessor per entity, and the entity it returns
-// carries the same `name` the config is keyed by; that pairing is what turns
-// a config entry back into a callable method.
 function candidates(client: any): OpRef[] {
   const entities: Record<string, any> = client._rootctx.config.entity || {}
 
@@ -131,14 +94,6 @@ function candidates(client: any): OpRef[] {
     }
   }
 
-  // SAFE OPS FIRST. The corpus calls #OP1 repeatedly and reasons about what
-  // the transport did in between — a cache hit, a retry, a rate-limit wait.
-  // `load`/`list` are the GET ops, and the cache stores only successful GETs,
-  // so an SDK whose first usable op is a `create` (POST) can never satisfy
-  // "a hit served from cache costs nothing": nothing is ever cached, the
-  // second call goes to the network, and cost correctly charges twice. That
-  // reads as a cost defect and is not one. Ordering here rather than
-  // filtering keeps every SDK runnable, including ones with no GET at all.
   const SAFE: Record<string, number> = { list: 0, load: 1 }
   return out.sort((a, b) =>
     (SAFE[a.op] ?? 2) - (SAFE[b.op] ?? 2) || a.key.localeCompare(b.key))
@@ -193,6 +148,15 @@ function tokensUsed(kase: any): number {
 }
 
 
+// The first feature a case composes that this SDK does not generate. Such a
+// case is skipped rather than failed, as a section naming one is.
+function missingFeature(probe: any, kase: any): string | undefined {
+  const named = Array.isArray(kase.feature) ? kase.feature.map((f: any) => f?.name) :
+    Object.keys(kase.feature || {})
+  return named.find((n: any) => 'string' === typeof n && !probe._rootctx.config.hasFeature(n))
+}
+
+
 // Assert that `actual` contains `expect`, recursively. Cases assert only the
 // fields they are about, so a full deepStrictEqual would force every case to
 // restate the whole record.
@@ -223,17 +187,6 @@ describe('FeatureCorpus', () => {
   })
 
 
-  // A corpus with no `feature` section is a SKIP, not a failure.
-  //
-  // Each project carries its OWN materialised copy of .sdk/test/test.json, so
-  // a project scaffolded before the section existed legitimately has no cases
-  // to run - and a hard assertion here turned that into a red suite in every
-  // SDK on the fleet, for a corpus the project had simply not re-pulled yet.
-  //
-  // The strict check belongs where the corpus is CONTROLLED, not where it is
-  // consumed: sdkgen's own end-to-end lane generates against a corpus it
-  // supplies and requires the cases to actually run, so a section that goes
-  // missing there still fails loudly.
   test('the corpus carries a feature section', (t) => {
     if (null == corpus.feature) {
       return t.skip(
@@ -243,12 +196,13 @@ describe('FeatureCorpus', () => {
   })
 
 
-  // At least one operation, or every case below would skip and the whole
-  // suite would report green having run nothing.
-  test('this SDK has an operation the corpus can drive', () => {
-    ok(0 < ops.length,
-      'no declared operation completed against a plain 200 — the corpus ' +
-      'cannot exercise a feature without one')
+  // With every operation needing an argument there is nothing to drive:
+  // skip and say so, as the clean test does, rather than fail.
+  test('this SDK has an operation the corpus can drive', (t) => {
+    if (0 === ops.length) {
+      return t.skip('no declared operation completes against a plain 200 with no arguments (each needs a path parameter or a body); nothing for the corpus to drive')
+    }
+    ok(0 < ops.length)
   })
 
 
@@ -262,6 +216,7 @@ describe('FeatureCorpus', () => {
 
       const probe: any = makeClient({})
       if (!probe._rootctx.config.hasFeature(name)) {
+        t.diagnostic(`feature.${name}: inert (this SDK does not generate the feature)`)
         return t.skip(`this SDK was generated without the ${name} feature`)
       }
 
@@ -271,6 +226,7 @@ describe('FeatureCorpus', () => {
         `or an emptied fixture must fail loudly, not pass silently`)
 
       let ran = 0
+      const failed: string[] = []
       for (const raw of cases) {
         const need = tokensUsed(raw)
         if (ops.length < need) {
@@ -278,33 +234,52 @@ describe('FeatureCorpus', () => {
           continue
         }
 
+        const missing = missingFeature(probe, raw)
+        if (null != missing) {
+          t.diagnostic(`skip "${raw.name}": needs the ${missing} feature, ` +
+            'which this SDK does not generate')
+          continue
+        }
+
         const tokens: Record<string, string> = {}
         for (let i = 0; i < need; i++) { tokens['#OP' + (i + 1)] = ops[i].key }
 
         const kase = resolve(raw, tokens)
-        const client = makeClient(kase)
+        ran++
 
-        for (const step of (kase.op || [])) {
-          const ref = byKey[step.op]
-          ok(null != ref, `${kase.name}: no operation ${step.op}`)
-          try {
-            await client[ref.accessor]()[ref.op]({}, step.ctrl || {})
-            ok(null == step.err,
-              `${kase.name}: ${step.op} was expected to fail, and did not`)
-          }
-          catch (err: any) {
-            if (null == step.err) { throw err }
+        // Every failing case is reported, not only the first.
+        try {
+          const client = makeClient(kase)
+
+          for (const step of (kase.op || [])) {
+            const ref = byKey[step.op]
+            ok(null != ref, `${kase.name}: no operation ${step.op}`)
+            let err: any = undefined
+            try {
+              await client[ref.accessor]()[ref.op]({}, step.ctrl || {})
+            }
+            catch (e: any) {
+              err = e
+            }
+            if (null == step.err) {
+              ok(undefined === err,
+                `${kase.name}: ${step.op} failed unexpectedly: ${err?.message}`)
+              continue
+            }
+            ok(undefined !== err, `${kase.name}: ${step.op} was expected to fail, and did not`)
             if ('string' === typeof step.err) {
               deepStrictEqual(err.code, step.err, `${kase.name}: wrong error code`)
             }
           }
-        }
 
-        subset(client[`_${name}`], kase.out, `${kase.name}: _${name}`)
-        ran++
+          subset(client[`_${name}`], kase.out, `${kase.name}: _${name}`)
+        }
+        catch (err: any) {
+          const msg = String(err?.message ?? err)
+          failed.push(msg.startsWith(kase.name) ? msg : kase.name + ': ' + msg)
+        }
       }
 
-      ok(0 < ran, `every feature.${name} case was skipped`)
       // Say how many ran. A partial run is legitimate (an SDK with one
       // operation skips the cases needing two) but it should be visible
       // rather than inferred from a green tick - and it is the one line
@@ -312,6 +287,8 @@ describe('FeatureCorpus', () => {
       // language's runner.
       t.diagnostic(`feature.${name}: ran ${ran} of ${cases.length} ` +
         `case(s) against ${ops.length} operation(s)`)
+      ok(0 < ran, `every feature.${name} case was skipped`)
+      deepStrictEqual(failed, [], `feature.${name}: ${failed.length} case(s) failed`)
     })
   }
 })

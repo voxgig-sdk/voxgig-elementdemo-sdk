@@ -10,6 +10,7 @@ declare class Context {
     id: string;
     out: Record<string, any>;
     current: WeakMap<String, any>;
+    unexpectedFired: boolean;
     ctrl: Record<string, any>;
     meta: Record<string, any>;
     client: ElementdemoSDK;
@@ -32,15 +33,7 @@ declare class Context {
     constructor(ctxmap: Record<string, any>, basectx?: Context);
     resolveOp(opname: string): Operation;
     error(code: string, msg: string): ElementdemoError;
-    toJSON(): {
-        id: string;
-        op: Operation;
-        spec: Spec | undefined;
-        entity: any;
-        result: Result | undefined;
-        response: Response | undefined;
-        meta: Record<string, any>;
-    };
+    toJSON(): any;
     toString(): string;
     [inspect.custom](): string;
 }

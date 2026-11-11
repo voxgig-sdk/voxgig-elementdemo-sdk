@@ -8,37 +8,6 @@ import {
 } from '@voxgig/apidef'
 
 
-// Emits py/test/test_readme_examples.py — a pytest COMPLETENESS GATE over
-// every ```python fenced block in the repository ROOT README.md, in the
-// per-language py/README.md, AND in the per-language py/REFERENCE.md.
-//
-// The gate GUARANTEES every documented python example is unit-tested. For each
-// of the three docs it:
-//   1. extracts every ```python block (tagged by source doc + index);
-//   2. ast.parse + compile()s EVERY block                 -> SYNTAX gate;
-//   3. EXECUTEs every RUNNABLE block (one that constructs the SDK, or drives a
-//      `client`/`sdk` the narrative built earlier) in a seeded, offline
-//      TEST-mode subprocess. A PROGRAMMING error
-//      (Name/Attribute/Type/Key/Index/Import/Syntax) FAILS; ONLY a
-//      not-found/404 domain error is tolerated. Any other error also FAILS;
-//   4. asserts COMPLETENESS: it partitions every block into exactly one of
-//      {executed, compiled-nonrunnable, illustration} and asserts
-//      total == executed + compiled + illustration. "illustration" is a NARROW
-//      explicit class (a non-runnable block that is only imports / signature
-//      stubs / bare references / literal assignments — a pure signature/table
-//      snippet) and can NEVER absorb a runnable example. A block that looks
-//      runnable (references the SDK/client) but was not executed FAILS the
-//      test; a block that fails to compile FAILS the test. A per-doc summary
-//      (total/executed/compiled/illustration) is printed.
-//
-// If mypy is importable it also type-checks the concatenated ROOT README blocks
-// (the SDK ships py.typed + TypedDicts) — a bonus TYPE gate over the primary
-// EXECUTE gate.
-//
-// The emitted Python is written WITHOUT backticks or backslashes (chr(96) is
-// the fence marker, chr(10) is newline) so this TS template literal stays
-// clean — the only interpolations are the SDK module/class names and the
-// generated entity map.
 const ReadmeExamplesTest = cmp(function ReadmeExamplesTest(props: any) {
   const { target, ctx$: { model } } = props
 
@@ -56,6 +25,13 @@ const ReadmeExamplesTest = cmp(function ReadmeExamplesTest(props: any) {
     : '{\n' + entities
       .map((e: any) => `    "${nom(e, 'Name')}": "${e.name}",`)
       .join('\n') + '\n}'
+
+  // The declared identity field of each entity that names one other than
+  // `id`, by fixture key: the mock keys a record by it, so the seed does too.
+  const idFieldsLiteral = '{' + entities
+    .filter((e: any) => 'string' === typeof e.id?.field && '' !== e.id.field && 'id' !== e.id.field)
+    .map((e: any) => `${JSON.stringify(e.name)}: ${JSON.stringify(e.id.field)}`)
+    .join(', ') + '}'
 
   File({ name: 'test_readme_examples.' + target.ext }, () => {
     Content(`# ${Name} SDK — documentation python-examples COMPLETENESS gate.
@@ -136,6 +112,9 @@ _CLIENT_VARS = ("client", "sdk")
 
 # The API's capitalised semantic entities -> lowercase fixture key.
 _ENTITIES = ${entitiesLiteral}
+
+# Fixture key -> the entity's declared identity field, where it is not "id".
+_ID_FIELDS = ${idFieldsLiteral}
 
 # The three documents held to the gate, tagged by human label.
 _DOCS = (
@@ -255,6 +234,8 @@ def test_readme_python_blocks_typecheck():
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         # Resolve "from _SDK_MODULE import _SDK_CLASS" against the package root.
         env["MYPYPATH"] = _PY_ROOT + os.pathsep + env.get("MYPYPATH", "")
+        # The child writes UTF-8 and the capture reads it, whatever the locale.
+        env["PYTHONIOENCODING"] = "utf-8"
 
         proc = subprocess.run(
             [
@@ -269,6 +250,7 @@ def test_readme_python_blocks_typecheck():
             env=env,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
 
         base = os.path.basename(snippet_path)
@@ -294,10 +276,9 @@ def test_readme_python_blocks_typecheck():
 # ----------------------------------------------------------------------------
 
 def _uses_var(block, var):
-    # True if the block reads an attribute off the whole-word variable "var"
-    # (i.e. contains "var." with a non-identifier char, or nothing, before it).
-    # This distinguishes a client-driving "sdk." from the "_sdk." tail of an
-    # import module name.
+    # True if the block reads an attribute off the variable "var", not off a
+    # name that ends in it: "_sdk." in a module name, "-client." in a package
+    # name or a host, ".client." on another object.
     needle = var + "."
     start = 0
     while True:
@@ -307,7 +288,7 @@ def _uses_var(block, var):
         ok_before = True
         if j > 0:
             ch = block[j - 1]
-            if ch.isalnum() or ch == "_":
+            if ch.isalnum() or ch in "_-./\\"'":
                 ok_before = False
         if ok_before:
             return True
@@ -406,7 +387,10 @@ def _seed_literal(block):
     seeded = {}
     for cap, key in _ENTITIES.items():
         if ("." + cap + "(") in block:
-            seeded[key] = {"test01": {"id": "test01"}}
+            record = {"id": "test01"}
+            if key in _ID_FIELDS:
+                record[_ID_FIELDS[key]] = "test01"
+            seeded[key] = {"test01": record}
     return {"entity": seeded}
 
 
@@ -514,6 +498,8 @@ def _run_batch(items, label):
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONPATH"] = _PY_ROOT + os.pathsep + env.get("PYTHONPATH", "")
+    # The child writes UTF-8 and the capture reads it, whatever the locale.
+    env["PYTHONIOENCODING"] = "utf-8"
 
     # A FILE, not "python -c". The driver embeds every runnable snippet's
     # source, and a large SDK documents hundreds of them: passing that on the
@@ -526,7 +512,7 @@ def _run_batch(items, label):
             fh.write(driver)
         proc = subprocess.run(
             [sys.executable, driver_path],
-            cwd=_PY_ROOT, env=env, capture_output=True, text=True,
+            cwd=_PY_ROOT, env=env, capture_output=True, text=True, encoding="utf-8",
         )
         return (proc.stdout or "") + (proc.stderr or "")
 
@@ -576,6 +562,7 @@ def _run_source(source, label, index):
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONPATH"] = _PY_ROOT + os.pathsep + env.get("PYTHONPATH", "")
+    env["PYTHONIOENCODING"] = "utf-8"
 
     proc = subprocess.run(
         [sys.executable, "-c", source],
@@ -583,6 +570,7 @@ def _run_source(source, label, index):
         env=env,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     if proc.returncode == 0:
         return None

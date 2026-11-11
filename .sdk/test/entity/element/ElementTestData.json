@@ -2,72 +2,92 @@
   "existing": {
     "element": {
       "ELEMENT00": {
-        "block": "s8c",
-        "charge": "s8d",
-        "discovered": "s8e",
-        "group": "s8f",
+        "block": "s6e",
+        "discovered": 111,
+        "group": 112,
         "id": "ELEMENT00",
-        "ion": "s91",
-        "mass": 146,
-        "name": "s93",
-        "number": "s94",
-        "ok": false,
-        "period": "s96",
-        "phase": "s97",
+        "mass": 114,
+        "name": "s73",
+        "number": 116,
+        "period": 117,
+        "phase": "s76",
         "series_id": "SERIES01",
-        "symbol": "s99"
+        "symbol": "s78"
       },
       "ELEMENT01": {
-        "block": "s118",
-        "charge": "s119",
-        "discovered": "s11a",
-        "group": "s11b",
+        "block": "sdc",
+        "discovered": 221,
+        "group": 222,
         "id": "ELEMENT01",
-        "ion": "s11d",
-        "mass": 286,
-        "name": "s11f",
-        "number": "s120",
-        "ok": false,
-        "period": "s122",
-        "phase": "s123",
+        "mass": 224,
+        "name": "se1",
+        "number": 226,
+        "period": 227,
+        "phase": "se4",
         "series_id": "SERIES01",
-        "symbol": "s125"
+        "symbol": "se6"
       },
       "ELEMENT02": {
-        "block": "s1a4",
-        "charge": "s1a5",
-        "discovered": "s1a6",
-        "group": "s1a7",
+        "block": "s14a",
+        "discovered": 331,
+        "group": 332,
         "id": "ELEMENT02",
-        "ion": "s1a9",
-        "mass": 426,
-        "name": "s1ab",
-        "number": "s1ac",
-        "ok": false,
-        "period": "s1ae",
-        "phase": "s1af",
+        "mass": 334,
+        "name": "s14f",
+        "number": 336,
+        "period": 337,
+        "phase": "s152",
         "series_id": "SERIES01",
-        "symbol": "s1b1"
+        "symbol": "s154"
       }
     }
   },
   "new": {
     "element": {
       "element_ref01": {
-        "block": "s230",
-        "charge": "s231",
-        "discovered": "s232",
-        "group": "s233",
-        "ion": "s235",
-        "mass": 566,
-        "name": "s237",
-        "number": "s238",
-        "ok": false,
-        "period": "s23a",
-        "phase": "s23b",
+        "block": "s1b8",
+        "discovered": 441,
+        "group": 442,
+        "mass": 444,
+        "name": "s1bd",
+        "number": 446,
+        "period": 447,
+        "phase": "s1c0",
         "series_id": "SERIES01",
-        "symbol": "s23d"
+        "symbol": "s1c2"
       }
+    }
+  },
+  "requests": {
+    "POST /element/{element_id}/ionize": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "POST /element": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "GET /element": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "GET /element/{element_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "DELETE /element/{element_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "PUT /element/{element_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
     }
   }
 }

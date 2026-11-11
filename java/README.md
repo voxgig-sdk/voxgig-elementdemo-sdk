@@ -9,13 +9,13 @@ carrying a small, uniform set of operations (`list`, `load`, `create`, `update`,
 paths and query strings. You work with named resources and verbs, which
 keeps the cognitive load low.
 
-> Other languages, the CLI, and MCP server live alongside this one — see
+> Other languages live alongside this one — see
 > the [top-level README](../README.md).
 
 
 ## Install
 This package is not yet published to Maven Central. Install it from the GitHub
-release tag (`java/vX.Y.Z`, see [Releases](https://github.com/voxgig-sdk/voxgig-elementdemo-sdk/releases)) or
+release tag (`java/vX.Y.Z`, see [Tags](https://github.com/voxgig-sdk/voxgig-elementdemo-sdk/tags)) or
 from a source checkout — build the library with Maven:
 
 ```bash
@@ -31,7 +31,10 @@ loading a specific record.
 ### 1. Create a client
 
 ```java
+import java.util.List;
+import java.util.Map;
 import voxgig.elementdemosdk.core.ElementdemoSDK;
+import voxgig.elementdemosdk.core.SdkEntity;
 
 Map<String, Object> options = new java.util.LinkedHashMap<>();
 options.put("apikey", System.getenv("ELEMENTDEMO_APIKEY"));
@@ -43,13 +46,15 @@ ElementdemoSDK client = new ElementdemoSDK(options);
 
 ### 2. List element records
 
-`list(null, null)` returns an aggregate list of records (as `Object`, an
-aggregate list) and raises on error.
+`list(null, null)` returns a list of entities, one per record (as `Object`),
+and raises on error; an entity's `data()` reads its record.
 
 ```java
 try {
-    Object elementList = client.element(null).list(null, null);
-    System.out.println(elementList);
+    List<?> elementList = (List<?>) client.element(null).list(null, null);
+    for (Object elementItem : elementList) {
+        System.out.println(((SdkEntity) elementItem).data());
+    }
 }
 catch (RuntimeException err) {
     System.out.println("list failed: " + err.getMessage());
@@ -63,8 +68,8 @@ Isotope is nested under element, so provide the `element_id`.
 
 ```java
 try {
-    Object isotope = client.isotope(null).load(Map.of("element_id", "example_element_id", "id", "example_id"), null);
-    System.out.println(isotope);
+    SdkEntity isotope = (SdkEntity) client.isotope(null).load(Map.of("element_id", "example_element_id", "id", "example_id"), null);
+    System.out.println(isotope.data());
 }
 catch (RuntimeException err) {
     System.out.println("load failed: " + err.getMessage());
@@ -78,7 +83,7 @@ catch (RuntimeException err) {
 Object created = client.element(null).create(Map.of("block", "example_block", "id", "example_id", "mass", 1.0, "name", "example_name", "number", 1L, "period", 1L, "series_id", "example_series_id", "symbol", "example_symbol"), null);
 
 // Update — supply the id in the match/data
-client.element(null).update(Map.of("id", "example_id", "block", "example_block", "charge", 1L), null);
+client.element(null).update(Map.of("id", "example_id", "block", "example_block", "discovered", 1L), null);
 
 // Remove
 client.element(null).remove(Map.of("id", "example_id"), null);
@@ -91,15 +96,16 @@ Entity operations reject on failure, so wrap them in `try` / `catch`:
 
 ```ts
 try {
-  const isotopes = await client.Isotope().list()
-  console.log(isotopes)
+  const seriess = await client.Series().list()
+  console.log(seriess.map((item) => item.data()))
 } catch (err) {
   console.error('list failed:', err)
 }
 ```
 
 The low-level `direct()` method does **not** throw — it returns the
-value or an `Error`, so check the result before using it:
+result envelope. Branch on `ok`; on failure `status` holds the HTTP status
+(for error responses) and `err` holds the error:
 
 ```ts
 const result = await client.direct({
@@ -108,8 +114,8 @@ const result = await client.direct({
   params: { id: 'example_id' },
 })
 
-if (result instanceof Error) {
-  throw result
+if (!result.ok) {
+  console.error('request failed:', result.status, result.err)
 }
 ```
 
@@ -159,11 +165,11 @@ Create a mock client for unit testing — no server required:
 ```java
 ElementdemoSDK client = ElementdemoSDK.testSDK(null, null);
 
-// Entity ops return the ENTITY and raises on error;
-// call data() for the record.
-Object isotope = client.isotope(null).list(null, null);
-// isotope holds the mock response record
-System.out.println(isotope);
+// list returns a list of entities, one per mock record; it raises on error.
+List<?> seriesList = (List<?>) client.series(null).list(null, null);
+for (Object seriesItem : seriesList) {
+    System.out.println(((SdkEntity) seriesItem).data());
+}
 ```
 
 ### Use a custom fetch function
@@ -251,11 +257,11 @@ All entities share the same interface.
 
 | Method | Signature | Description |
 | --- | --- | --- |
-| `load` | `(reqmatch, ctrl) -> Object` | Load a single entity by match criteria. Raises on error. |
-| `list` | `(reqmatch, ctrl) -> Object` | List entities matching the criteria (an aggregate list). Raises on error. |
-| `create` | `(reqdata, ctrl) -> Object` | Create a new entity. Raises on error. |
-| `update` | `(reqdata, ctrl) -> Object` | Update an existing entity. Raises on error. |
-| `remove` | `(reqmatch, ctrl) -> Object` | Remove an entity. Raises on error. |
+| `load` | `(reqmatch, ctrl) -> Object` | Load a single entity by match criteria, and return it. Raises on error. |
+| `list` | `(reqmatch, ctrl) -> Object` | List entities matching the criteria, one per record. Raises on error. |
+| `create` | `(reqdata, ctrl) -> Object` | Create a new entity, and return it. Raises on error. |
+| `update` | `(reqdata, ctrl) -> Object` | Update an existing entity, and return it. Raises on error. |
+| `remove` | `(reqmatch, ctrl) -> Object` | Remove an entity, and return it marked as deleted. Raises on error. |
 | `data` | `(newdata...) -> Object` | Get or set entity data. |
 | `match` | `(newmatch...) -> Object` | Get or set entity match criteria. |
 | `make` | `() -> Entity` | Create a new instance with the same options. |
@@ -263,9 +269,10 @@ All entities share the same interface.
 
 ### Result shape
 
-Entity operations return the ENTITY (call data() for the record) (a `Map` for single-entity
-ops, an aggregate `List` for `list`) as `Object` and raise on error. Wrap
-calls in `try`/`catch` to handle failures.
+Entity operations return the entity, and `list` a list of entities, one per
+record, as `Object`; an entity is an `SdkEntity`, whose `data()` reads its
+record. They raise on error, so wrap calls in `try`/`catch` to handle
+failures.
 
 The `direct()` escape hatch never raises — it returns a result
 `Map<String, Object>` you branch on via `result.get("ok")`:
@@ -286,15 +293,12 @@ On error, `ok` is `false` and `err` contains the error value.
 | Field | Description |
 | --- | --- |
 | `block` | Orbital block, one of s, p, d, f. |
-| `charge` |  |
 | `discovered` | Year of discovery, absent for elements known since antiquity. |
 | `group` | Periodic table column, 1 to 18, absent for the f-block. |
 | `id` | Element identifier, the lowercase symbol. |
-| `ion` |  |
 | `mass` | Standard atomic weight in daltons. |
 | `name` | Element name. |
 | `number` | Atomic number. |
-| `ok` |  |
 | `period` | Periodic table row, 1 to 7. |
 | `phase` | Phase at standard temperature and pressure. |
 | `series_id` | Chemical series this element belongs to. |
@@ -329,10 +333,8 @@ API path: `/group`
 | `mass_number` | Total protons and neutrons. |
 | `mode` | Primary decay mode, absent for stable isotopes. |
 | `name` | Isotope name. |
-| `ok` |  |
 | `product` | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | True if the isotope is stable. |
-| `steps` |  |
 
 Operations: create, list, load, remove, update.
 
@@ -375,15 +377,12 @@ Create an instance: `SdkEntity element = client.element(null);`
 | Field | Type | Description |
 | --- | --- | --- |
 | `block` | `String` | Orbital block, one of s, p, d, f. |
-| `charge` | `Long` |  |
 | `discovered` | `Long` | Year of discovery, absent for elements known since antiquity. |
 | `group` | `Long` | Periodic table column, 1 to 18, absent for the f-block. |
 | `id` | `String` | Element identifier, the lowercase symbol. |
-| `ion` | `String` |  |
 | `mass` | `Double` | Standard atomic weight in daltons. |
 | `name` | `String` | Element name. |
 | `number` | `Long` | Atomic number. |
-| `ok` | `Boolean` |  |
 | `period` | `Long` | Periodic table row, 1 to 7. |
 | `phase` | `String` | Phase at standard temperature and pressure. |
 | `series_id` | `String` | Chemical series this element belongs to. |
@@ -476,10 +475,8 @@ Create an instance: `SdkEntity isotope = client.isotope(null);`
 | `mass_number` | `Long` | Total protons and neutrons. |
 | `mode` | `String` | Primary decay mode, absent for stable isotopes. |
 | `name` | `String` | Isotope name. |
-| `ok` | `Boolean` |  |
 | `product` | `String` | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | `Boolean` | True if the isotope is stable. |
-| `steps` | `Long` |  |
 
 #### Example: Load
 
@@ -490,7 +487,7 @@ Object isotope = client.isotope(null).load(Map.of("id", "isotope_id", "element_i
 #### Example: List
 
 ```java
-Object isotopeList = client.isotope(null).list(null, null);
+Object isotopeList = client.isotope(null).list(Map.of("element_id", "example"), null);
 ```
 
 #### Example: Create
@@ -541,7 +538,7 @@ Object seriesList = client.series(null).list(null, null);
 
 ## Features
 
-This SDK ships 4 optional features. Each is **inactive until you
+This SDK ships 10 optional features. Each is **inactive until you
 switch it on**, so an SDK you have not configured behaves exactly as if none of
 them existed — no retries, no cache, no logging, no measurable overhead.
 
@@ -550,15 +547,33 @@ above:
 
 | Feature | What it does |
 |---|---|
+| [`debug`](#debug) | Debug capture |
 | [`elementcard`](#elementcard) | ASCII periodic-table tile for element-shaped results |
-| [`retry`](#retry) | Automatic retry of transient failures with exponential backoff |
-| [`test`](#test) | In-memory mock transport for testing without a live server |
-| [`timeout`](#timeout) | Per-request timeout with transport abort |
+| [`idempotency`](#idempotency) | Idempotency |
+| [`metrics`](#metrics) | Metrics |
+| [`paging`](#paging) | Paging |
+| [`ratelimit`](#ratelimit) | Rate limiting |
+| [`retry`](#retry) | Retry |
+| [`secrets`](#secrets) | Secrets |
+| [`test`](#test) | Test transport |
+| [`timeout`](#timeout) | Timeout |
 
-> **Order matters for `retry`, `timeout`.** These wrap the
+> **Order matters for `ratelimit`, `retry`, `secrets`, `timeout`.** These wrap the
 > transport, so each one wraps whatever is already installed: the order you
 > activate them in IS the nesting order. Activating them as an ordered list
 > rather than a map is what fixes that order.
+
+### debug
+
+Debug capture.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `max` | `100` |
+| `redact` | `['authorization', 'cookie', 'set-cookie', 'api-key', 'apikey', 'x-api-key', 'idempotency-key']` |
+
+Set `feature.debug.active` to enable it, then override any of the options above.
 
 ### elementcard
 
@@ -571,9 +586,64 @@ ASCII periodic-table tile for element-shaped results.
 
 Set `feature.elementcard.active` to enable it, then override any of the options above.
 
+### idempotency
+
+Idempotency.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `header` | `'Idempotency-Key'` |
+| `methods` | `['POST', 'PUT', 'PATCH', 'DELETE']` |
+| `ops` | `['create', 'update', 'remove']` |
+
+Set `feature.idempotency.active` to enable it, then override any of the options above.
+
+### metrics
+
+Metrics.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+
+Set `feature.metrics.active` to enable it, then override any of the options above.
+
+### paging
+
+Paging.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `afterVar` | `'after'` |
+| `cursorParam` | `'cursor'` |
+| `firstVar` | `'first'` |
+| `limitParam` | `'limit'` |
+| `pageParam` | `'page'` |
+| `startPage` | `1` |
+
+Set `feature.paging.active` to enable it, then override any of the options above.
+
+### ratelimit
+
+Rate limiting.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `burst` | `5` |
+| `rate` | `5` |
+
+Set `feature.ratelimit.active` to enable it, then override any of the options above.
+
+`ratelimit` wraps the transport, so its position among the other
+transport features decides what it sees. A feature activated later wraps one
+activated earlier.
+
 ### retry
 
-Automatic retry of transient failures with exponential backoff.
+Retry.
 
 | Option | Default |
 |---|---|
@@ -590,9 +660,27 @@ Set `feature.retry.active` to enable it, then override any of the options above.
 transport features decides what it sees. A feature activated later wraps one
 activated earlier.
 
+### secrets
+
+Secrets.
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `cache` | `true` |
+| `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
+| `name` | `'apikey'` |
+| `providers` | `[]` |
+
+Set `feature.secrets.active` to enable it, then override any of the options above.
+
+`secrets` wraps the transport, so its position among the other
+transport features decides what it sees. A feature activated later wraps one
+activated earlier.
+
 ### test
 
-In-memory mock transport for testing without a live server.
+Test transport.
 
 | Option | Default |
 |---|---|
@@ -602,7 +690,7 @@ Set `feature.test.active` to enable it, then override any of the options above.
 
 ### timeout
 
-Per-request timeout with transport abort.
+Timeout.
 
 | Option | Default |
 |---|---|
@@ -654,10 +742,16 @@ a function that receives the context.
 
 The SDK ships with built-in features:
 
+- **DebugFeature**: Debug capture
 - **ElementcardFeature**: ASCII periodic-table tile for element-shaped results
-- **RetryFeature**: Automatic retry of transient failures with exponential backoff
-- **TestFeature**: In-memory mock transport for testing without a live server
-- **TimeoutFeature**: Per-request timeout with transport abort
+- **IdempotencyFeature**: Idempotency
+- **MetricsFeature**: Metrics
+- **PagingFeature**: Paging
+- **RatelimitFeature**: Rate limiting
+- **RetryFeature**: Retry
+- **SecretsFeature**: Secrets
+- **TestFeature**: Test transport
+- **TimeoutFeature**: Timeout
 
 Features are initialized in order. Hooks fire in the order features
 were added, so later features can override earlier ones.
@@ -696,11 +790,11 @@ stores the returned data and match criteria internally. Subsequent
 calls on the same instance can rely on this state.
 
 ```ts
-const isotope = client.Isotope()
-await isotope.list()
+const series = client.Series()
+await series.list()
 
-// isotope.data() now returns the isotope data from the last `list`
-// isotope.match() returns the last match criteria
+// series.data() now returns the series data from the last `list`
+// series.match() returns the last match criteria
 ```
 
 Call `make()` to create a fresh instance with the same configuration

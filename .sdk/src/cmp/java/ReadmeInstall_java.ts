@@ -1,5 +1,5 @@
 
-import { cmp, Content, isPublished, repoInfo, packageVersion } from '@voxgig/sdkgen'
+import { cmp, Content, isPublished, repoInfo, packageVersion, sdkName } from '@voxgig/sdkgen'
 
 import { mavenGroupId } from './utility_java'
 
@@ -9,7 +9,7 @@ const ReadmeInstall = cmp(function ReadmeInstall(props: any) {
   const { model } = ctx$
 
   const groupId = mavenGroupId(model)
-  const artifactId = `${model.name}-sdk`
+  const artifactId = sdkName(model.name)
 
   if (isPublished(model, target.name)) {
     Content(`Add the dependency to your \`pom.xml\`:
@@ -34,9 +34,9 @@ cd java && mvn install
 
   // Publish pending: not yet on Maven Central. Install from the git release
   // tag or from a local source checkout built with Maven.
-  const { releasesUrl } = repoInfo(model)
-  Content(`This package is not yet published to Maven Central. Install it from the GitHub
-release tag (\`${target.name}/vX.Y.Z\`, see [Releases](${releasesUrl})) or
+  const { hostName, tagsUrl } = repoInfo(model)
+  Content(`This package is not yet published to Maven Central. Install it from the ${hostName}
+release tag (\`${target.name}/vX.Y.Z\`, see [Tags](${tagsUrl})) or
 from a source checkout — build the library with Maven:
 
 \`\`\`bash

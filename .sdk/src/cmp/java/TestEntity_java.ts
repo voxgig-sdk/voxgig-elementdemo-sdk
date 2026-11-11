@@ -1,3 +1,4 @@
+import { flowSteps, opReachable, invalidRequest, flowLoadRoute, flowLoadReadsRecord } from '@voxgig/sdkgen'
 
 import {
   KIT,
@@ -19,7 +20,11 @@ import {
   getMatchEntries,
   isAuthActive,
   serverVarEnv,
-  serverVariables, envName, envToken
+  serverVariables, envName, envToken, entityRecordIdField,
+  liveFlowNeeds, liveStrict, liveStrictNote,
+  liveGates, liveExcludedLines, liveExcludedSummary, LIVE_GETONLY_ENV,
+  liveRouteExamples, liveStepExamples,
+  liveEntity, liveIdentity, liveRepeatsId, liveLoadComparesId, liveUnrouted,
 } from '@voxgig/sdkgen'
 
 
@@ -46,12 +51,84 @@ type GenCtx = {
 type OpGen = (ctx: GenCtx, step: ModelEntityFlowStep, index: number) => void
 
 
+// The live prologue of a flow built from offline fixtures: blocked without
+// the ids it binds, a create-less load reading the first listed record, and
+// a lenient run observing its checks rather than failing on them.
+function liveFlowGate(entity: any, needs: any, identity: any, entidEnv: string, accessor: string,
+  SDK: string, strict: boolean, hasSteps: boolean): string {
+  let out = ''
+  for (const [k, ex] of needs.examples || []) {
+    out += `    if (setup.live && (setup.syntheticOnly || setup.idmap.get(${JSON.stringify(k)}) == null)) {
+      setup.idmap.put(${JSON.stringify(k)}, ${javaIdLit(ex)});
+    }
+`
+  }
+  if (0 < needs.keys.length) {
+    out += `    if (setup.live) {
+      for (String liveKey : new String[] { ${needs.keys.map((k: string) => JSON.stringify(k)).join(', ')} }) {
+        if (setup.syntheticOnly || setup.idmap.get(liveKey) == null) {
+          RunnerSupport.liveMiss(LIVE_STRICT, "Live entity test blocked: needs " + liveKey + " via ${entidEnv}");
+        }
+      }
+    }
+`
+  }
+  if (null != needs.blocked) {
+    out += `    if (setup.live) {
+      RunnerSupport.liveMiss(LIVE_STRICT, "Live entity test blocked: " + ${JSON.stringify(needs.blocked)});
+    }
+`
+  }
+  if (!hasSteps) {
+    return out
+  }
+  out += `    ${SDK} client = setup.client;\n`
+  if (null != needs.record) {
+    const id = `setup.idmap.get(${JSON.stringify(needs.record)})`
+    out += `    if (setup.live) {
+      RunnerSupport.liveExisting(setup.data, LIVE_STRICT, ${JSON.stringify(entity.name)},
+          ${JSON.stringify(identity.field)}, ${id}, () -> {
+        Map<String, Object> record = new LinkedHashMap<>();
+        record.put("id", ${id});
+        return List.of(record);
+      });
+    }
+`
+  }
+  if (null != needs.discover) {
+    const match = Object.entries(needs.discover)
+      .map(([k, v]: any) => `match.put(${JSON.stringify(k)}, setup.idmap.get(${JSON.stringify(v)}));`)
+      .concat(liveRouteExamples(entity, 'list', Object.keys(needs.discover))
+        .map(([k, ex]) => `match.put(${JSON.stringify(k)}, ${javaLit(ex)});`))
+      .concat((needs.unrouted || []).map(([name, key]: [string, string]) =>
+        `if (${unsupplied(key)}) match.remove(${JSON.stringify(name)});`)).join(' ')
+    out += `    if (setup.live) {
+      Object liveId = setup.syntheticOnly ? null : setup.idmap.get(${JSON.stringify(identity.key)});
+${undefined === identity.ex ? '' : `      if (liveId == null) {
+        liveId = ${javaIdLit(identity.ex)};
+      }
+`}      RunnerSupport.livePace();
+      RunnerSupport.liveExisting(setup.data, LIVE_STRICT, ${JSON.stringify(entity.name)},
+          ${JSON.stringify(identity.field)}, liveId, () -> {
+        Map<String, Object> match = new LinkedHashMap<>();${match ? ' ' + match : ''}
+        return client.${accessor}(null).list(match, null);
+      });
+    }
+`
+  }
+  if (!strict) {
+    out += '    try {\n'
+  }
+  return out + '\n'
+}
+
+
 const TestEntity = cmp(function TestEntity(props: any) {
   const ctx$ = props.ctx$
   const model: Model = ctx$.model
 
   const target = props.target
-  const entity: ModelEntity = props.entity
+  const entity: ModelEntity = liveEntity(ctx$, props.entity)
   const javapackage: string = props.javapackage
 
   const basicflow: ModelEntityFlow | undefined =
@@ -86,17 +163,19 @@ const TestEntity = cmp(function TestEntity(props: any) {
   const idnames = buildIdNames(entity, basicflow)
 
   // Get all update data entries for alias generation
-  const allSteps = Object.values(basicflow.step) as any[]
-  const updateStep = allSteps.find((s: any) => s.op === 'update')
-  const updateData = updateStep?.data
-    ? Object.entries(updateStep.data).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
+  const allSteps = Object.values(flowSteps(basicflow)) as any[]
+  const updateStep = allSteps.find((s: any) => s.o === 'update')
+  const updateData = updateStep?.d
+    ? Object.entries(updateStep.d).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
     : []
   const aliases = updateData.map(([k, v]: any) => [k, v])
 
   const genCtx: GenCtx = { model, entity, javapackage, flow: basicflow, PROJUPPER, accessor }
 
+  const strict = liveStrict(model, target.name)
+
   const stepOps = Array.from(new Set(
-    (allSteps as any[]).map((s: any) => s.op).filter(Boolean)))
+    (allSteps as any[]).map((s: any) => s.o).filter(Boolean)))
 
   File({ name: entity.Name + 'EntityTest.' + target.ext }, () => {
 
@@ -105,6 +184,7 @@ const TestEntity = cmp(function TestEntity(props: any) {
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -118,14 +198,21 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import ${javapackage}.core.Config;
+import ${javapackage}.core.Context;
 import ${javapackage}.core.Helpers;
 import ${javapackage}.core.SdkEntity;
+import ${javapackage}.core.SdkError;
 import ${javapackage}.core.${SDK};
+import ${javapackage}.feature.BaseFeature;
 import ${javapackage}.utility.Json;
 import ${javapackage}.utility.struct.Struct;
 
 @SuppressWarnings({"unchecked", "unused"})
 public class ${entity.Name}EntityTest {
+
+${liveStrictNote(strict, '//', '  ')}
+  static final boolean LIVE_STRICT = ${strict};
 
   @Test
   public void instance() {
@@ -146,44 +233,72 @@ public class ${entity.Name}EntityTest {
           reason == null || "".equals(reason)
               ? "skipped via sdk-test-control.json" : reason);
     }
-    // The basic flow consumes synthetic IDs from the fixture. In live mode
-    // without an *_ENTID env override, those IDs hit the live API and 4xx.
-    Assumptions.assumeFalse(setup.syntheticOnly,
-        "live entity test uses synthetic IDs from fixture — set ${entidEnvVar} JSON to run live");
-${allSteps.length > 0 ? `    ${SDK} client = setup.client;\n\n` : ''}`)
+`)
 
-    // Check if the flow has a create step; if not, bootstrap entity data
-    const flowHasCreate = allSteps.some((s: any) => s.op === 'create')
-    if (!flowHasCreate) {
-      const preambleRef = entity.name + '_ref01'
-      const preambleVar = javaVar(preambleRef)
-      Content(`    // Bootstrap entity data from existing test data (no create step in flow).
+    const flowBody = (flow: any) => {
+      const steps = flowSteps(flow) as any[]
+      Content(liveFlowGate(entity, liveFlowNeeds(entity, flow), liveIdentity(entity, flow), entidEnvVar,
+        accessor, SDK, strict, steps.length > 0))
+
+      // Check if the flow has a create step; if not, bootstrap entity data
+      const flowHasCreate = steps.some((s: any) => s.o === 'create')
+      if (!flowHasCreate) {
+        const preambleRef = entity.name + '_ref01'
+        const preambleVar = javaVar(preambleRef)
+        Content(`    // Bootstrap entity data from existing test data (no create step in flow).
     List<List<Object>> ${preambleVar}DataRaw = Struct.items(Helpers.toMapAny(
         Struct.getpath(setup.data, "existing.${entity.name}")));
     Map<String, Object> ${preambleVar}Data = ${preambleVar}DataRaw.isEmpty()
         ? null : Helpers.toMapAny(${preambleVar}DataRaw.get(0).get(1));
 
 `)
+      }
+
+      // Model-driven step iteration
+      each(steps, (step: any, index: any) => {
+        const opgen: OpGen = GENERATE_OP[step.o]
+        if (opgen) {
+          Content(LIVE_PACE)
+          opgen({ ...genCtx, flow }, step, index)
+          Content('\n')
+        }
+      })
+
+      Content(strict || 0 === steps.length ? '' : `    }
+    catch (Throwable err) {
+      RunnerSupport.liveObserve(err, setup.live, LIVE_STRICT);
+    }
+`)
     }
 
-    // Model-driven step iteration
-    each(basicflow.step, (step: any, index: any) => {
-      const opgen: OpGen = GENERATE_OP[step.op]
-      if (opgen) {
-        opgen(genCtx, step, index)
-        Content('\n')
+    for (const { getOnly, plan, runs } of liveGates(entity, basicflow)) {
+      Content(`    if (setup.live${getOnly ? ` && "TRUE".equals(System.getenv(${javaLit(LIVE_GETONLY_ENV)}))` : ''}) {
+${liveExcludedLines(plan).map((line) => '      System.out.println(' + javaLit(line) + ');\n').join('')}`)
+      if (!runs) {
+        Content(`      Assumptions.abort(${javaLit(liveExcludedSummary(plan))});
+      return;
+    }
+
+`)
       }
-    })
+      else {
+        flowBody(plan.flow)
+        Content(`      return;
+    }
+
+`)
+      }
+    }
+
+    flowBody(basicflow)
 
     Content(`  }
 
 `)
 
-    // Stream test (PR #4): the entity `stream` method runs the op pipeline and
-    // returns a Stream. With the streaming feature active it yields from the
-    // feature's incremental iterator; otherwise it falls back to the
-    // materialised items. Only emitted for entities whose flow lists.
-    const flowHasList = allSteps.some((s: any) => s.op === 'list')
+    // The stream test lists with no match, so a bare call must reach a route.
+    const flowHasList = allSteps.some((s: any) => s.o === 'list') &&
+      opReachable((entity.op as any)?.list, [])
     if (flowHasList) {
       Content(`  @Test
   public void stream() {
@@ -226,6 +341,9 @@ ${allSteps.length > 0 ? `    ${SDK} client = setup.client;\n\n` : ''}`)
 `)
     }
 
+    const hasList = opReachable((entity.op as any)?.list, [])
+    Content(failureTests(SDK, entity, accessor, hasList))
+
     // Generate setup function
     Content(`  static RunnerSupport.EntityTestSetup ${accessor}BasicSetup(Map<String, Object> extra) {
     RunnerSupport.loadEnvLocal();
@@ -239,7 +357,7 @@ ${allSteps.length > 0 ? `    ${SDK} client = setup.client;\n\n` : ''}`)
     catch (Exception e) {
       throw new AssertionError("failed to read ${entity.name} test data: " + e.getMessage(), e);
     }
-
+${fixtureIdentity(entity)}
     Map<String, Object> options = new LinkedHashMap<>();
     options.put("entity", entityData.get("existing"));
 
@@ -260,10 +378,8 @@ ${allSteps.length > 0 ? `    ${SDK} client = setup.client;\n\n` : ''}`)
         + "\\"\`$VAL\`\\": [\\"\`$FORMAT\`\\", \\"upper\\", \\"\`$COPY\`\\"]"
         + "}]}"));
 
-    // Detect ENTID env override before envOverride consumes it. When live
-    // mode is on without a real override, the basic test runs against
-    // synthetic IDs from the fixture and 4xx's. Surface this so the test
-    // can skip.
+    // Whether *_ENTID supplied the idmap, read before envOverride consumes
+    // it: without it, the ids a live flow binds are the fixture's synthetic ones.
     String entidEnvRaw = RunnerSupport.getenv("${entidEnvVar}");
     boolean idmapOverridden = entidEnvRaw != null
         && entidEnvRaw.trim().startsWith("{");
@@ -325,18 +441,18 @@ ${authActive ? `      liveOpts.put("apikey", env.get("${PROJUPPER}_APIKEY"));\n`
 
 const generateCreate: OpGen = (ctx, step, index) => {
   const { entity, flow, accessor } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = javaVar(step.input.entvar ?? ref + '_ent')
-  const datavar = javaVar(step.input.datavar ?? (ref + '_data' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = javaVar(step.i.entvar ?? ref + '_ent')
+  const datavar = javaVar(step.i.datavar ?? (ref + '_data' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   const hasDatvar = priorSteps.some((s: any) => {
-    if ('create' === s.op) {
-      const priorRef = s.input.ref ?? entity.name + '_ref01'
-      const priorDatvar = javaVar(s.input.datavar ?? (priorRef + '_data' + (s.input.suffix ?? '')))
+    if ('create' === s.o) {
+      const priorRef = s.i.ref ?? entity.name + '_ref01'
+      const priorDatvar = javaVar(s.i.datavar ?? (priorRef + '_data' + (s.i.suffix ?? '')))
       return priorDatvar === datavar
     }
     return false
@@ -368,7 +484,7 @@ const generateCreate: OpGen = (ctx, step, index) => {
     assertNotNull(${datavar}, "expected create result to be a map");
 `)
   if (null != ctx.entity.id) {
-    Content(`    assertNotNull(${datavar}.get("id"), "expected created entity to have an id");
+    Content(`    assertNotNull(${datavar}.get(${rid(ctx.entity)}), "expected created entity to have an id");
 `)
   }
 }
@@ -376,14 +492,14 @@ const generateCreate: OpGen = (ctx, step, index) => {
 
 const generateList: OpGen = (ctx, step, index) => {
   const { entity, flow, accessor } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = javaVar(step.input.entvar ?? ref + '_ent')
-  const matchvar = javaVar(step.input.matchvar ?? (ref + '_match' + (step.input.suffix ?? '')))
-  const listvar = javaVar(step.input.listvar ?? (ref + '_list' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = javaVar(step.i.entvar ?? ref + '_ent')
+  const matchvar = javaVar(step.i.matchvar ?? (ref + '_match' + (step.i.suffix ?? '')))
+  const listvar = javaVar(step.i.listvar ?? (ref + '_list' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   Content(`    // LIST
 `)
@@ -400,15 +516,16 @@ const generateList: OpGen = (ctx, step, index) => {
     Content(`    ${matchvar}.put("${key}", setup.idmap.get("${val}"));
 `)
   }
+  Content(liveFill(entity, step, matchvar, flow))
 
   // Only declare ${listvar} as a real var when a downstream validator
   // actually uses it.
-  const allSteps = Object.values(flow.step) as any[]
-  const listvarUsed = !!step.valid?.some((v: any) => {
+  const allSteps = Object.values(flowSteps(flow)) as any[]
+  const listvarUsed = !!step.v?.some((v: any) => {
     if ('ItemExists' !== v.apply && 'ItemNotExists' !== v.apply) return false
     const validRef = v.def?.ref
-    return validRef && allSteps.some((s: any) => 'create' === s.op &&
-      ((s.input.ref ?? entity.name + '_ref01') === validRef))
+    return validRef && allSteps.some((s: any) => 'create' === s.o &&
+      ((s.i.ref ?? entity.name + '_ref01') === validRef))
   })
 
   Content(`
@@ -421,19 +538,19 @@ const generateList: OpGen = (ctx, step, index) => {
 `)
   }
 
-  // Handle validators from step.valid
-  if (step.valid) {
-    for (const validator of step.valid) {
+  // Handle validators from step.v
+  if (step.v) {
+    for (const validator of step.v) {
       const validRef = validator.def?.ref
-      const hasRefData = validRef && allSteps.some((s: any) => 'create' === s.op &&
-        ((s.input.ref ?? entity.name + '_ref01') === validRef))
+      const hasRefData = validRef && allSteps.some((s: any) => 'create' === s.o &&
+        ((s.i.ref ?? entity.name + '_ref01') === validRef))
 
       if ('ItemExists' === validator.apply && hasRefData) {
         const refDataVar = javaVar(validRef + '_data')
         Content(`
     List<Object> foundItem = Struct.select(
         RunnerSupport.entityListToData(${listvar}),
-        Struct.jm("id", ${refDataVar}.get("id")));
+        Struct.jm(${rid(entity)}, ${refDataVar}.get(${rid(entity)})));
     assertFalse(Struct.isempty(foundItem), "expected to find created entity in list");
 `)
       } else if ('ItemNotExists' === validator.apply && hasRefData) {
@@ -441,7 +558,7 @@ const generateList: OpGen = (ctx, step, index) => {
         Content(`
     List<Object> notFoundItem = Struct.select(
         RunnerSupport.entityListToData(${listvar}),
-        Struct.jm("id", ${refDataVar}.get("id")));
+        Struct.jm(${rid(entity)}, ${refDataVar}.get(${rid(entity)})));
     assertTrue(Struct.isempty(notFoundItem), "expected removed entity to not be in list");
 `)
       }
@@ -452,16 +569,16 @@ const generateList: OpGen = (ctx, step, index) => {
 
 const generateUpdate: OpGen = (ctx, step, index) => {
   const { entity, flow, accessor } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = javaVar(step.input.entvar ?? ref + '_ent')
-  const datavar = javaVar(step.input.datavar ?? (ref + '_data' + (step.input.suffix ?? '')))
-  const resdatavar = javaVar(step.input.resdatavar ?? (ref + '_resdata' + (step.input.suffix ?? '')))
-  const markdefvar = javaVar(step.input.markdefvar ?? (ref + '_markdef' + (step.input.suffix ?? '')))
-  const srcdatavar = javaVar(step.input.srcdatavar ?? (ref + '_data' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = javaVar(step.i.entvar ?? ref + '_ent')
+  const datavar = javaVar(step.i.datavar ?? (ref + '_data' + (step.i.suffix ?? '')))
+  const resdatavar = javaVar(step.i.resdatavar ?? (ref + '_resdata' + (step.i.suffix ?? '')))
+  const markdefvar = javaVar(step.i.markdefvar ?? (ref + '_markdef' + (step.i.suffix ?? '')))
+  const srcdatavar = javaVar(step.i.srcdatavar ?? (ref + '_data' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   const hasEntIdU = null != entity.id
 
@@ -474,13 +591,13 @@ const generateUpdate: OpGen = (ctx, step, index) => {
   Content(`    Map<String, Object> ${datavar}Up = new LinkedHashMap<>();
 `)
   if (hasEntIdU) {
-    Content(`    ${datavar}Up.put("id", ${srcdatavar}.get("id"));
+    Content(`    ${datavar}Up.put("id", ${srcdatavar}.get(${rid(entity)}));
 `)
   }
 
-  // Add data entries from step.data
-  if (step.data) {
-    const dataEntries = Object.entries(step.data).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
+  // Add data entries from step.d
+  if (step.d) {
+    const dataEntries = Object.entries(step.d).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
     for (const [key] of dataEntries) {
       Content(`    ${datavar}Up.put("${key}", setup.idmap.get("${key}"));
 `)
@@ -488,10 +605,10 @@ const generateUpdate: OpGen = (ctx, step, index) => {
   }
 
   // Handle TextFieldMark spec
-  if (step.spec) {
-    for (const spec of step.spec) {
-      if ('TextFieldMark' === spec.apply && null != step.input.textfield) {
-        const fieldname = step.input.textfield
+  if (step.s) {
+    for (const spec of step.s) {
+      if ('TextFieldMark' === spec.apply && null != step.i.textfield) {
+        const fieldname = step.i.textfield
         const fieldvalue = spec.def?.mark ?? `Mark01-${ref}`
         Content(`
     String ${markdefvar}Name = "${fieldname}";
@@ -508,15 +625,14 @@ const generateUpdate: OpGen = (ctx, step, index) => {
     assertNotNull(${resdatavar}, "expected update result to be a map");
 `)
   if (hasEntIdU) {
-    Content(`    assertEquals(${datavar}Up.get("id"), ${resdatavar}.get("id"),
-        "expected update result id to match");
-`)
+    Content(sameId(liveRepeatsId(entity), `${resdatavar}.get(${rid(entity)})`, `${datavar}Up.get("id")`,
+      'expected update result id to match'))
   }
 
   // Assert TextFieldMark
-  if (step.spec) {
-    for (const spec of step.spec) {
-      if ('TextFieldMark' === spec.apply && null != step.input.textfield) {
+  if (step.s) {
+    for (const spec of step.s) {
+      if ('TextFieldMark' === spec.apply && null != step.i.textfield) {
         Content(`    assertEquals(${markdefvar}Value, ${resdatavar}.get(${markdefvar}Name),
         "expected " + ${markdefvar}Name + " to be updated");
 `)
@@ -528,24 +644,24 @@ const generateUpdate: OpGen = (ctx, step, index) => {
 
 const generateLoad: OpGen = (ctx, step, index) => {
   const { entity, flow, accessor } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = javaVar(step.input.entvar ?? ref + '_ent')
-  const matchvar = javaVar(step.input.matchvar ?? (ref + '_match' + (step.input.suffix ?? '')))
-  const datavar = javaVar(step.input.datavar ?? (ref + '_data' + (step.input.suffix ?? '')))
-  const srcdatavar = javaVar(step.input.srcdatavar ?? (ref + '_data' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = javaVar(step.i.entvar ?? ref + '_ent')
+  const matchvar = javaVar(step.i.matchvar ?? (ref + '_match' + (step.i.suffix ?? '')))
+  const datavar = javaVar(step.i.datavar ?? (ref + '_data' + (step.i.suffix ?? '')))
+  const srcdatavar = javaVar(step.i.srcdatavar ?? (ref + '_data' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const hasEntVar = priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   // Check if srcdatavar was declared by a prior create step or preamble
-  const flowHasCreate = Object.values(flow.step).some((s: any) => (s as any).op === 'create')
+  const flowHasCreate = Object.values(flowSteps(flow)).some((s: any) => (s as any).o === 'create')
   const preambleRef = entity.name + '_ref01'
   const hasSrcData = (!flowHasCreate && srcdatavar === javaVar(preambleRef + '_data')) ||
     priorSteps.some((s: any) => {
-      if ('create' === s.op) {
-        const priorRef = s.input.ref ?? entity.name + '_ref01'
-        const priorDatvar = javaVar(s.input.datavar ?? (priorRef + '_data' + (s.input.suffix ?? '')))
+      if ('create' === s.o) {
+        const priorRef = s.i.ref ?? entity.name + '_ref01'
+        const priorDatvar = javaVar(s.i.datavar ?? (priorRef + '_data' + (s.i.suffix ?? '')))
         return priorDatvar === srcdatavar
       }
       return false
@@ -559,7 +675,7 @@ const generateLoad: OpGen = (ctx, step, index) => {
     Content(`    SdkEntity ${entvar} = client.${accessor}(null);
 `)
   }
-  if (!hasSrcData && hasEntId) {
+  if (!hasSrcData && (hasEntId || flowLoadReadsRecord(entity, step))) {
     Content(`    List<List<Object>> ${srcdatavar}Raw = Struct.items(Helpers.toMapAny(
         Struct.getpath(setup.data, "existing.${entity.name}")));
     Map<String, Object> ${srcdatavar} = ${srcdatavar}Raw.isEmpty()
@@ -569,16 +685,15 @@ const generateLoad: OpGen = (ctx, step, index) => {
   Content(`    Map<String, Object> ${matchvar} = new LinkedHashMap<>();
 `)
   if (hasEntId) {
-    Content(`    ${matchvar}.put("id", ${srcdatavar}.get("id"));
-    Object ${datavar}Loaded = ${entvar}.load(${matchvar}, null);
+    Content(`    ${matchvar}.put("id", ${srcdatavar}.get(${rid(entity)}));
+${loadMatch(entity, step, matchvar, srcdatavar)}${liveFill(entity, step, matchvar, flow)}    Object ${datavar}Loaded = ${entvar}.load(${matchvar}, null);
     Map<String, Object> ${datavar}LoadResult = Helpers.toMapAny(${datavar}Loaded instanceof SdkEntity ? ((SdkEntity) ${datavar}Loaded).data() : ${datavar}Loaded);
     assertNotNull(${datavar}LoadResult, "expected load result to be a map");
-    assertEquals(${srcdatavar}.get("id"), ${datavar}LoadResult.get("id"),
-        "expected load result id to match");
-`)
+${sameId(liveLoadComparesId(entity, flow), `${datavar}LoadResult.get(${rid(entity)})`, `${srcdatavar}.get(${rid(entity)})`,
+  'expected load result id to match')}`)
   }
   else {
-    Content(`    Object ${datavar}Loaded = ${entvar}.load(${matchvar}, null);
+    Content(`${loadMatch(entity, step, matchvar, srcdatavar)}${liveFill(entity, step, matchvar, flow)}    Object ${datavar}Loaded = ${entvar}.load(${matchvar}, null);
     assertNotNull(${datavar}Loaded, "expected load result to be non-null");
 `)
   }
@@ -587,14 +702,14 @@ const generateLoad: OpGen = (ctx, step, index) => {
 
 const generateRemove: OpGen = (ctx, step, index) => {
   const { entity, flow, accessor } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = javaVar(step.input.entvar ?? ref + '_ent')
-  const matchvar = javaVar(step.input.matchvar ?? (ref + '_match' + (step.input.suffix ?? '')))
-  const srcdatavar = javaVar(step.input.srcdatavar ?? (ref + '_data'))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = javaVar(step.i.entvar ?? ref + '_ent')
+  const matchvar = javaVar(step.i.matchvar ?? (ref + '_match' + (step.i.suffix ?? '')))
+  const srcdatavar = javaVar(step.i.srcdatavar ?? (ref + '_data'))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   Content(`    // REMOVE
 `)
@@ -604,9 +719,126 @@ const generateRemove: OpGen = (ctx, step, index) => {
   }
   // Always match the prior-created entity by id to avoid mock-order flakes.
   Content(`    Map<String, Object> ${matchvar} = new LinkedHashMap<>();
-    ${matchvar}.put("id", ${srcdatavar}.get("id"));
-    ${entvar}.remove(${matchvar}, null);
+    ${matchvar}.put("id", ${srcdatavar}.get(${rid(entity)}));
+${parentMatch(step, matchvar)}    ${entvar}.remove(${matchvar}, null);
 `)
+}
+
+
+// The record field the entity's identity is read from, as a Java string.
+function rid(entity: any): string {
+  return JSON.stringify(entityRecordIdField(entity))
+}
+
+
+const LIVE_PACE = `    if (setup.live) {
+      RunnerSupport.livePace();
+    }
+`
+
+
+// A result's identity matches the one asked for, live only as the live
+// entity harness compares it.
+function sameId(compares: boolean, result: string, expected: string, message: string): string {
+  const check = `assertTrue(RunnerSupport.liveSameId(${result}, ${expected}), ${JSON.stringify(message)});`
+  return !compares ? `    if (!setup.live) {
+      ${check}
+    }
+` : `    ${check}
+`
+}
+
+
+// The fixture keeps each record's key in `id`; an entity keeping its identity
+// in another field reads the key from there too.
+function fixtureIdentity(entity: any): string {
+  const field = entityRecordIdField(entity)
+  return 'id' === field ? '' : `
+    Object fixtureEntities = entityData.get("existing");
+    Object fixtureRecords = fixtureEntities instanceof Map
+        ? ((Map<?, ?>) fixtureEntities).get(${JSON.stringify(entity.name)}) : null;
+    if (fixtureRecords instanceof Map) {
+      for (Object fixtureRec : ((Map<?, ?>) fixtureRecords).values()) {
+        if (fixtureRec instanceof Map && null != ((Map<?, ?>) fixtureRec).get("id")) {
+          @SuppressWarnings("unchecked")
+          Map<String, Object> fixtureRecMap = (Map<String, Object>) fixtureRec;
+          fixtureRecMap.put(${JSON.stringify(field)}, fixtureRecMap.get("id"));
+        }
+      }
+    }
+`
+}
+
+
+// A child's route names its parents, and an entity no earlier step has
+// filled knows none of them, so the call itself gives each parent id. A live
+// ENTID may key a parent by its field name, the fixture by its own name.
+function javaLit(value: any): string {
+  if ('string' === typeof value) return JSON.stringify(value)
+  return Number.isInteger(value) && Math.abs(value) > 2147483647 ? value + 'L' : String(value)
+}
+
+
+// A whole number as Json.parse decodes one, so an example equals a record's id.
+function javaIdLit(value: any): string {
+  return Number.isSafeInteger(value) ? value + 'L' : javaLit(value)
+}
+
+
+// A live step sends each example its route requires and the step leaves unbound.
+function liveFill(entity: any, step: any, matchvar: string, flow: any): string {
+  const fills = liveStepExamples(entity, step, flow)
+  const omit = liveUnrouted(entity, step, flow)
+  return 0 === fills.length + omit.length ? '' : `    if (setup.live) {
+${fills.map(([k, ex]) => `      ${matchvar}.put(${JSON.stringify(k)}, ${javaLit(ex)});\n`).join('')}${omit.map(([name, key]) =>
+    `      if (${unsupplied(key)}) {\n        ${matchvar}.remove(${JSON.stringify(name)});\n      }\n`).join('')}    }
+`
+}
+
+
+// A binding the live route does not take is sent only as *_ENTID gives it.
+function unsupplied(key: string): string {
+  return `setup.syntheticOnly || setup.idmap.get(${JSON.stringify(key)}) == null`
+}
+
+
+function parentMatch(step: any, matchvar: string): string {
+  return Object.entries(step.m || {})
+    .filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
+    .map(([key, val]: any) => `    ${matchvar}.put("${key}", null != setup.idmap.get("${key}")
+        ? setup.idmap.get("${key}") : setup.idmap.get("${val}"));
+`).join('')
+}
+
+
+// A load of a known record fills its route from that record, and from the
+// step's binding where the record holds no scalar for it. A record only the
+// fixture holds replaces the step's binding offline.
+function loadMatch(entity: any, step: any, matchvar: string, srcdatavar: string): string {
+  const route = flowLoadRoute(entity, step)
+  if (null == route) {
+    return parentMatch(step, matchvar)
+  }
+  if (route.offline) {
+    const own = route.args.filter((arg) => null != arg.field)
+    return parentMatch(step, matchvar) + (0 === own.length ? '' : `    if (!setup.live) {
+${own.map((arg, i) => `      Object own${i} = ${srcdatavar}.get("${arg.field}");
+      if (own${i} instanceof String || own${i} instanceof Number || own${i} instanceof Boolean) {
+        ${matchvar}.put("${arg.name}", own${i});
+      }
+`).join('')}    }
+`)
+  }
+  return route.args.map((arg) => {
+    const get = (key: string) => `setup.idmap.get("${key}")`
+    const bound = 1 === arg.idmap.length ? get(arg.idmap[0]) :
+      `null != ${get(arg.idmap[0])} ? ${get(arg.idmap[0])} : ${get(arg.idmap[1])}`
+    const own = `${srcdatavar}.get("${arg.field}")`
+    return null == arg.field ? `    ${matchvar}.put("${arg.name}", ${bound});
+` : `    ${matchvar}.put("${arg.name}", ${own} instanceof String || ${own} instanceof Number
+        || ${own} instanceof Boolean ? ${own} : (${bound}));
+`
+  }).join('')
 }
 
 
@@ -616,6 +848,114 @@ const GENERATE_OP: Record<string, OpGen> = {
   update: generateUpdate,
   load: generateLoad,
   remove: generateRemove,
+}
+
+
+// A failed operation throws from a stream as it does from the operation: a
+// transport failure, and a hook that rejects the call. A throwing hook fires
+// PreUnexpected, under throw false too. The caller's ctrl stays its own. An
+// invalid request fails with validate's own error, before it is sent.
+function failureTests(SDK: string, entity: ModelEntity, accessor: string, hasList: boolean): string {
+  const bad = invalidRequest(entity)
+  if (!hasList && null == bad) {
+    return ''
+  }
+
+  let out = `  static boolean hasFeature(String name) {
+    Map<String, Object> fm = Helpers.toMapAny(Config.makeConfig().get("feature"));
+    return fm != null && fm.get(name) != null;
+  }
+
+`
+
+  if (hasList) {
+    out += `  public static final class FailHook extends BaseFeature {
+    int unexpected = 0;
+
+    FailHook() {
+      super("failhook", "0.0.1", true);
+    }
+
+    @Override
+    public void preSpec(Context ctx) {
+      throw new RuntimeException("${entity.name} hook failed");
+    }
+
+    @Override
+    public void preUnexpected(Context ctx) {
+      this.unexpected++;
+    }
+  }
+
+  @Test
+  public void streamError() {
+    Map<String, Object> offline = Struct.jm("net", Struct.jm("offline", true));
+    RuntimeException err = assertThrows(RuntimeException.class, () ->
+        ${SDK}.testSDK(offline, null).${accessor}(null).stream("list", null, null)
+            .collect(Collectors.toList()));
+    assertTrue(err.getMessage().contains("offline"), err.getMessage());
+
+    ${SDK}.testSDK(offline, null).${accessor}(null)
+        .stream("list", null, Struct.jm("ctrl", Struct.jm("throw", false)))
+        .collect(Collectors.toList());
+
+    if (hasFeature("rbac")) {
+      ${SDK} denied = ${SDK}.testSDK(null,
+          Struct.jm("feature", Struct.jm("rbac", Struct.jm("active", true, "deny", true))));
+      SdkError denyerr = assertThrows(SdkError.class, () ->
+          denied.${accessor}(null).stream("list", null, null).collect(Collectors.toList()));
+      assertEquals("rbac_denied", denyerr.code);
+    }
+  }
+
+  @Test
+  public void streamCtrl() {
+    Map<String, Object> explain = new LinkedHashMap<>();
+    Map<String, Object> ctrl = new LinkedHashMap<>();
+    ctrl.put("explain", explain);
+    ${SDK}.testSDK().${accessor}(null).stream("list", null, Struct.jm("ctrl", ctrl))
+        .collect(Collectors.toList());
+    assertEquals(List.of("explain"), new ArrayList<>(ctrl.keySet()));
+    assertTrue(explain == ctrl.get("explain") && !explain.isEmpty());
+  }
+
+  @Test
+  public void unexpected() {
+    FailHook hook = new FailHook();
+    ${SDK} client = new ${SDK}(Struct.jm(
+        "feature", Struct.jm("test", Struct.jm("active", true)),
+        "extend", Struct.jt(hook)));
+
+    RuntimeException err = assertThrows(RuntimeException.class, () ->
+        client.${accessor}(null).list(null, null));
+    assertTrue(err.getMessage().contains("hook failed"), err.getMessage());
+    assertTrue(0 < hook.unexpected);
+
+    int fired = hook.unexpected;
+    client.${accessor}(null).list(null, Struct.jm("throw", false));
+    assertTrue(fired < hook.unexpected);
+  }
+
+`
+  }
+
+  if (null != bad) {
+    const args = Object.entries(bad.args)
+      .map(([k, v]) => JSON.stringify(k) + ', ' + JSON.stringify(v)).join(', ')
+    out += `  @Test
+  public void validate() {
+    Assumptions.assumeTrue(hasFeature("validate"), "feature not present in this SDK: validate");
+    ${SDK} client = ${SDK}.testSDK(null,
+        Struct.jm("feature", Struct.jm("validate", Struct.jm("active", true))));
+    SdkError err = assertThrows(SdkError.class, () ->
+        client.${accessor}(null).${bad.op}(Struct.jm(${args}), null));
+    assertEquals("validate_failed", err.code);
+  }
+
+`
+  }
+
+  return out
 }
 
 

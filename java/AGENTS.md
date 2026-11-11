@@ -26,7 +26,7 @@ make test
 
 | Source | Path | Edit when… |
 | --- | --- | --- |
-| Target definition | `.sdk/model/target/java.aon` | deps, module, extension, phases change |
+| Target definition | `.sdk/model/target/java.aontu` | deps, module, extension, phases change |
 | Templates | `.sdk/tm/java/` | the file is the **same for every API** (runtime, transport, base classes) — copied verbatim with placeholder substitution |
 | Components | `.sdk/src/cmp/java/` | the file's shape **depends on the API** (entities, constructor, README, tests) — TypeScript that walks the model |
 
@@ -37,15 +37,21 @@ component.* After editing a component run `npm run build` before
 ## Features in this target
 
 Each feature is a flat file in the `feature/` package. Its hooks and
-default activation come from `.sdk/model/feature/<name>.aon`; customise
+default activation come from `.sdk/model/feature/<name>.aontu`; customise
 the runtime under `.sdk/tm/java/feature/` and regenerate.
 
 | Feature | Runtime file | Active hooks |
 | --- | --- | --- |
+| **debug** — Debug capture | `feature/debug_feature.java` | `PreDone`, `PreRequest`, `PreResponse`, `PreUnexpected` |
 | **elementcard** — ASCII periodic-table tile for element-shaped results | `feature/elementcard_feature.java` | `PreResult` |
-| **retry** — Automatic retry of transient failures with exponential backoff | `feature/retry_feature.java` | — |
-| **test** — In-memory mock transport for testing without a live server | `feature/test_feature.java` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
-| **timeout** — Per-request timeout with transport abort | `feature/timeout_feature.java` | — |
+| **idempotency** — Idempotency | `feature/idempotency_feature.java` | `PreRequest` |
+| **metrics** — Metrics | `feature/metrics_feature.java` | `PreDone`, `PrePoint`, `PreUnexpected` |
+| **paging** — Paging | `feature/paging_feature.java` | `PreRequest`, `PreResult` |
+| **ratelimit** — Rate limiting | `feature/ratelimit_feature.java` | — |
+| **retry** — Retry | `feature/retry_feature.java` | — |
+| **secrets** — Secrets | `feature/secrets_feature.java` | `PreSpec` |
+| **test** — Test transport | `feature/test_feature.java` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
+| **timeout** — Timeout | `feature/timeout_feature.java` | — |
 
 ---
 

@@ -1,19 +1,10 @@
 "use strict";
-// VENDORED: @voxgig/sekreto 0.2.0 (typescript/src/provider/builtin.ts)
-// Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/sekreto 0.3.0 (typescript/src/provider/builtin.ts)
+// Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 /* Copyright (c) 2025 Voxgig Ltd, MIT License */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.KINDS = exports.BUILTINS = void 0;
-// THE BUILT-IN PROVIDER KINDS - the same four in every port.
-//
-// What makes a kind built in is that it needs nothing of the platform
-// beyond reading a local file: no socket, no TLS, no crypto, no child
-// process. These four are the floor every chain stands on, and a chain
-// that reads secrets from options, the environment, a plaintext `.env`
-// and a mounted secret directory works with no plugin loaded at all.
-// Everything else - the vault clients, the cloud stores, the CLIs - is a
-// plugin, and lives under `plugins/` (docs/design/plugin-providers.md).
 const support_1 = require("./support");
 const env_1 = require("./env");
 const memory_1 = require("./memory");
@@ -32,6 +23,7 @@ exports.KINDS = {
     plugin: [
         'hashicorp', 'boru', 'awssecrets', 'awsparams', 'gcpsecrets',
         'azuresecrets', 'onepassword', 'doppler', 'infisical', 'secretspec',
+        'minivault',
     ],
 };
 //# sourceMappingURL=builtin.js.map

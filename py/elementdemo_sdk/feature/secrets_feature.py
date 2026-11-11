@@ -153,6 +153,7 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
             explicit = xopts.get("refresh") if isinstance(xopts, dict) else None
 
         if isinstance(explicit, str) and "" != explicit:
+            self._register(explicit)
             providers.append({
                 "kind": "memory",
                 "name": "options",
@@ -198,29 +199,48 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
     def sekreto(self):
         return self._sekreto
 
+    # Every value this feature resolves or buys is a secret the SDK handles,
+    # and none arrives under an option key the intake registration saw.
+    def _register(self, value):
+        ctx = getattr(self._client, "_rootctx", None)
+        utility = getattr(ctx, "utility", None)
+        if callable(getattr(utility, "clean_add", None)):
+            utility.clean_add(ctx, value)
+
     def PreSpec(self, _ctx):
         return self.resolve()
 
-    # Resolve the apikey before the first request. A successful resolve is
+    # Resolve the apikey before the first request. A successful HIT is
     # reused while caching is on; with `cache: False` the chain is asked
     # again on every call - holding the first answer forever would make
     # the documented option a lie. A provider ERROR raises (fails the op)
     # and leaves nothing cached, so a transient vault outage does not
     # poison the client after the vault recovers.
+    #
+    # A MISS is not marked resolved either, however caching is set. That
+    # rule is sekreto's, not this feature's: `A miss is never cached: the
+    # next read asks again`, in sekreto's own source. Marking a settled
+    # miss here would override that from the layer above, and a secret
+    # provisioned after startup - a mounted file, a policy granted a minute
+    # late - would never be picked up for the life of the client. `cache`
+    # is about caching a HIT; it was never a promise to keep saying no.
     def resolve(self):
         if self._resolved and self._cache:
             return
-        self._resolve_once()
-        self._resolved = True
+        self._resolved = self._resolve_once()
 
+    # Resolve once, reporting whether a credential came out of it. That
+    # bool is the whole of what resolve() needs to tell a cacheable HIT
+    # from a miss it must not retain.
     def _resolve_once(self):
         if self._sekreto is None:
-            return
+            return False
 
         # Miss-vs-error: `try_` answers None for "no store has it" and
         # RAISES for "a store could not answer" - only the miss falls
         # through.
         found = self._sekreto.try_(self._secretname)
+        self._register(found)
 
         if self._exchange is None:
             if found is not None:
@@ -242,7 +262,7 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
                 if self._client.options.get("apikey") == self._lastset:
                     self._client.options["apikey"] = ""
                 self._lastset = None
-            return
+            return found is not None
 
         # Exchanging: what the chain resolved is the REFRESH token, kept
         # for every later purchase. A miss is not fatal here - an explicit
@@ -255,9 +275,21 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
             # A starting access token was supplied. Spend it: if it is
             # stale the API answers 401 and the transport wrapper buys
             # another, which is the same path expiry takes anyway.
-            return
+            return True
+
+        # `auth: None` is the documented way to send NO credential, and a
+        # purchase is a credential-bearing call: the refresh token goes to
+        # the token endpoint in the request body. _with_refresh honours
+        # suppression for the RETRY, but it runs after this - by then the
+        # refresh token has already left the process, and no later check
+        # can call it back. The suppression has to be honoured here, before
+        # the first purchase, or it only ever half-held.
+        if self._client.options_map().get("auth") is None:
+            return False
 
         self._client.options["apikey"] = self._buy()
+
+        return True
 
     # Buy an access token with the refresh token. (ts shares one in-flight
     # purchase between concurrent async callers; python resolves
@@ -345,16 +377,18 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
                 "secrets: token exchange returned no '" + x["response"]
                 + "' field from " + url)
 
+        self._register(token)
+
         return token
 
     # Buy a token and try the request again when the API says the current
     # one is spent. Wraps the transport; installed only when exchanging.
     #
-    # The retry rewrites the authorization header IN PLACE on the
+    # The retry rewrites the credential header IN PLACE on the
     # fetchdef, because the header was built by the synchronous
     # prepare_auth before this request left, and it carries the token that
     # just failed. Rebuilt the way prepare_auth builds it, from the same
-    # options.auth.prefix, so the two cannot drift.
+    # options.auth name and prefix, so the two cannot drift.
     def _with_refresh(self, ctx, url, fetchdef, inner):
         x = self._exchange
         max_retries = 0 if x is None else x["retries"]
@@ -425,8 +459,13 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
             fetchdef["headers"].pop("authorization", None)
             return
 
+        # The header prepare_auth wrote: auth.name, lower-cased.
+        name = auth.get("name") if isinstance(auth, dict) else None
+        name = name.lower() if isinstance(name, str) and "" != name \
+            else "authorization"
+
         prefix = auth.get("prefix") if isinstance(auth, dict) else None
-        fetchdef["headers"]["authorization"] = \
+        fetchdef["headers"][name] = \
             prefix + " " + token if prefix else token
 
 

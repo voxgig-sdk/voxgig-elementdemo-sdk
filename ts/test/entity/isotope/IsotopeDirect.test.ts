@@ -2,6 +2,7 @@
 
 import { test, describe, afterEach } from 'node:test'
 import assert from 'node:assert'
+import { createLiveTransport } from '../../live-runner'
 
 
 import { ElementdemoSDK } from '../../..'
@@ -13,13 +14,12 @@ import {
   loadEnvLocal,
   maybeSkipControl,
   skipIfMissingIds,
+  liveMiss,
+  liveEmpty,
+  describeLive,
 } from '../../utility'
 
 
-// AFTER the imports on purpose: TypeScript hoists `import` above any
-// statement in the emitted CommonJS, so a loader placed above them would
-// run only after every imported module had already been evaluated - and
-// anything reading process.env at module scope would miss these values.
 loadEnvLocal(__dirname + '/../../../.env.local')
 
 
@@ -31,9 +31,6 @@ describe('IsotopeDirect', async () => {
 
   test('direct-exists', async () => {
     const sdk = new ElementdemoSDK({
-      // Concrete base: a live construction must satisfy any server
-      // variables a templated base URL declares; overriding base with a
-      // literal (as the direct flow tests do) sidesteps the requirement.
       base: 'http://localhost:8080',
       system: { fetch: async () => ({}) }
     })
@@ -43,9 +40,10 @@ describe('IsotopeDirect', async () => {
 
 
   test('direct-load-isotope', async (t: any) => {
+    if (liveScenariosActive()) { t.skip('Covered by live operation scenarios'); return }
     const setup = directSetup({ id: 'direct01' })
     if (maybeSkipControl(t, 'direct', 'direct-load-isotope', setup.live)) return
-    if (skipIfMissingIds(t, setup, ["element01"])) return
+    if (skipIfMissingIds(t, setup, ["element01"], LIVE_STRICT)) return
     const { client, calls } = setup
 
     const params: any = {}
@@ -58,16 +56,19 @@ describe('IsotopeDirect', async () => {
         element_id: setup.idmap['element01'],
         },
       })
-      if (!listResult.ok) {
-        return // skip: list call failed (likely synthetic IDs against live API)
+      if (!listResult.ok || listResult.status < 200 || listResult.status >= 300) {
+        return void liveMiss(t, LIVE_STRICT, 'Live list discovery failed: ' + describeLive(listResult))
       }
       const listArr = unwrapListData(listResult.data)
-      if (null == listArr || listArr.length === 0) {
-        return // skip: no entities to load in live mode
+      if (null == listArr) {
+        return void liveMiss(t, LIVE_STRICT, 'Live list discovery returned no list: ' + describeLive(listResult))
       }
-      const candidateId = listArr[0]?.id ?? listArr[0]?.id
+      if (0 === listArr.length) {
+        return void liveEmpty(t, 'The account has no isotope record to load')
+      }
+      const candidateId = listArr[0]?.id
       if (null == candidateId) {
-        return // skip: list response shape does not expose load identifier
+        return void liveMiss(t, LIVE_STRICT, 'Live load blocked: discovery returned no usable identity')
       }
       params.id = candidateId
       params.element_id = setup.idmap['element01']
@@ -84,18 +85,12 @@ describe('IsotopeDirect', async () => {
     })
 
     if (setup.live) {
-      // STRICT live mode: a non-2xx is a real failure - this project owns
-      // the server it points at, so there is nothing to be lenient about.
-      //
-      // What is NOT asserted here is the MOCK's own fixtures. `direct01`
-      // is a scripted id and `calls` records the mock transport; neither
-      // exists on a live run, so asserting them made strict mode mean
-      // "compare the live server against the mock's script" - a suite that
-      // could not pass against any real API, including this project's own.
-      assert(result.ok === true,
-        'live request failed: ' + result.status + ' ' + JSON.stringify(result.data))
-      assert(result.status >= 200 && result.status < 300)
-      assert(null != result.data)
+      if (!result.ok || result.status < 200 || result.status >= 300) {
+        return void liveMiss(t, LIVE_STRICT, 'Live load failed: ' + describeLive(result))
+      }
+      if (!(null != result.data)) {
+        return void liveMiss(t, LIVE_STRICT, 'Live load returned no data: ' + describeLive(result))
+      }
     } else {
       assert(result.ok === true)
       assert(result.status === 200)
@@ -109,9 +104,10 @@ describe('IsotopeDirect', async () => {
   })
 
   test('direct-list-isotope', async (t: any) => {
+    if (liveScenariosActive()) { t.skip('Covered by live operation scenarios'); return }
     const setup = directSetup([{ id: 'direct01' }, { id: 'direct02' }])
     if (maybeSkipControl(t, 'direct', 'direct-list-isotope', setup.live)) return
-    if (skipIfMissingIds(t, setup, ["element01"])) return
+    if (skipIfMissingIds(t, setup, ["element01"], LIVE_STRICT)) return
     const { client, calls } = setup
 
     const params: any = {}
@@ -130,18 +126,12 @@ describe('IsotopeDirect', async () => {
     })
 
     if (setup.live) {
-      // STRICT live mode: a non-2xx is a real failure - this project owns
-      // the server it points at, so there is nothing to be lenient about.
-      //
-      // What is NOT asserted here is the MOCK's own fixtures. `direct01`
-      // is a scripted id and `calls` records the mock transport; neither
-      // exists on a live run, so asserting them made strict mode mean
-      // "compare the live server against the mock's script" - a suite that
-      // could not pass against any real API, including this project's own.
-      assert(result.ok === true,
-        'live request failed: ' + result.status + ' ' + JSON.stringify(result.data))
-      assert(result.status >= 200 && result.status < 300)
-      assert(null != result.data)
+      if (!result.ok || result.status < 200 || result.status >= 300) {
+        return void liveMiss(t, LIVE_STRICT, 'Live list failed: ' + describeLive(result))
+      }
+      if (!(Array.isArray(unwrapListData(result.data)))) {
+        return void liveMiss(t, LIVE_STRICT, 'Live list returned no list: ' + describeLive(result))
+      }
     } else {
       assert(result.ok === true)
       assert(result.status === 200)
@@ -159,6 +149,13 @@ describe('IsotopeDirect', async () => {
 
 
 
+// main.kit.test.live.strict is true (the default is true): a live
+// request that fails, or a live test missing an input it needs,
+// fails the test.
+// An account with no record for a test to read skips it either way.
+const LIVE_STRICT = true
+
+function liveScenariosActive() { return false && process.env.ELEMENTDEMO_TEST_LIVE === 'TRUE' }
 function directSetup(mockres?: any) {
   const calls: any[] = []
 
@@ -172,10 +169,11 @@ function directSetup(mockres?: any) {
   const live = 'TRUE' === env.ELEMENTDEMO_TEST_LIVE
 
   if (live) {
+    const transport = createLiveTransport()
     // Merged so the generated fields win: sdk-test-control.json's
     // test.client.options adds to the live client, it does not redirect it.
     const client = new ElementdemoSDK(
-      Object.assign({}, liveClientOptions(), {
+      Object.assign({}, liveClientOptions(), { system: { fetch: transport.fetch },
       apikey: env.ELEMENTDEMO_APIKEY,
       server: {
         account_id: env.ELEMENTDEMO_SERVER_ACCOUNT_ID,
@@ -187,7 +185,7 @@ function directSetup(mockres?: any) {
       idmap = JSON.parse(idmap)
     }
 
-    return { client, calls, live, idmap }
+    return { client, calls, live, idmap, transport }
   }
 
   const mockFetch = async (url: string, init: any) => {

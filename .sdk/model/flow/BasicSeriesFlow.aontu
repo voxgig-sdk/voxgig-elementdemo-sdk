@@ -1,0 +1,44 @@
+# BasicSeriesFlow
+
+main: kit: flow: BasicSeriesFlow:
+{
+  entity: "series",
+  kind: "basic",
+  name: "BasicSeriesFlow",
+  step: [
+    {
+      o: "list",
+      v: [
+        {
+          apply: "ItemExists",
+          def: {
+            ref: "series_ref01"
+          }
+        }
+      ]
+    }
+
+    {
+      i: {
+        ref: "series_ref01",
+        srcdatavar: "series_ref01_data",
+        suffix: "_dt0"
+      }
+
+      m: {
+        id: "series01"
+      }
+
+      o: "load",
+      v: [
+        {
+          apply: "TextFieldMark",
+          def: {
+            mark: "Mark01-series_ref01"
+          }
+        }
+      ]
+    }
+  ],
+  "key$": "BasicSeriesFlow"
+}

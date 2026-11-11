@@ -1,15 +1,6 @@
 {
-  "NAME": "ELEMENTDEMO",
-  "Name": "Elementdemo",
   "def": "elementdemo-1.0.0-openapi-3.0.0.yaml",
   "main": {
-    "api": {
-      "entity": {},
-      "guide": {}
-    },
-    "custom": {
-      "plurals": {}
-    },
     "def": {
       "desc": ""
     },
@@ -33,110 +24,193 @@
         "repr": "auto"
       },
       "contributor": {},
-      "docs": {},
+      "copies": "merge",
+      "doc": {
+        "active": true,
+        "assets": {
+          "path": ".sdk/doc/assets"
+        },
+        "brand": {
+          "label": "",
+          "notice": "",
+          "shortNotice": "",
+          "url": ""
+        },
+        "ci": {
+          "active": true,
+          "branch": "main"
+        },
+        "content": {
+          "path": ".sdk/doc/content"
+        },
+        "edition": {
+          "github-pages": {
+            "active": false,
+            "base": "node_modules/@voxgig/docgen/project/.sdk",
+            "brand": {},
+            "filter": {
+              "entities": [],
+              "features": [],
+              "targets": []
+            },
+            "kind": "github-pages",
+            "name": "github-pages",
+            "origname": "",
+            "output": {
+              "path": "docs"
+            },
+            "package": "@voxgig/docgen",
+            "published": false,
+            "site": {
+              "active": true
+            },
+            "style": {},
+            "title": ""
+          },
+          "summary": {
+            "active": true,
+            "base": "node_modules/@voxgig/docgen/project/.sdk",
+            "brand": {},
+            "filter": {
+              "entities": [],
+              "features": [],
+              "targets": []
+            },
+            "kind": "summary",
+            "name": "summary",
+            "origname": "",
+            "output": {
+              "path": "SUMMARY.md"
+            },
+            "package": "@voxgig/docgen",
+            "published": false,
+            "site": {
+              "active": true
+            },
+            "style": {},
+            "title": ""
+          }
+        },
+        "qa": {
+          "vocabulary": []
+        },
+        "style": {
+          "color": {
+            "accent": "#00c6d8",
+            "background": "#f5f5f9",
+            "darkBackground": "#0f1117",
+            "darkText": "#e6edf3",
+            "primary": "#e70042",
+            "text": "#0a0a0a"
+          },
+          "font": "Nunito, system-ui, sans-serif",
+          "fontFile": "",
+          "headingFont": "Nunito, system-ui, sans-serif",
+          "headingFontFile": "",
+          "logo": "",
+          "mode": "light",
+          "mono": "ui-monospace, monospace",
+          "monoFile": ""
+        },
+        "target": {}
+      },
       "entity": {
         "element": {
           "active": true,
           "alias": {
             "field": {}
           },
-          "fields": [
-            {
-              "active": true,
-              "name": "block",
-              "req": true,
-              "short": "Orbital block, one of s, p, d, f.",
-              "type": "`$STRING`"
+          "fields": {
+            "block": {
+              "a": true,
+              "h": "Block",
+              "n": "block",
+              "r": true,
+              "sh": "Orbital block, one of s, p, d, f.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "charge",
-              "req": false,
-              "type": "`$INTEGER`"
+            "discovered": {
+              "a": true,
+              "h": "Discovered",
+              "n": "discovered",
+              "r": false,
+              "sh": "Year of discovery, absent for elements known since antiquity.",
+              "t": "`$INTEGER`"
             },
-            {
-              "active": true,
-              "name": "discovered",
-              "req": false,
-              "short": "Year of discovery, absent for elements known since antiquity.",
-              "type": "`$INTEGER`"
+            "group": {
+              "a": true,
+              "h": "Group",
+              "n": "group",
+              "r": false,
+              "sh": "Periodic table column, 1 to 18, absent for the f-block.",
+              "t": "`$INTEGER`"
             },
-            {
-              "active": true,
-              "name": "group",
-              "req": false,
-              "short": "Periodic table column, 1 to 18, absent for the f-block.",
-              "type": "`$INTEGER`"
+            "id": {
+              "a": true,
+              "h": "Id",
+              "n": "id",
+              "r": true,
+              "sh": "Element identifier, the lowercase symbol.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "id",
-              "req": true,
-              "short": "Element identifier, the lowercase symbol.",
-              "type": "`$STRING`"
+            "mass": {
+              "a": true,
+              "fo": "float",
+              "h": "Mass",
+              "n": "mass",
+              "r": true,
+              "sh": "Standard atomic weight in daltons.",
+              "t": "`$NUMBER`"
             },
-            {
-              "active": true,
-              "name": "ion",
-              "req": false,
-              "type": "`$STRING`"
+            "name": {
+              "a": true,
+              "h": "Name",
+              "n": "name",
+              "r": true,
+              "sh": "Element name.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "mass",
-              "req": true,
-              "short": "Standard atomic weight in daltons.",
-              "type": "`$NUMBER`"
+            "number": {
+              "a": true,
+              "h": "Number",
+              "n": "number",
+              "r": true,
+              "sh": "Atomic number.",
+              "t": "`$INTEGER`"
             },
-            {
-              "active": true,
-              "name": "name",
-              "req": true,
-              "short": "Element name.",
-              "type": "`$STRING`"
+            "period": {
+              "a": true,
+              "h": "Period",
+              "n": "period",
+              "r": true,
+              "sh": "Periodic table row, 1 to 7.",
+              "t": "`$INTEGER`"
             },
-            {
-              "active": true,
-              "name": "number",
-              "req": true,
-              "short": "Atomic number.",
-              "type": "`$INTEGER`"
+            "phase": {
+              "a": true,
+              "h": "Phase",
+              "n": "phase",
+              "r": false,
+              "sh": "Phase at standard temperature and pressure.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "ok",
-              "req": false,
-              "type": "`$BOOLEAN`"
+            "series_id": {
+              "a": true,
+              "h": "Series Id",
+              "n": "series_id",
+              "r": true,
+              "sh": "Chemical series this element belongs to.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "period",
-              "req": true,
-              "short": "Periodic table row, 1 to 7.",
-              "type": "`$INTEGER`"
-            },
-            {
-              "active": true,
-              "name": "phase",
-              "req": false,
-              "short": "Phase at standard temperature and pressure.",
-              "type": "`$STRING`"
-            },
-            {
-              "active": true,
-              "name": "series_id",
-              "req": true,
-              "short": "Chemical series this element belongs to.",
-              "type": "`$STRING`"
-            },
-            {
-              "active": true,
-              "name": "symbol",
-              "req": true,
-              "short": "Chemical symbol.",
-              "type": "`$STRING`"
+            "symbol": {
+              "a": true,
+              "h": "Symbol",
+              "n": "symbol",
+              "r": true,
+              "sh": "Chemical symbol.",
+              "t": "`$STRING`"
             }
-          ],
+          },
           "id": {
             "field": "id",
             "name": "id"
@@ -148,29 +222,46 @@
               "name": "create",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "bf": [
+                    "charge"
+                  ],
+                  "co": {
+                    "id": "POST /element/{element_id}/ionize",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "POST",
-                  "orig": "/element/{element_id}/ionize",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "POST",
+                  "o": "/element/{element_id}/ionize",
+                  "q": {
+                    "$action": "ionize",
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "element_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -181,31 +272,47 @@
                       "lit": "ionize"
                     }
                   ],
-                  "select": {
-                    "$action": "ionize",
-                    "exist": [
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
                 },
                 {
-                  "active": true,
-                  "args": {},
-                  "kind": "http",
-                  "method": "POST",
-                  "orig": "/element",
-                  "parts": null,
-                  "segments": [
+                  "a": true,
+                  "bf": [
+                    "block",
+                    "discovered",
+                    "group",
+                    "id",
+                    "mass",
+                    "name",
+                    "number",
+                    "period",
+                    "phase",
+                    "series_id",
+                    "symbol"
+                  ],
+                  "co": {
+                    "id": "POST /element",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {},
+                  "k": "http",
+                  "m": "POST",
+                  "o": "/element",
+                  "q": {},
+                  "r": {},
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     }
                   ],
-                  "select": {},
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -217,19 +324,28 @@
               "name": "list",
               "points": [
                 {
-                  "active": true,
-                  "args": {},
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/element",
-                  "parts": null,
-                  "segments": [
+                  "a": true,
+                  "co": {
+                    "id": "GET /element",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {},
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/element",
+                  "q": {},
+                  "r": {},
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     }
                   ],
-                  "select": {},
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -241,29 +357,42 @@
               "name": "load",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "co": {
+                    "id": "GET /element/{element_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/element/{element_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/element/{element_id}",
+                  "q": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "element_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -271,12 +400,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -288,29 +412,38 @@
               "name": "remove",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "co": {
+                    "id": "DELETE /element/{element_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "DELETE",
-                  "orig": "/element/{element_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "DELETE",
+                  "o": "/element/{element_id}",
+                  "q": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "element_id": "id"
                     }
                   },
-                  "segments": [
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -318,12 +451,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -335,29 +463,55 @@
               "name": "update",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "bf": [
+                    "block",
+                    "discovered",
+                    "group",
+                    "id",
+                    "mass",
+                    "name",
+                    "number",
+                    "period",
+                    "phase",
+                    "series_id",
+                    "symbol"
+                  ],
+                  "co": {
+                    "id": "PUT /element/{element_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "PUT",
-                  "orig": "/element/{element_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "PUT",
+                  "o": "/element/{element_id}",
+                  "q": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "element_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -365,12 +519,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -387,36 +536,40 @@
           "alias": {
             "field": {}
           },
-          "fields": [
-            {
-              "active": true,
-              "name": "cas",
-              "req": true,
-              "short": "CAS group designation.",
-              "type": "`$STRING`"
+          "fields": {
+            "cas": {
+              "a": true,
+              "h": "Cas",
+              "n": "cas",
+              "r": true,
+              "sh": "CAS group designation.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "id",
-              "req": true,
-              "short": "Group identifier, g1 to g18.",
-              "type": "`$STRING`"
+            "id": {
+              "a": true,
+              "h": "Id",
+              "n": "id",
+              "r": true,
+              "sh": "Group identifier, g1 to g18.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "name",
-              "req": false,
-              "short": "Trivial name, where one exists.",
-              "type": "`$STRING`"
+            "name": {
+              "a": true,
+              "h": "Name",
+              "n": "name",
+              "r": false,
+              "sh": "Trivial name, where one exists.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "number",
-              "req": true,
-              "short": "Group number, 1 to 18.",
-              "type": "`$INTEGER`"
+            "number": {
+              "a": true,
+              "h": "Number",
+              "n": "number",
+              "r": true,
+              "sh": "Group number, 1 to 18.",
+              "t": "`$INTEGER`"
             }
-          ],
+          },
           "id": {
             "field": "id",
             "name": "id"
@@ -428,19 +581,28 @@
               "name": "list",
               "points": [
                 {
-                  "active": true,
-                  "args": {},
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/group",
-                  "parts": null,
-                  "segments": [
+                  "a": true,
+                  "co": {
+                    "id": "GET /group",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {},
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/group",
+                  "q": {},
+                  "r": {},
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "group"
                     }
                   ],
-                  "select": {},
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -452,29 +614,42 @@
               "name": "load",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "co": {
+                    "id": "GET /group/{group_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "group_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "group_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/group/{group_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/group/{group_id}",
+                  "q": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "group_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "group"
                     },
@@ -482,12 +657,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -504,90 +674,90 @@
           "alias": {
             "field": {}
           },
-          "fields": [
-            {
-              "active": true,
-              "name": "abundance",
-              "req": false,
-              "short": "Natural abundance as a fraction, absent for synthetic isotopes.",
-              "type": "`$NUMBER`"
+          "fields": {
+            "abundance": {
+              "a": true,
+              "fo": "float",
+              "h": "Abundance",
+              "n": "abundance",
+              "r": false,
+              "sh": "Natural abundance as a fraction, absent for synthetic isotopes.",
+              "t": "`$NUMBER`"
             },
-            {
-              "active": true,
-              "name": "element_id",
-              "req": true,
-              "short": "Parent element identifier.",
-              "type": "`$STRING`"
+            "element_id": {
+              "a": true,
+              "h": "Element Id",
+              "n": "element_id",
+              "r": true,
+              "sh": "Parent element identifier.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "halflife",
-              "req": false,
-              "short": "Half-life, absent for stable isotopes.",
-              "type": "`$STRING`"
+            "halflife": {
+              "a": true,
+              "h": "Halflife",
+              "n": "halflife",
+              "r": false,
+              "sh": "Half-life, absent for stable isotopes.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "id",
-              "req": true,
-              "short": "Isotope identifier, symbol dash mass number.",
-              "type": "`$STRING`"
+            "id": {
+              "a": true,
+              "h": "Id",
+              "n": "id",
+              "r": true,
+              "sh": "Isotope identifier, symbol dash mass number.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "mass",
-              "req": true,
-              "short": "Isotopic mass in daltons.",
-              "type": "`$NUMBER`"
+            "mass": {
+              "a": true,
+              "fo": "float",
+              "h": "Mass",
+              "n": "mass",
+              "r": true,
+              "sh": "Isotopic mass in daltons.",
+              "t": "`$NUMBER`"
             },
-            {
-              "active": true,
-              "name": "mass_number",
-              "req": true,
-              "short": "Total protons and neutrons.",
-              "type": "`$INTEGER`"
+            "mass_number": {
+              "a": true,
+              "h": "Mass Number",
+              "n": "mass_number",
+              "r": true,
+              "sh": "Total protons and neutrons.",
+              "t": "`$INTEGER`"
             },
-            {
-              "active": true,
-              "name": "mode",
-              "req": false,
-              "short": "Primary decay mode, absent for stable isotopes.",
-              "type": "`$STRING`"
+            "mode": {
+              "a": true,
+              "h": "Mode",
+              "n": "mode",
+              "r": false,
+              "sh": "Primary decay mode, absent for stable isotopes.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "name",
-              "req": true,
-              "short": "Isotope name.",
-              "type": "`$STRING`"
+            "name": {
+              "a": true,
+              "h": "Name",
+              "n": "name",
+              "r": true,
+              "sh": "Isotope name.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "ok",
-              "req": false,
-              "type": "`$BOOLEAN`"
+            "product": {
+              "a": true,
+              "h": "Product",
+              "n": "product",
+              "r": false,
+              "sh": "Primary decay product isotope, absent for stable isotopes.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "product",
-              "req": false,
-              "short": "Primary decay product isotope, absent for stable isotopes.",
-              "type": "`$STRING`"
-            },
-            {
-              "active": true,
-              "name": "stable",
-              "req": true,
-              "short": "True if the isotope is stable.",
-              "type": "`$BOOLEAN`"
-            },
-            {
-              "active": true,
-              "name": "steps",
-              "req": false,
-              "type": "`$INTEGER`"
+            "stable": {
+              "a": true,
+              "h": "Stable",
+              "n": "stable",
+              "r": true,
+              "sh": "True if the isotope is stable.",
+              "t": "`$BOOLEAN`"
             }
-          ],
+          },
           "id": {
             "field": "id",
             "name": "id"
@@ -599,37 +769,55 @@
               "name": "create",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "bf": [
+                    "steps"
+                  ],
+                  "co": {
+                    "id": "POST /element/{element_id}/isotope/{isotope_id}/decay",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "element_id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "element_id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       },
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "isotope_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "isotope_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "POST",
-                  "orig": "/element/{element_id}/isotope/{isotope_id}/decay",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "POST",
+                  "o": "/element/{element_id}/isotope/{isotope_id}/decay",
+                  "q": {
+                    "$action": "decay",
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -646,37 +834,56 @@
                       "lit": "decay"
                     }
                   ],
-                  "select": {
-                    "$action": "decay",
-                    "exist": [
-                      "element_id",
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
                 },
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "bf": [
+                    "abundance",
+                    "element_id",
+                    "halflife",
+                    "id",
+                    "mass",
+                    "mass_number",
+                    "mode",
+                    "name",
+                    "product",
+                    "stable"
+                  ],
+                  "co": {
+                    "id": "POST /element/{element_id}/isotope",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "element_id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "element_id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "POST",
-                  "orig": "/element/{element_id}/isotope",
-                  "parts": null,
-                  "segments": [
+                  "k": "http",
+                  "m": "POST",
+                  "o": "/element/{element_id}/isotope",
+                  "q": {
+                    "exist": [
+                      "element_id"
+                    ]
+                  },
+                  "r": {},
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -687,12 +894,7 @@
                       "lit": "isotope"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "element_id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -704,24 +906,38 @@
               "name": "list",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "co": {
+                    "id": "GET /element/{element_id}/isotope",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "element_id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "element_id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/element/{element_id}/isotope",
-                  "parts": null,
-                  "segments": [
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/element/{element_id}/isotope",
+                  "q": {
+                    "exist": [
+                      "element_id"
+                    ]
+                  },
+                  "r": {},
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -732,12 +948,7 @@
                       "lit": "isotope"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "element_id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -749,37 +960,51 @@
               "name": "load",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "co": {
+                    "id": "GET /element/{element_id}/isotope/{isotope_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "element_id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "element_id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       },
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "isotope_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "isotope_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/element/{element_id}/isotope/{isotope_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/element/{element_id}/isotope/{isotope_id}",
+                  "q": {
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -793,13 +1018,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "element_id",
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -811,37 +1030,47 @@
               "name": "remove",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "co": {
+                    "id": "DELETE /element/{element_id}/isotope/{isotope_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "element_id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "element_id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       },
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "isotope_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "isotope_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "DELETE",
-                  "orig": "/element/{element_id}/isotope/{isotope_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "DELETE",
+                  "o": "/element/{element_id}/isotope/{isotope_id}",
+                  "q": {
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
-                  "segments": [
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -855,13 +1084,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "element_id",
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -873,37 +1096,63 @@
               "name": "update",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "bf": [
+                    "abundance",
+                    "element_id",
+                    "halflife",
+                    "id",
+                    "mass",
+                    "mass_number",
+                    "mode",
+                    "name",
+                    "product",
+                    "stable"
+                  ],
+                  "co": {
+                    "id": "PUT /element/{element_id}/isotope/{isotope_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "element_id",
-                        "orig": "element_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "element_id",
+                        "or": "element_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       },
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "isotope_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "isotope_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "PUT",
-                  "orig": "/element/{element_id}/isotope/{isotope_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "PUT",
+                  "o": "/element/{element_id}/isotope/{isotope_id}",
+                  "q": {
+                    "exist": [
+                      "element_id",
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "isotope_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "element"
                     },
@@ -917,13 +1166,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "element_id",
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -934,7 +1177,7 @@
           "relations": {
             "ancestors": [
               [
-                "element"
+                "$.main.kit.entity.element"
               ]
             ]
           }
@@ -944,36 +1187,40 @@
           "alias": {
             "field": {}
           },
-          "fields": [
-            {
-              "active": true,
-              "name": "color",
-              "req": true,
-              "short": "Display color used by the element card renderer.",
-              "type": "`$STRING`"
+          "fields": {
+            "color": {
+              "a": true,
+              "h": "Color",
+              "n": "color",
+              "r": true,
+              "sh": "Display color used by the element card renderer.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "description",
-              "req": true,
-              "short": "One-line description of the series.",
-              "type": "`$STRING`"
+            "description": {
+              "a": true,
+              "h": "Description",
+              "n": "description",
+              "r": true,
+              "sh": "One-line description of the series.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "id",
-              "req": true,
-              "short": "Series identifier.",
-              "type": "`$STRING`"
+            "id": {
+              "a": true,
+              "h": "Id",
+              "n": "id",
+              "r": true,
+              "sh": "Series identifier.",
+              "t": "`$STRING`"
             },
-            {
-              "active": true,
-              "name": "name",
-              "req": true,
-              "short": "Series name.",
-              "type": "`$STRING`"
+            "name": {
+              "a": true,
+              "h": "Name",
+              "n": "name",
+              "r": true,
+              "sh": "Series name.",
+              "t": "`$STRING`"
             }
-          ],
+          },
           "id": {
             "field": "id",
             "name": "id"
@@ -985,19 +1232,28 @@
               "name": "list",
               "points": [
                 {
-                  "active": true,
-                  "args": {},
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/series",
-                  "parts": null,
-                  "segments": [
+                  "a": true,
+                  "co": {
+                    "id": "GET /series",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {},
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/series",
+                  "q": {},
+                  "r": {},
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "series"
                     }
                   ],
-                  "select": {},
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -1009,29 +1265,42 @@
               "name": "load",
               "points": [
                 {
-                  "active": true,
-                  "args": {
+                  "a": true,
+                  "co": {
+                    "id": "GET /series/{series_id}",
+                    "source": "openapi3",
+                    "version": 2
+                  },
+                  "g": {
                     "params": [
                       {
-                        "active": true,
-                        "kind": "param",
-                        "name": "id",
-                        "orig": "series_id",
-                        "reqd": true,
-                        "type": "`$STRING`"
+                        "a": true,
+                        "k": "param",
+                        "n": "id",
+                        "or": "series_id",
+                        "r": true,
+                        "t": "`$STRING`"
                       }
                     ]
                   },
-                  "kind": "http",
-                  "method": "GET",
-                  "orig": "/series/{series_id}",
-                  "parts": null,
-                  "rename": {
+                  "k": "http",
+                  "m": "GET",
+                  "o": "/series/{series_id}",
+                  "q": {
+                    "exist": [
+                      "id"
+                    ]
+                  },
+                  "r": {
                     "param": {
                       "series_id": "id"
                     }
                   },
-                  "segments": [
+                  "rs": {
+                    "kind": "json",
+                    "media": "application/json"
+                  },
+                  "s": [
                     {
                       "lit": "series"
                     },
@@ -1039,12 +1308,7 @@
                       "var": "id"
                     }
                   ],
-                  "select": {
-                    "exist": [
-                      "id"
-                    ]
-                  },
-                  "transform": {
+                  "t": {
                     "req": "`reqdata`",
                     "res": "`body`"
                   }
@@ -1058,14 +1322,121 @@
         }
       },
       "feature": {
+        "debug": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "max": 100,
+              "redact": [
+                "authorization",
+                "cookie",
+                "set-cookie",
+                "api-key",
+                "apikey",
+                "x-api-key",
+                "idempotency-key"
+              ]
+            },
+            "optspec": {
+              "now": "`$FUNCTION`",
+              "onEntry": "`$FUNCTION`"
+            },
+            "strict": false
+          },
+          "description": "Request/response capture ring buffer for debugging",
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreDone": {
+              "active": true,
+              "await": false
+            },
+            "PreRequest": {
+              "active": true,
+              "await": false
+            },
+            "PreResponse": {
+              "active": true,
+              "await": false
+            },
+            "PreResult": {
+              "active": false,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "PreUnexpected": {
+              "active": true,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "debug",
+          "needs": {},
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "plugin": {},
+          "spec": {},
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Debug capture",
+          "transport": "none",
+          "version": "0.0.1"
+        },
         "elementcard": {
           "active": true,
-          "base": "../ext/.sdk",
+          "base": "",
           "config": {
             "options": {
               "active": false,
               "print": false
-            }
+            },
+            "optspec": {},
+            "strict": false
           },
           "hook": {
             "GetData": {
@@ -1116,7 +1487,7 @@
           "name": "elementcard",
           "needs": {},
           "origname": "",
-          "package": "@voxgig-sdk/sdkgen-elementdemo-ext",
+          "package": "",
           "plugin": {},
           "spec": {},
           "target": {
@@ -1132,9 +1503,6 @@
             "py": {
               "deps": {}
             },
-            "rb": {
-              "deps": {}
-            },
             "ts": {
               "deps": {}
             }
@@ -1142,6 +1510,384 @@
           "title": "ASCII periodic-table tile for element-shaped results",
           "transport": "none",
           "version": "0.1.0"
+        },
+        "idempotency": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "header": "Idempotency-Key",
+              "methods": [
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ],
+              "ops": [
+                "create",
+                "update",
+                "remove"
+              ]
+            },
+            "optspec": {
+              "keygen": "`$FUNCTION`"
+            },
+            "strict": false
+          },
+          "description": "Idempotency keys for safe retries of mutating operations",
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreRequest": {
+              "active": true,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": false,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "idempotency",
+          "needs": {},
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "plugin": {},
+          "spec": {},
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Idempotency",
+          "transport": "none",
+          "version": "0.0.1"
+        },
+        "metrics": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false
+            },
+            "optspec": {
+              "now": "`$FUNCTION`"
+            },
+            "strict": false
+          },
+          "description": "Statistics capture: per-operation counters and latency",
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreDone": {
+              "active": true,
+              "await": false
+            },
+            "PrePoint": {
+              "active": true,
+              "await": false
+            },
+            "PreRequest": {
+              "active": false,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": false,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "PreUnexpected": {
+              "active": true,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "metrics",
+          "needs": {},
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "plugin": {},
+          "spec": {},
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Metrics",
+          "transport": "none",
+          "version": "0.0.1"
+        },
+        "paging": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "afterVar": "after",
+              "cursorParam": "cursor",
+              "firstVar": "first",
+              "limitParam": "limit",
+              "pageParam": "page",
+              "startPage": 1
+            },
+            "optspec": {
+              "limit": "`$NUMBER`",
+              "ops": "`$LIST`"
+            },
+            "strict": false
+          },
+          "description": "Pagination signals for list operations",
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreRequest": {
+              "active": true,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": true,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "paging",
+          "needs": {},
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "plugin": {},
+          "spec": {},
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Paging",
+          "transport": "none",
+          "version": "0.0.1"
+        },
+        "ratelimit": {
+          "active": true,
+          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
+          "config": {
+            "options": {
+              "active": false,
+              "burst": 5,
+              "rate": 5
+            },
+            "optspec": {
+              "now": "`$FUNCTION`",
+              "sleep": "`$FUNCTION`"
+            },
+            "strict": false
+          },
+          "description": "Client-side rate limiting via a token bucket",
+          "hook": {
+            "GetData": {
+              "active": false,
+              "await": false
+            },
+            "GetMatch": {
+              "active": false,
+              "await": false
+            },
+            "PostConstruct": {
+              "active": false,
+              "await": false
+            },
+            "PostConstructEntity": {
+              "active": false,
+              "await": false
+            },
+            "PostOperation": {
+              "active": false,
+              "await": false
+            },
+            "PreRequest": {
+              "active": false,
+              "await": false
+            },
+            "PreResponse": {
+              "active": false,
+              "await": false
+            },
+            "PreResult": {
+              "active": false,
+              "await": false
+            },
+            "PreSpec": {
+              "active": false,
+              "await": false
+            },
+            "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "SetData": {
+              "active": false,
+              "await": false
+            }
+          },
+          "name": "ratelimit",
+          "needs": {},
+          "origname": "",
+          "package": "@voxgig/sdkgen",
+          "plugin": {},
+          "spec": {},
+          "target": {
+            "bash": {
+              "deps": {}
+            },
+            "go": {
+              "deps": {}
+            },
+            "java": {
+              "deps": {}
+            },
+            "py": {
+              "deps": {}
+            },
+            "ts": {
+              "deps": {}
+            }
+          },
+          "title": "Rate limiting",
+          "transport": "wrap",
+          "version": "0.0.1"
         },
         "retry": {
           "active": true,
@@ -1162,8 +1908,14 @@
                 503,
                 504
               ]
-            }
+            },
+            "optspec": {
+              "jitter": "`$BOOLEAN`",
+              "sleep": "`$FUNCTION`"
+            },
+            "strict": false
           },
+          "description": "Automatic retry of transient failures with exponential backoff",
           "hook": {
             "GetData": {
               "active": false,
@@ -1229,14 +1981,11 @@
             "py": {
               "deps": {}
             },
-            "rb": {
-              "deps": {}
-            },
             "ts": {
               "deps": {}
             }
           },
-          "title": "Automatic retry of transient failures with exponential backoff",
+          "title": "Retry",
           "transport": "wrap",
           "version": "0.0.1"
         },
@@ -1261,8 +2010,31 @@
               },
               "name": "apikey",
               "providers": []
+            },
+            "optspec": {},
+            "strict": false
+          },
+          "deps": {
+            "rust": {
+              "rustls": {
+                "active": true,
+                "default": false,
+                "features": [
+                  "std",
+                  "ring",
+                  "tls12"
+                ],
+                "kind": "prod",
+                "version": "0.23"
+              },
+              "webpki-roots": {
+                "active": true,
+                "kind": "prod",
+                "version": "0.26"
+              }
             }
           },
+          "description": "Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens",
           "hook": {
             "GetData": {
               "active": false,
@@ -1319,19 +2091,96 @@
             "aws": {
               "active": false,
               "def": {
+                "c": {
+                  "sek_plugin_awsparams": "feature/secrets/plugins/aws.c",
+                  "sek_plugin_awssecrets": "feature/secrets/plugins/aws.c"
+                },
+                "clojure": {
+                  "voxgig.sekreto.plugins.aws/awsparams": "feature/secrets/voxgig/sekreto/plugins/aws.clj",
+                  "voxgig.sekreto.plugins.aws/awssecrets": "feature/secrets/voxgig/sekreto/plugins/aws.clj"
+                },
+                "cpp": {
+                  "awsparams": "feature/secrets/plugins/Aws.cpp",
+                  "awssecrets": "feature/secrets/plugins/Aws.cpp"
+                },
+                "csharp": {
+                  "AwsPlugins.Params": "feature/secrets/plugins/Aws.cs",
+                  "AwsPlugins.Secrets": "feature/secrets/plugins/Aws.cs"
+                },
+                "dart": {
+                  "awsparams": "lib/feature/secrets/sekreto/plugins/aws.dart",
+                  "awssecrets": "lib/feature/secrets/sekreto/plugins/aws.dart"
+                },
+                "elixir": {
+                  "Sekreto.Plugins.Aws.awsparams": "lib/projectname/feature/secrets/sekreto/plugins/aws.ex",
+                  "Sekreto.Plugins.Aws.awssecrets": "lib/projectname/feature/secrets/sekreto/plugins/aws.ex"
+                },
                 "go": {
                   "aws.Params": "feature/secrets/plugins/aws/aws.go",
                   "aws.Secrets": "feature/secrets/plugins/aws/aws.go"
+                },
+                "java": {
+                  "Aws.PARAMS": "feature/secrets/sekreto/plugins/Aws.java",
+                  "Aws.SECRETS": "feature/secrets/sekreto/plugins/Aws.java"
+                },
+                "js": {
+                  "awsparams": "src/feature/secrets/sekreto/plugins/aws.js",
+                  "awssecrets": "src/feature/secrets/sekreto/plugins/aws.js"
+                },
+                "kotlin": {
+                  "awsparams": "feature/secrets/sekreto/plugins/Aws.kt",
+                  "awssecrets": "feature/secrets/sekreto/plugins/Aws.kt"
+                },
+                "lean": {
+                  "Sekreto.awsparams": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Aws.lean",
+                  "Sekreto.awssecrets": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Aws.lean"
+                },
+                "lua": {
+                  "awsparams": "feature/secrets/sekreto/plugins/aws.lua",
+                  "awssecrets": "feature/secrets/sekreto/plugins/aws.lua"
+                },
+                "ocaml": {
+                  "Aws.paramsplugin": "feature/secrets/plugins/aws.ml",
+                  "Aws.secretsplugin": "feature/secrets/plugins/aws.ml"
+                },
+                "perl": {
+                  "awsparams": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Aws.pm",
+                  "awssecrets": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Aws.pm"
+                },
+                "php": {
+                  "awsparams": "feature/secrets/sekreto/plugins/aws.php",
+                  "awssecrets": "feature/secrets/sekreto/plugins/aws.php"
                 },
                 "py": {
                   "awsparams": "pkg/feature/secrets/voxgig_sekreto/plugins/aws.py",
                   "awssecrets": "pkg/feature/secrets/voxgig_sekreto/plugins/aws.py"
                 },
+                "rb": {
+                  "VoxgigSekreto::Plugins::AWSPARAMS": "feature/secrets/voxgig_sekreto/plugins/aws.rb",
+                  "VoxgigSekreto::Plugins::AWSSECRETS": "feature/secrets/voxgig_sekreto/plugins/aws.rb"
+                },
+                "rust": {
+                  "aws::params": "feature/secrets/plugins/aws.rs",
+                  "aws::secrets": "feature/secrets/plugins/aws.rs"
+                },
+                "scala": {
+                  "com.voxgig.sekreto.plugins.awsparams": "feature/secrets/sekreto/plugins/Aws.scala",
+                  "com.voxgig.sekreto.plugins.awssecrets": "feature/secrets/sekreto/plugins/Aws.scala"
+                },
+                "swift": {
+                  "awsparams": "Sources/ProjectNameSDK/feature/secrets/plugins/Aws.swift",
+                  "awssecrets": "Sources/ProjectNameSDK/feature/secrets/plugins/Aws.swift"
+                },
                 "ts": {
                   "awsparams": "src/feature/secrets/sekreto/plugins/aws.ts",
                   "awssecrets": "src/feature/secrets/sekreto/plugins/aws.ts"
+                },
+                "zig": {
+                  "awsparams": "feature/secrets/plugins/aws.zig",
+                  "awssecrets": "feature/secrets/plugins/aws.zig"
                 }
               },
+              "deps": {},
               "name": "aws",
               "needs": {
                 "crypto": true,
@@ -1342,27 +2191,147 @@
                 "src/feature/secrets/sekreto/plugins/sigv4.ts",
                 "feature/secrets/plugins/aws/aws.go",
                 "feature/secrets/plugins/aws/sigv4.go",
+                "feature/secrets/plugins/aws.rs",
+                "feature/secrets/plugins/aws/sigv4.rs",
+                "feature/secrets/plugins/aws/crypto.rs",
                 "feature/secrets/voxgig_sekreto/plugins/aws.py",
-                "feature/secrets/voxgig_sekreto/plugins/sigv4.py"
+                "feature/secrets/voxgig_sekreto/plugins/sigv4.py",
+                "src/feature/secrets/sekreto/plugins/aws.js",
+                "src/feature/secrets/sekreto/plugins/sigv4.js",
+                "feature/secrets/voxgig_sekreto/plugins/aws.rb",
+                "feature/secrets/voxgig_sekreto/plugins/sigv4.rb",
+                "feature/secrets/sekreto/plugins/aws.php",
+                "feature/secrets/sekreto/plugins/sigv4.php",
+                "feature/secrets/plugins/Aws.cs",
+                "feature/secrets/plugins/Sigv4.cs",
+                "feature/secrets/sekreto/plugins/Aws.java",
+                "feature/secrets/sekreto/plugins/Aws.scala",
+                "feature/secrets/sekreto/plugins/Aws.kt",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Aws.pm",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Sigv4.pm",
+                "lib/feature/secrets/sekreto/plugins/aws.dart",
+                "lib/feature/secrets/sekreto/plugins/sigv4.dart",
+                "lib/feature/secrets/sekreto/plugins/crypto.dart",
+                "feature/secrets/voxgig/sekreto/plugins/aws.clj",
+                "feature/secrets/voxgig/sekreto/plugins/sigv4.clj",
+                "feature/secrets/sekreto/plugins/aws.ex",
+                "feature/secrets/sekreto/plugins/sigv4.ex",
+                "feature/secrets/plugins/Aws.swift",
+                "feature/secrets/plugins/Sigv4.swift",
+                "feature/secrets/plugins/Crypto.swift",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Aws.lean",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Sigv4.lean",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Crypto.lean",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Clock.lean",
+                "feature/secrets/plugins/aws.c",
+                "feature/secrets/plugins/sigv4.c",
+                "feature/secrets/plugins/sha256.c",
+                "feature/secrets/sekreto/plugins/aws.lua",
+                "feature/secrets/sekreto/plugins/sigv4.lua",
+                "feature/secrets/plugins/aws.zig",
+                "feature/secrets/plugins/sigv4.zig",
+                "feature/secrets/plugins/aws.ml",
+                "feature/secrets/plugins/Aws.cpp",
+                "feature/secrets/plugins/Aws.hpp",
+                "feature/secrets/plugins/Sigv4.cpp",
+                "feature/secrets/plugins/Sigv4.hpp"
               ],
+              "stub": {},
               "title": "AWS Secrets Manager and Parameter Store (SigV4 signing)"
             },
             "cloud": {
               "active": false,
               "def": {
+                "c": {
+                  "sek_plugin_azuresecrets": "feature/secrets/plugins/azuresecrets.c",
+                  "sek_plugin_gcpsecrets": "feature/secrets/plugins/gcpsecrets.c"
+                },
+                "clojure": {
+                  "voxgig.sekreto.plugins.azuresecrets/azuresecrets": "feature/secrets/voxgig/sekreto/plugins/azuresecrets.clj",
+                  "voxgig.sekreto.plugins.gcpsecrets/gcpsecrets": "feature/secrets/voxgig/sekreto/plugins/gcpsecrets.clj"
+                },
+                "cpp": {
+                  "azuresecrets": "feature/secrets/plugins/Azuresecrets.cpp",
+                  "gcpsecrets": "feature/secrets/plugins/Gcpsecrets.cpp"
+                },
+                "csharp": {
+                  "AzureSecrets.Plugin": "feature/secrets/plugins/AzureSecrets.cs",
+                  "GcpSecrets.Plugin": "feature/secrets/plugins/GcpSecrets.cs"
+                },
+                "dart": {
+                  "azuresecrets": "lib/feature/secrets/sekreto/plugins/azuresecrets.dart",
+                  "gcpsecrets": "lib/feature/secrets/sekreto/plugins/gcpsecrets.dart"
+                },
+                "elixir": {
+                  "Sekreto.Plugins.Azuresecrets.azuresecrets": "lib/projectname/feature/secrets/sekreto/plugins/azuresecrets.ex",
+                  "Sekreto.Plugins.Gcpsecrets.gcpsecrets": "lib/projectname/feature/secrets/sekreto/plugins/gcpsecrets.ex"
+                },
                 "go": {
                   "azuresecrets.Plugin": "feature/secrets/plugins/azuresecrets/azuresecrets.go",
                   "gcpsecrets.Plugin": "feature/secrets/plugins/gcpsecrets/gcpsecrets.go"
+                },
+                "java": {
+                  "Azuresecrets.PLUGIN": "feature/secrets/sekreto/plugins/Azuresecrets.java",
+                  "Gcpsecrets.PLUGIN": "feature/secrets/sekreto/plugins/Gcpsecrets.java"
+                },
+                "js": {
+                  "azuresecrets": "src/feature/secrets/sekreto/plugins/azuresecrets.js",
+                  "gcpsecrets": "src/feature/secrets/sekreto/plugins/gcpsecrets.js"
+                },
+                "kotlin": {
+                  "azuresecrets": "feature/secrets/sekreto/plugins/Azuresecrets.kt",
+                  "gcpsecrets": "feature/secrets/sekreto/plugins/Gcpsecrets.kt"
+                },
+                "lean": {
+                  "Sekreto.azuresecrets": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Azuresecrets.lean",
+                  "Sekreto.gcpsecrets": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Gcpsecrets.lean"
+                },
+                "lua": {
+                  "azuresecrets": "feature/secrets/sekreto/plugins/azuresecrets.lua",
+                  "gcpsecrets": "feature/secrets/sekreto/plugins/gcpsecrets.lua"
+                },
+                "ocaml": {
+                  "Azuresecrets.plugin": "feature/secrets/plugins/azuresecrets.ml",
+                  "Gcpsecrets.plugin": "feature/secrets/plugins/gcpsecrets.ml"
+                },
+                "perl": {
+                  "azuresecrets": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Azuresecrets.pm",
+                  "gcpsecrets": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Gcpsecrets.pm"
+                },
+                "php": {
+                  "azuresecrets": "feature/secrets/sekreto/plugins/azuresecrets.php",
+                  "gcpsecrets": "feature/secrets/sekreto/plugins/gcpsecrets.php"
                 },
                 "py": {
                   "azuresecrets": "pkg/feature/secrets/voxgig_sekreto/plugins/azuresecrets.py",
                   "gcpsecrets": "pkg/feature/secrets/voxgig_sekreto/plugins/gcpsecrets.py"
                 },
+                "rb": {
+                  "VoxgigSekreto::Plugins::AZURESECRETS": "feature/secrets/voxgig_sekreto/plugins/azuresecrets.rb",
+                  "VoxgigSekreto::Plugins::GCPSECRETS": "feature/secrets/voxgig_sekreto/plugins/gcpsecrets.rb"
+                },
+                "rust": {
+                  "azuresecrets::plugin": "feature/secrets/plugins/azuresecrets.rs",
+                  "gcpsecrets::plugin": "feature/secrets/plugins/gcpsecrets.rs"
+                },
+                "scala": {
+                  "com.voxgig.sekreto.plugins.azuresecrets": "feature/secrets/sekreto/plugins/Azuresecrets.scala",
+                  "com.voxgig.sekreto.plugins.gcpsecrets": "feature/secrets/sekreto/plugins/Gcpsecrets.scala"
+                },
+                "swift": {
+                  "azuresecrets": "Sources/ProjectNameSDK/feature/secrets/plugins/Azuresecrets.swift",
+                  "gcpsecrets": "Sources/ProjectNameSDK/feature/secrets/plugins/Gcpsecrets.swift"
+                },
                 "ts": {
                   "azuresecrets": "src/feature/secrets/sekreto/plugins/azuresecrets.ts",
                   "gcpsecrets": "src/feature/secrets/sekreto/plugins/gcpsecrets.ts"
+                },
+                "zig": {
+                  "azuresecrets": "feature/secrets/plugins/azuresecrets.zig",
+                  "gcpsecrets": "feature/secrets/plugins/gcpsecrets.zig"
                 }
               },
+              "deps": {},
               "name": "cloud",
               "needs": {
                 "fetch": true
@@ -1372,38 +2341,287 @@
                 "src/feature/secrets/sekreto/plugins/azuresecrets.ts",
                 "feature/secrets/plugins/gcpsecrets/gcpsecrets.go",
                 "feature/secrets/plugins/azuresecrets/azuresecrets.go",
+                "feature/secrets/plugins/gcpsecrets.rs",
+                "feature/secrets/plugins/azuresecrets.rs",
                 "feature/secrets/voxgig_sekreto/plugins/gcpsecrets.py",
-                "feature/secrets/voxgig_sekreto/plugins/azuresecrets.py"
+                "feature/secrets/voxgig_sekreto/plugins/azuresecrets.py",
+                "src/feature/secrets/sekreto/plugins/gcpsecrets.js",
+                "src/feature/secrets/sekreto/plugins/azuresecrets.js",
+                "feature/secrets/voxgig_sekreto/plugins/gcpsecrets.rb",
+                "feature/secrets/voxgig_sekreto/plugins/azuresecrets.rb",
+                "feature/secrets/sekreto/plugins/gcpsecrets.php",
+                "feature/secrets/sekreto/plugins/azuresecrets.php",
+                "feature/secrets/plugins/GcpSecrets.cs",
+                "feature/secrets/plugins/AzureSecrets.cs",
+                "feature/secrets/sekreto/plugins/Gcpsecrets.java",
+                "feature/secrets/sekreto/plugins/Azuresecrets.java",
+                "feature/secrets/sekreto/plugins/Gcpsecrets.scala",
+                "feature/secrets/sekreto/plugins/Azuresecrets.scala",
+                "feature/secrets/sekreto/plugins/Gcpsecrets.kt",
+                "feature/secrets/sekreto/plugins/Azuresecrets.kt",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Gcpsecrets.pm",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Azuresecrets.pm",
+                "lib/feature/secrets/sekreto/plugins/gcpsecrets.dart",
+                "lib/feature/secrets/sekreto/plugins/azuresecrets.dart",
+                "feature/secrets/sekreto/plugins/gcpsecrets.ex",
+                "feature/secrets/sekreto/plugins/azuresecrets.ex",
+                "feature/secrets/voxgig/sekreto/plugins/gcpsecrets.clj",
+                "feature/secrets/voxgig/sekreto/plugins/azuresecrets.clj",
+                "feature/secrets/plugins/Gcpsecrets.swift",
+                "feature/secrets/plugins/Azuresecrets.swift",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Gcpsecrets.lean",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Azuresecrets.lean",
+                "feature/secrets/plugins/gcpsecrets.c",
+                "feature/secrets/plugins/azuresecrets.c",
+                "feature/secrets/sekreto/plugins/gcpsecrets.lua",
+                "feature/secrets/sekreto/plugins/azuresecrets.lua",
+                "feature/secrets/plugins/gcpsecrets.zig",
+                "feature/secrets/plugins/azuresecrets.zig",
+                "feature/secrets/plugins/gcpsecrets.ml",
+                "feature/secrets/plugins/azuresecrets.ml",
+                "feature/secrets/plugins/Gcpsecrets.cpp",
+                "feature/secrets/plugins/Gcpsecrets.hpp",
+                "feature/secrets/plugins/Azuresecrets.cpp",
+                "feature/secrets/plugins/Azuresecrets.hpp"
               ],
+              "stub": {},
               "title": "GCP Secret Manager and Azure Key Vault"
             },
             "dotenv": {
               "active": true,
               "def": {},
+              "deps": {},
               "name": "dotenv",
               "needs": {},
               "path": [],
+              "stub": {},
               "title": ""
+            },
+            "minivault": {
+              "active": false,
+              "def": {
+                "c": {
+                  "sek_plugin_minivault": "feature/secrets/plugins/minivault.c"
+                },
+                "clojure": {
+                  "voxgig.sekreto.plugins.minivault/minivault": "feature/secrets/voxgig/sekreto/plugins/minivault.clj"
+                },
+                "cpp": {
+                  "minivault": "feature/secrets/plugins/Minivault.cpp"
+                },
+                "csharp": {
+                  "MiniVault.Plugin": "feature/secrets/plugins/MiniVault.cs"
+                },
+                "elixir": {
+                  "Sekreto.Plugins.Minivault.minivault": "lib/projectname/feature/secrets/sekreto/plugins/minivault.ex"
+                },
+                "go": {
+                  "minivault.Plugin": "feature/secrets/plugins/minivault/minivault.go"
+                },
+                "java": {
+                  "Minivault.PLUGIN": "feature/secrets/sekreto/plugins/Minivault.java"
+                },
+                "js": {
+                  "minivault": "src/feature/secrets/sekreto/plugins/minivault.js"
+                },
+                "kotlin": {
+                  "minivault": "feature/secrets/sekreto/plugins/Minivault.kt"
+                },
+                "lua": {
+                  "minivault": "feature/secrets/sekreto/plugins/minivault.lua"
+                },
+                "ocaml": {
+                  "Minivault.plugin": "feature/secrets/plugins/minivault.ml"
+                },
+                "perl": {
+                  "minivault": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Minivault.pm"
+                },
+                "php": {
+                  "minivault": "feature/secrets/sekreto/plugins/minivault.php"
+                },
+                "py": {
+                  "minivault": "pkg/feature/secrets/voxgig_sekreto/plugins/minivault.py"
+                },
+                "rb": {
+                  "VoxgigSekreto::Plugins::MINIVAULT": "feature/secrets/voxgig_sekreto/plugins/minivault.rb"
+                },
+                "rust": {
+                  "minivault::minivault": "feature/secrets/plugins/minivault.rs"
+                },
+                "scala": {
+                  "com.voxgig.sekreto.plugins.minivault": "feature/secrets/sekreto/plugins/Minivault.scala"
+                },
+                "ts": {
+                  "minivault": "src/feature/secrets/sekreto/plugins/minivault.ts"
+                },
+                "zig": {
+                  "minivault": "feature/secrets/plugins/minivault.zig"
+                }
+              },
+              "deps": {
+                "rust": {
+                  "ring": {
+                    "active": true,
+                    "version": "0.17"
+                  }
+                }
+              },
+              "name": "minivault",
+              "needs": {
+                "crypto": true,
+                "fs": true
+              },
+              "path": [
+                "src/feature/secrets/sekreto/plugins/minivault.ts",
+                "src/feature/secrets/sekreto/plugins/minivault.js",
+                "pkg/feature/secrets/voxgig_sekreto/plugins/minivault.py",
+                "feature/secrets/voxgig_sekreto/plugins/minivault.rb",
+                "feature/secrets/sekreto/plugins/minivault.php",
+                "feature/secrets/plugins/minivault/minivault.go",
+                "feature/secrets/plugins/minivault/format.go",
+                "feature/secrets/plugins/minivault.rs",
+                "feature/secrets/plugins/minivault/format.rs",
+                "feature/secrets/plugins/MiniVault.cs",
+                "feature/secrets/sekreto/plugins/Minivault.java",
+                "feature/secrets/sekreto/plugins/Minivault.scala",
+                "feature/secrets/sekreto/plugins/Minivault.kt",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Minivault.pm",
+                "feature/secrets/plugins/minivault.c",
+                "feature/secrets/plugins/Minivault.cpp",
+                "feature/secrets/plugins/Minivault.hpp",
+                "feature/secrets/voxgig/sekreto/plugins/minivault.clj",
+                "lib/projectname/feature/secrets/sekreto/plugins/minivault.ex",
+                "feature/secrets/sekreto/plugins/minivault.lua",
+                "feature/secrets/native/sekretovault.c",
+                "feature/secrets/plugins/minivault.ml",
+                "feature/secrets/plugins/minivault_stubs.c",
+                "feature/secrets/plugins/minivault.zig"
+              ],
+              "stub": {
+                "lua": [
+                  "feature/secrets/native/sekretovault.c"
+                ],
+                "ocaml": [
+                  "feature/secrets/plugins/minivault_stubs.c"
+                ]
+              },
+              "title": "The local encrypted vault (AES-256-GCM, one file)"
             },
             "saas": {
               "active": false,
               "def": {
+                "c": {
+                  "sek_plugin_doppler": "feature/secrets/plugins/doppler.c",
+                  "sek_plugin_infisical": "feature/secrets/plugins/infisical.c",
+                  "sek_plugin_onepassword": "feature/secrets/plugins/onepassword.c"
+                },
+                "clojure": {
+                  "voxgig.sekreto.plugins.doppler/doppler": "feature/secrets/voxgig/sekreto/plugins/doppler.clj",
+                  "voxgig.sekreto.plugins.infisical/infisical": "feature/secrets/voxgig/sekreto/plugins/infisical.clj",
+                  "voxgig.sekreto.plugins.onepassword/onepassword": "feature/secrets/voxgig/sekreto/plugins/onepassword.clj"
+                },
+                "cpp": {
+                  "doppler": "feature/secrets/plugins/Doppler.cpp",
+                  "infisical": "feature/secrets/plugins/Infisical.cpp",
+                  "onepassword": "feature/secrets/plugins/Onepassword.cpp"
+                },
+                "csharp": {
+                  "Doppler.Plugin": "feature/secrets/plugins/Doppler.cs",
+                  "Infisical.Plugin": "feature/secrets/plugins/Infisical.cs",
+                  "OnePassword.Plugin": "feature/secrets/plugins/OnePassword.cs"
+                },
+                "dart": {
+                  "doppler": "lib/feature/secrets/sekreto/plugins/doppler.dart",
+                  "infisical": "lib/feature/secrets/sekreto/plugins/infisical.dart",
+                  "onepassword": "lib/feature/secrets/sekreto/plugins/onepassword.dart"
+                },
+                "elixir": {
+                  "Sekreto.Plugins.Doppler.doppler": "lib/projectname/feature/secrets/sekreto/plugins/doppler.ex",
+                  "Sekreto.Plugins.Infisical.infisical": "lib/projectname/feature/secrets/sekreto/plugins/infisical.ex",
+                  "Sekreto.Plugins.Onepassword.onepassword": "lib/projectname/feature/secrets/sekreto/plugins/onepassword.ex"
+                },
                 "go": {
                   "doppler.Plugin": "feature/secrets/plugins/doppler/doppler.go",
                   "infisical.Plugin": "feature/secrets/plugins/infisical/infisical.go",
                   "onepassword.Plugin": "feature/secrets/plugins/onepassword/onepassword.go"
+                },
+                "java": {
+                  "Doppler.PLUGIN": "feature/secrets/sekreto/plugins/Doppler.java",
+                  "Infisical.PLUGIN": "feature/secrets/sekreto/plugins/Infisical.java",
+                  "Onepassword.PLUGIN": "feature/secrets/sekreto/plugins/Onepassword.java"
+                },
+                "js": {
+                  "doppler": "src/feature/secrets/sekreto/plugins/doppler.js",
+                  "infisical": "src/feature/secrets/sekreto/plugins/infisical.js",
+                  "onepassword": "src/feature/secrets/sekreto/plugins/onepassword.js"
+                },
+                "kotlin": {
+                  "doppler": "feature/secrets/sekreto/plugins/Doppler.kt",
+                  "infisical": "feature/secrets/sekreto/plugins/Infisical.kt",
+                  "onepassword": "feature/secrets/sekreto/plugins/Onepassword.kt"
+                },
+                "lean": {
+                  "Sekreto.doppler": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Doppler.lean",
+                  "Sekreto.infisical": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Infisical.lean",
+                  "Sekreto.onepassword": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Onepassword.lean"
+                },
+                "lua": {
+                  "doppler": "feature/secrets/sekreto/plugins/doppler.lua",
+                  "infisical": "feature/secrets/sekreto/plugins/infisical.lua",
+                  "onepassword": "feature/secrets/sekreto/plugins/onepassword.lua"
+                },
+                "ocaml": {
+                  "Doppler.plugin": "feature/secrets/plugins/doppler.ml",
+                  "Infisical.plugin": "feature/secrets/plugins/infisical.ml",
+                  "Onepassword.plugin": "feature/secrets/plugins/onepassword.ml"
+                },
+                "perl": {
+                  "doppler": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Doppler.pm",
+                  "infisical": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Infisical.pm",
+                  "onepassword": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Onepassword.pm"
+                },
+                "php": {
+                  "doppler": "feature/secrets/sekreto/plugins/doppler.php",
+                  "infisical": "feature/secrets/sekreto/plugins/infisical.php",
+                  "onepassword": "feature/secrets/sekreto/plugins/onepassword.php"
                 },
                 "py": {
                   "doppler": "pkg/feature/secrets/voxgig_sekreto/plugins/doppler.py",
                   "infisical": "pkg/feature/secrets/voxgig_sekreto/plugins/infisical.py",
                   "onepassword": "pkg/feature/secrets/voxgig_sekreto/plugins/onepassword.py"
                 },
+                "rb": {
+                  "VoxgigSekreto::Plugins::DOPPLER": "feature/secrets/voxgig_sekreto/plugins/doppler.rb",
+                  "VoxgigSekreto::Plugins::INFISICAL": "feature/secrets/voxgig_sekreto/plugins/infisical.rb",
+                  "VoxgigSekreto::Plugins::ONEPASSWORD": "feature/secrets/voxgig_sekreto/plugins/onepassword.rb"
+                },
+                "rust": {
+                  "doppler::plugin": "feature/secrets/plugins/doppler.rs",
+                  "infisical::plugin": "feature/secrets/plugins/infisical.rs",
+                  "onepassword::plugin": "feature/secrets/plugins/onepassword.rs"
+                },
+                "scala": {
+                  "com.voxgig.sekreto.plugins.doppler": "feature/secrets/sekreto/plugins/Doppler.scala",
+                  "com.voxgig.sekreto.plugins.infisical": "feature/secrets/sekreto/plugins/Infisical.scala",
+                  "com.voxgig.sekreto.plugins.onepassword": "feature/secrets/sekreto/plugins/Onepassword.scala"
+                },
+                "swift": {
+                  "doppler": "Sources/ProjectNameSDK/feature/secrets/plugins/Doppler.swift",
+                  "infisical": "Sources/ProjectNameSDK/feature/secrets/plugins/Infisical.swift",
+                  "onepassword": "Sources/ProjectNameSDK/feature/secrets/plugins/Onepassword.swift"
+                },
                 "ts": {
                   "doppler": "src/feature/secrets/sekreto/plugins/doppler.ts",
                   "infisical": "src/feature/secrets/sekreto/plugins/infisical.ts",
                   "onepassword": "src/feature/secrets/sekreto/plugins/onepassword.ts"
+                },
+                "zig": {
+                  "doppler": "feature/secrets/plugins/doppler.zig",
+                  "infisical": "feature/secrets/plugins/infisical.zig",
+                  "onepassword": "feature/secrets/plugins/onepassword.zig"
                 }
               },
+              "deps": {},
               "name": "saas",
               "needs": {
                 "fetch": true
@@ -1415,25 +2633,144 @@
                 "feature/secrets/plugins/onepassword/onepassword.go",
                 "feature/secrets/plugins/doppler/doppler.go",
                 "feature/secrets/plugins/infisical/infisical.go",
+                "feature/secrets/plugins/onepassword.rs",
+                "feature/secrets/plugins/doppler.rs",
+                "feature/secrets/plugins/infisical.rs",
                 "feature/secrets/voxgig_sekreto/plugins/onepassword.py",
                 "feature/secrets/voxgig_sekreto/plugins/doppler.py",
-                "feature/secrets/voxgig_sekreto/plugins/infisical.py"
+                "feature/secrets/voxgig_sekreto/plugins/infisical.py",
+                "src/feature/secrets/sekreto/plugins/onepassword.js",
+                "src/feature/secrets/sekreto/plugins/doppler.js",
+                "src/feature/secrets/sekreto/plugins/infisical.js",
+                "feature/secrets/voxgig_sekreto/plugins/onepassword.rb",
+                "feature/secrets/voxgig_sekreto/plugins/doppler.rb",
+                "feature/secrets/voxgig_sekreto/plugins/infisical.rb",
+                "feature/secrets/sekreto/plugins/onepassword.php",
+                "feature/secrets/sekreto/plugins/doppler.php",
+                "feature/secrets/sekreto/plugins/infisical.php",
+                "feature/secrets/plugins/OnePassword.cs",
+                "feature/secrets/plugins/Doppler.cs",
+                "feature/secrets/plugins/Infisical.cs",
+                "feature/secrets/sekreto/plugins/Onepassword.java",
+                "feature/secrets/sekreto/plugins/Doppler.java",
+                "feature/secrets/sekreto/plugins/Infisical.java",
+                "feature/secrets/sekreto/plugins/Onepassword.scala",
+                "feature/secrets/sekreto/plugins/Doppler.scala",
+                "feature/secrets/sekreto/plugins/Infisical.scala",
+                "feature/secrets/sekreto/plugins/Onepassword.kt",
+                "feature/secrets/sekreto/plugins/Doppler.kt",
+                "feature/secrets/sekreto/plugins/Infisical.kt",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Onepassword.pm",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Doppler.pm",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Infisical.pm",
+                "lib/feature/secrets/sekreto/plugins/onepassword.dart",
+                "lib/feature/secrets/sekreto/plugins/doppler.dart",
+                "lib/feature/secrets/sekreto/plugins/infisical.dart",
+                "feature/secrets/voxgig/sekreto/plugins/onepassword.clj",
+                "feature/secrets/voxgig/sekreto/plugins/doppler.clj",
+                "feature/secrets/voxgig/sekreto/plugins/infisical.clj",
+                "feature/secrets/sekreto/plugins/onepassword.ex",
+                "feature/secrets/sekreto/plugins/doppler.ex",
+                "feature/secrets/sekreto/plugins/infisical.ex",
+                "feature/secrets/plugins/Onepassword.swift",
+                "feature/secrets/plugins/Doppler.swift",
+                "feature/secrets/plugins/Infisical.swift",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Onepassword.lean",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Doppler.lean",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Infisical.lean",
+                "feature/secrets/plugins/onepassword.c",
+                "feature/secrets/plugins/doppler.c",
+                "feature/secrets/plugins/infisical.c",
+                "feature/secrets/sekreto/plugins/onepassword.lua",
+                "feature/secrets/sekreto/plugins/doppler.lua",
+                "feature/secrets/sekreto/plugins/infisical.lua",
+                "feature/secrets/plugins/onepassword.zig",
+                "feature/secrets/plugins/doppler.zig",
+                "feature/secrets/plugins/infisical.zig",
+                "feature/secrets/plugins/onepassword.ml",
+                "feature/secrets/plugins/doppler.ml",
+                "feature/secrets/plugins/infisical.ml",
+                "feature/secrets/plugins/Onepassword.cpp",
+                "feature/secrets/plugins/Onepassword.hpp",
+                "feature/secrets/plugins/Doppler.cpp",
+                "feature/secrets/plugins/Doppler.hpp",
+                "feature/secrets/plugins/Infisical.cpp",
+                "feature/secrets/plugins/Infisical.hpp"
               ],
+              "stub": {},
               "title": "1Password, Doppler and Infisical"
             },
             "secretspec": {
               "active": false,
               "def": {
+                "c": {
+                  "sek_plugin_secretspec": "feature/secrets/plugins/secretspec.c"
+                },
+                "clojure": {
+                  "voxgig.sekreto.plugins.secretspec/secretspec": "feature/secrets/voxgig/sekreto/plugins/secretspec.clj"
+                },
+                "cpp": {
+                  "secretspec": "feature/secrets/plugins/Secretspec.cpp"
+                },
+                "csharp": {
+                  "SecretSpec.Plugin": "feature/secrets/plugins/SecretSpec.cs"
+                },
+                "dart": {
+                  "secretspec": "lib/feature/secrets/sekreto/plugins/secretspec.dart"
+                },
+                "elixir": {
+                  "Sekreto.Plugins.Secretspec.secretspec": "lib/projectname/feature/secrets/sekreto/plugins/secretspec.ex"
+                },
                 "go": {
                   "secretspec.Plugin": "feature/secrets/plugins/secretspec/secretspec.go"
+                },
+                "java": {
+                  "Secretspec.PLUGIN": "feature/secrets/sekreto/plugins/Secretspec.java"
+                },
+                "js": {
+                  "secretspec": "src/feature/secrets/sekreto/plugins/secretspec.js"
+                },
+                "kotlin": {
+                  "secretspec": "feature/secrets/sekreto/plugins/Secretspec.kt"
+                },
+                "lean": {
+                  "Sekreto.secretspec": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Secretspec.lean"
+                },
+                "lua": {
+                  "secretspec": "feature/secrets/sekreto/plugins/secretspec.lua"
+                },
+                "ocaml": {
+                  "Secretspec.plugin": "feature/secrets/plugins/secretspec.ml"
+                },
+                "perl": {
+                  "secretspec": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Secretspec.pm"
+                },
+                "php": {
+                  "secretspec": "feature/secrets/sekreto/plugins/secretspec.php"
                 },
                 "py": {
                   "secretspec": "pkg/feature/secrets/voxgig_sekreto/plugins/secretspec.py"
                 },
+                "rb": {
+                  "VoxgigSekreto::Plugins::SECRETSPEC": "feature/secrets/voxgig_sekreto/plugins/secretspec.rb"
+                },
+                "rust": {
+                  "secretspec::plugin": "feature/secrets/plugins/secretspec.rs"
+                },
+                "scala": {
+                  "com.voxgig.sekreto.plugins.secretspec": "feature/secrets/sekreto/plugins/Secretspec.scala"
+                },
+                "swift": {
+                  "secretspec": "Sources/ProjectNameSDK/feature/secrets/plugins/Secretspec.swift"
+                },
                 "ts": {
                   "secretspec": "src/feature/secrets/sekreto/plugins/secretspec.ts"
+                },
+                "zig": {
+                  "secretspec": "feature/secrets/plugins/secretspec.zig"
                 }
               },
+              "deps": {},
               "name": "secretspec",
               "needs": {
                 "fs": true
@@ -1441,26 +2778,124 @@
               "path": [
                 "src/feature/secrets/sekreto/plugins/secretspec.ts",
                 "feature/secrets/plugins/secretspec/secretspec.go",
-                "feature/secrets/voxgig_sekreto/plugins/secretspec.py"
+                "feature/secrets/plugins/secretspec.rs",
+                "feature/secrets/voxgig_sekreto/plugins/secretspec.py",
+                "src/feature/secrets/sekreto/plugins/secretspec.js",
+                "feature/secrets/voxgig_sekreto/plugins/secretspec.rb",
+                "feature/secrets/sekreto/plugins/secretspec.php",
+                "feature/secrets/plugins/SecretSpec.cs",
+                "feature/secrets/sekreto/plugins/Secretspec.java",
+                "feature/secrets/sekreto/plugins/Secretspec.scala",
+                "feature/secrets/sekreto/plugins/Secretspec.kt",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Secretspec.pm",
+                "lib/feature/secrets/sekreto/plugins/secretspec.dart",
+                "feature/secrets/voxgig/sekreto/plugins/secretspec.clj",
+                "feature/secrets/sekreto/plugins/secretspec.ex",
+                "feature/secrets/plugins/Secretspec.swift",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Secretspec.lean",
+                "feature/secrets/plugins/secretspec.c",
+                "feature/secrets/sekreto/plugins/secretspec.lua",
+                "feature/secrets/plugins/secretspec.zig",
+                "feature/secrets/plugins/secretspec.ml",
+                "feature/secrets/plugins/Secretspec.cpp",
+                "feature/secrets/plugins/Secretspec.hpp"
               ],
+              "stub": {},
               "title": "secretspec CLI bridge (child process)"
             },
             "vault": {
               "active": false,
               "def": {
+                "c": {
+                  "sek_plugin_boru": "feature/secrets/plugins/boru.c",
+                  "sek_plugin_hashicorp": "feature/secrets/plugins/hashicorp.c"
+                },
+                "clojure": {
+                  "voxgig.sekreto.plugins.boru/boru": "feature/secrets/voxgig/sekreto/plugins/boru.clj",
+                  "voxgig.sekreto.plugins.hashicorp/hashicorp": "feature/secrets/voxgig/sekreto/plugins/hashicorp.clj"
+                },
+                "cpp": {
+                  "boru": "feature/secrets/plugins/Boru.cpp",
+                  "hashicorp": "feature/secrets/plugins/Hashicorp.cpp"
+                },
+                "csharp": {
+                  "Boru.Plugin": "feature/secrets/plugins/Boru.cs",
+                  "Hashicorp.Plugin": "feature/secrets/plugins/Hashicorp.cs"
+                },
+                "dart": {
+                  "boru": "lib/feature/secrets/sekreto/plugins/boru.dart",
+                  "hashicorp": "lib/feature/secrets/sekreto/plugins/hashicorp.dart"
+                },
+                "elixir": {
+                  "Sekreto.Plugins.Boru.boru": "lib/projectname/feature/secrets/sekreto/plugins/boru.ex",
+                  "Sekreto.Plugins.Hashicorp.hashicorp": "lib/projectname/feature/secrets/sekreto/plugins/hashicorp.ex"
+                },
                 "go": {
                   "boru.Plugin": "feature/secrets/plugins/boru/boru.go",
                   "hashicorp.Plugin": "feature/secrets/plugins/hashicorp/hashicorp.go"
+                },
+                "java": {
+                  "Boru.PLUGIN": "feature/secrets/sekreto/plugins/Boru.java",
+                  "Hashicorp.PLUGIN": "feature/secrets/sekreto/plugins/Hashicorp.java"
+                },
+                "js": {
+                  "boru": "src/feature/secrets/sekreto/plugins/boru.js",
+                  "hashicorp": "src/feature/secrets/sekreto/plugins/hashicorp.js"
+                },
+                "kotlin": {
+                  "boru": "feature/secrets/sekreto/plugins/Boru.kt",
+                  "hashicorp": "feature/secrets/sekreto/plugins/Hashicorp.kt"
+                },
+                "lean": {
+                  "Sekreto.boru": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Boru.lean",
+                  "Sekreto.hashicorp": "src/feature/secrets/sekreto/plugins/SekretoPlugins/Hashicorp.lean"
+                },
+                "lua": {
+                  "boru": "feature/secrets/sekreto/plugins/boru.lua",
+                  "hashicorp": "feature/secrets/sekreto/plugins/hashicorp.lua"
+                },
+                "ocaml": {
+                  "Boru.plugin": "feature/secrets/plugins/boru.ml",
+                  "Hashicorp.plugin": "feature/secrets/plugins/hashicorp.ml"
+                },
+                "perl": {
+                  "boru": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Boru.pm",
+                  "hashicorp": "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Hashicorp.pm"
+                },
+                "php": {
+                  "boru": "feature/secrets/sekreto/plugins/boru.php",
+                  "hashicorp": "feature/secrets/sekreto/plugins/hashicorp.php"
                 },
                 "py": {
                   "boru": "pkg/feature/secrets/voxgig_sekreto/plugins/boru.py",
                   "hashicorp": "pkg/feature/secrets/voxgig_sekreto/plugins/hashicorp.py"
                 },
+                "rb": {
+                  "VoxgigSekreto::Plugins::BORU": "feature/secrets/voxgig_sekreto/plugins/boru.rb",
+                  "VoxgigSekreto::Plugins::HASHICORP": "feature/secrets/voxgig_sekreto/plugins/hashicorp.rb"
+                },
+                "rust": {
+                  "boru::plugin": "feature/secrets/plugins/boru.rs",
+                  "hashicorp::plugin": "feature/secrets/plugins/hashicorp.rs"
+                },
+                "scala": {
+                  "com.voxgig.sekreto.plugins.boru": "feature/secrets/sekreto/plugins/Boru.scala",
+                  "com.voxgig.sekreto.plugins.hashicorp": "feature/secrets/sekreto/plugins/Hashicorp.scala"
+                },
+                "swift": {
+                  "boru": "Sources/ProjectNameSDK/feature/secrets/plugins/Boru.swift",
+                  "hashicorp": "Sources/ProjectNameSDK/feature/secrets/plugins/Hashicorp.swift"
+                },
                 "ts": {
                   "boru": "src/feature/secrets/sekreto/plugins/boru.ts",
                   "hashicorp": "src/feature/secrets/sekreto/plugins/hashicorp.ts"
+                },
+                "zig": {
+                  "boru": "feature/secrets/plugins/boru.zig",
+                  "hashicorp": "feature/secrets/plugins/hashicorp.zig"
                 }
               },
+              "deps": {},
               "name": "vault",
               "needs": {
                 "fetch": true,
@@ -1471,9 +2906,50 @@
                 "src/feature/secrets/sekreto/plugins/boru.ts",
                 "feature/secrets/plugins/hashicorp/hashicorp.go",
                 "feature/secrets/plugins/boru/boru.go",
+                "feature/secrets/plugins/hashicorp.rs",
+                "feature/secrets/plugins/boru.rs",
                 "feature/secrets/voxgig_sekreto/plugins/hashicorp.py",
-                "feature/secrets/voxgig_sekreto/plugins/boru.py"
+                "feature/secrets/voxgig_sekreto/plugins/boru.py",
+                "src/feature/secrets/sekreto/plugins/hashicorp.js",
+                "src/feature/secrets/sekreto/plugins/boru.js",
+                "feature/secrets/voxgig_sekreto/plugins/hashicorp.rb",
+                "feature/secrets/voxgig_sekreto/plugins/boru.rb",
+                "feature/secrets/sekreto/plugins/hashicorp.php",
+                "feature/secrets/sekreto/plugins/boru.php",
+                "feature/secrets/plugins/Hashicorp.cs",
+                "feature/secrets/plugins/Boru.cs",
+                "feature/secrets/sekreto/plugins/Hashicorp.java",
+                "feature/secrets/sekreto/plugins/Boru.java",
+                "feature/secrets/sekreto/plugins/Hashicorp.scala",
+                "feature/secrets/sekreto/plugins/Boru.scala",
+                "feature/secrets/sekreto/plugins/Hashicorp.kt",
+                "feature/secrets/sekreto/plugins/Boru.kt",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Hashicorp.pm",
+                "feature/secrets/plugins/Voxgig/Sekreto/Plugins/Boru.pm",
+                "lib/feature/secrets/sekreto/plugins/hashicorp.dart",
+                "lib/feature/secrets/sekreto/plugins/boru.dart",
+                "feature/secrets/sekreto/plugins/hashicorp.ex",
+                "feature/secrets/sekreto/plugins/boru.ex",
+                "feature/secrets/voxgig/sekreto/plugins/hashicorp.clj",
+                "feature/secrets/voxgig/sekreto/plugins/boru.clj",
+                "feature/secrets/plugins/Hashicorp.swift",
+                "feature/secrets/plugins/Boru.swift",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Hashicorp.lean",
+                "src/feature/secrets/sekreto/plugins/SekretoPlugins/Boru.lean",
+                "feature/secrets/plugins/hashicorp.c",
+                "feature/secrets/plugins/boru.c",
+                "feature/secrets/sekreto/plugins/hashicorp.lua",
+                "feature/secrets/sekreto/plugins/boru.lua",
+                "feature/secrets/plugins/hashicorp.zig",
+                "feature/secrets/plugins/boru.zig",
+                "feature/secrets/plugins/hashicorp.ml",
+                "feature/secrets/plugins/boru.ml",
+                "feature/secrets/plugins/Hashicorp.cpp",
+                "feature/secrets/plugins/Hashicorp.hpp",
+                "feature/secrets/plugins/Boru.cpp",
+                "feature/secrets/plugins/Boru.hpp"
               ],
+              "stub": {},
               "title": "HashiCorp Vault and boru"
             }
           },
@@ -1493,14 +2969,11 @@
             "py": {
               "deps": {}
             },
-            "rb": {
-              "deps": {}
-            },
             "ts": {
               "deps": {}
             }
           },
-          "title": "Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens",
+          "title": "Secrets",
           "transport": "wrap",
           "version": "0.1.0"
         },
@@ -1510,8 +2983,14 @@
           "config": {
             "options": {
               "active": false
-            }
+            },
+            "optspec": {
+              "entity": "`$MAP`",
+              "net": "`$MAP`"
+            },
+            "strict": false
           },
+          "description": "In-memory mock transport for testing without a live server",
           "hook": {
             "GetData": {
               "active": true,
@@ -1585,14 +3064,11 @@
             "py": {
               "deps": {}
             },
-            "rb": {
-              "deps": {}
-            },
             "ts": {
               "deps": {}
             }
           },
-          "title": "In-memory mock transport for testing without a live server",
+          "title": "Test transport",
           "transport": "base",
           "version": "0.0.1"
         },
@@ -1603,8 +3079,15 @@
             "options": {
               "active": false,
               "ms": 30000
-            }
+            },
+            "optspec": {
+              "clearTimer": "`$FUNCTION`",
+              "now": "`$FUNCTION`",
+              "setTimer": "`$FUNCTION`"
+            },
+            "strict": false
           },
+          "description": "Per-request timeout with transport abort",
           "hook": {
             "GetData": {
               "active": false,
@@ -1670,14 +3153,11 @@
             "py": {
               "deps": {}
             },
-            "rb": {
-              "deps": {}
-            },
             "ts": {
               "deps": {}
             }
           },
-          "title": "Per-request timeout with transport abort",
+          "title": "Timeout",
           "transport": "wrap",
           "version": "0.0.1"
         }
@@ -1692,24 +3172,24 @@
           "param": {},
           "step": [
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "element_ref01"
               },
-              "match": {},
-              "op": "create",
-              "spec": [],
-              "valid": []
+              "m": {},
+              "o": "create",
+              "s": [],
+              "v": []
             },
             {
-              "active": true,
-              "data": {},
-              "input": {},
-              "match": {},
-              "op": "list",
-              "spec": [],
-              "valid": [
+              "a": true,
+              "d": {},
+              "i": {},
+              "m": {},
+              "o": "list",
+              "s": [],
+              "v": [
                 {
                   "apply": "ItemExists",
                   "def": {
@@ -1719,17 +3199,17 @@
               ]
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "element_ref01",
                 "srcdatavar": "element_ref01_data",
                 "suffix": "_up0",
                 "textfield": "block"
               },
-              "match": {},
-              "op": "update",
-              "spec": [
+              "m": {},
+              "o": "update",
+              "s": [
                 {
                   "apply": "TextFieldMark",
                   "def": {
@@ -1737,22 +3217,22 @@
                   }
                 }
               ],
-              "valid": []
+              "v": []
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "element_ref01",
                 "srcdatavar": "element_ref01_data",
                 "suffix": "_dt0"
               },
-              "match": {
+              "m": {
                 "id": "element01"
               },
-              "op": "load",
-              "spec": [],
-              "valid": [
+              "o": "load",
+              "s": [],
+              "v": [
                 {
                   "apply": "TextFieldMark",
                   "def": {
@@ -1762,29 +3242,29 @@
               ]
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "element_ref01",
                 "suffix": "_rm0"
               },
-              "match": {
+              "m": {
                 "id": "element01"
               },
-              "op": "remove",
-              "spec": [],
-              "valid": []
+              "o": "remove",
+              "s": [],
+              "v": []
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "suffix": "_rt0"
               },
-              "match": {},
-              "op": "list",
-              "spec": [],
-              "valid": [
+              "m": {},
+              "o": "list",
+              "s": [],
+              "v": [
                 {
                   "apply": "ItemNotExists",
                   "def": {
@@ -1804,13 +3284,13 @@
           "param": {},
           "step": [
             {
-              "active": true,
-              "data": {},
-              "input": {},
-              "match": {},
-              "op": "list",
-              "spec": [],
-              "valid": [
+              "a": true,
+              "d": {},
+              "i": {},
+              "m": {},
+              "o": "list",
+              "s": [],
+              "v": [
                 {
                   "apply": "ItemExists",
                   "def": {
@@ -1820,19 +3300,19 @@
               ]
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "group_ref01",
                 "srcdatavar": "group_ref01_data",
                 "suffix": "_dt0"
               },
-              "match": {
+              "m": {
                 "id": "group01"
               },
-              "op": "load",
-              "spec": [],
-              "valid": [
+              "o": "load",
+              "s": [],
+              "v": [
                 {
                   "apply": "TextFieldMark",
                   "def": {
@@ -1852,28 +3332,28 @@
           "param": {},
           "step": [
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "isotope_ref01"
               },
-              "match": {
+              "m": {
                 "element_id": "element01"
               },
-              "op": "create",
-              "spec": [],
-              "valid": []
+              "o": "create",
+              "s": [],
+              "v": []
             },
             {
-              "active": true,
-              "data": {},
-              "input": {},
-              "match": {
+              "a": true,
+              "d": {},
+              "i": {},
+              "m": {
                 "element_id": "element01"
               },
-              "op": "list",
-              "spec": [],
-              "valid": [
+              "o": "list",
+              "s": [],
+              "v": [
                 {
                   "apply": "ItemExists",
                   "def": {
@@ -1883,19 +3363,19 @@
               ]
             },
             {
-              "active": true,
-              "data": {
+              "a": true,
+              "d": {
                 "element_id": "element01"
               },
-              "input": {
+              "i": {
                 "ref": "isotope_ref01",
                 "srcdatavar": "isotope_ref01_data",
                 "suffix": "_up0",
                 "textfield": "halflife"
               },
-              "match": {},
-              "op": "update",
-              "spec": [
+              "m": {},
+              "o": "update",
+              "s": [
                 {
                   "apply": "TextFieldMark",
                   "def": {
@@ -1903,23 +3383,23 @@
                   }
                 }
               ],
-              "valid": []
+              "v": []
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "isotope_ref01",
                 "srcdatavar": "isotope_ref01_data",
                 "suffix": "_dt0"
               },
-              "match": {
+              "m": {
                 "element_id": "element01",
                 "id": "isotope01"
               },
-              "op": "load",
-              "spec": [],
-              "valid": [
+              "o": "load",
+              "s": [],
+              "v": [
                 {
                   "apply": "TextFieldMark",
                   "def": {
@@ -1929,32 +3409,32 @@
               ]
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "isotope_ref01",
                 "suffix": "_rm0"
               },
-              "match": {
+              "m": {
                 "element_id": "element01",
                 "id": "isotope01"
               },
-              "op": "remove",
-              "spec": [],
-              "valid": []
+              "o": "remove",
+              "s": [],
+              "v": []
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "suffix": "_rt0"
               },
-              "match": {
+              "m": {
                 "element_id": "element01"
               },
-              "op": "list",
-              "spec": [],
-              "valid": [
+              "o": "list",
+              "s": [],
+              "v": [
                 {
                   "apply": "ItemNotExists",
                   "def": {
@@ -1974,13 +3454,13 @@
           "param": {},
           "step": [
             {
-              "active": true,
-              "data": {},
-              "input": {},
-              "match": {},
-              "op": "list",
-              "spec": [],
-              "valid": [
+              "a": true,
+              "d": {},
+              "i": {},
+              "m": {},
+              "o": "list",
+              "s": [],
+              "v": [
                 {
                   "apply": "ItemExists",
                   "def": {
@@ -1990,19 +3470,19 @@
               ]
             },
             {
-              "active": true,
-              "data": {},
-              "input": {
+              "a": true,
+              "d": {},
+              "i": {
                 "ref": "series_ref01",
                 "srcdatavar": "series_ref01_data",
                 "suffix": "_dt0"
               },
-              "match": {
+              "m": {
                 "id": "series01"
               },
-              "op": "load",
-              "spec": [],
-              "valid": [
+              "o": "load",
+              "s": [],
+              "v": [
                 {
                   "apply": "TextFieldMark",
                   "def": {
@@ -2013,6 +3493,9 @@
             }
           ]
         }
+      },
+      "http": {
+        "useragent": ""
       },
       "info": {
         "description": "The Periodic Table API. Elements, isotopes, groups and series.",
@@ -2045,6 +3528,68 @@
         "version": "1.0.0"
       },
       "option": {},
+      "optspec": {
+        "allow": {
+          "method": "GET,PUT,POST,PATCH,DELETE,OPTIONS",
+          "op": "create,update,patch,load,list,remove,command,direct,graphql"
+        },
+        "apikey": "",
+        "auth": {
+          "basic": false,
+          "in": "",
+          "name": "",
+          "prefix": ""
+        },
+        "base": "http://localhost:8000",
+        "clean": {
+          "active": true,
+          "hint": "0",
+          "keys": "key,secret,token,password,passwd,authorization,cookie,credential,signature",
+          "mask": "[redacted]",
+          "min": "4",
+          "values": ""
+        },
+        "entity": {
+          "`$CHILD`": {
+            "`$OPEN`": true,
+            "active": false,
+            "alias": {}
+          }
+        },
+        "extend": "`$ANY`",
+        "headers": {
+          "`$CHILD`": "`$STRING`"
+        },
+        "prefix": "",
+        "secret": "",
+        "server": {
+          "`$CHILD`": ""
+        },
+        "suffix": "",
+        "system": {
+          "fetch": "`$ANY`"
+        },
+        "test": {
+          "active": false,
+          "entity": {
+            "`$OPEN`": true
+          }
+        },
+        "utility": {}
+      },
+      "phase": {
+        "build": {
+          "active": true
+        },
+        "top": {
+          "active": true
+        }
+      },
+      "publisher": {
+        "name": "",
+        "security": "",
+        "url": ""
+      },
       "repo": {
         "host": "github.com",
         "path": "voxgig-sdk/voxgig-elementdemo-sdk"
@@ -2056,7 +3601,7 @@
             "name": "",
             "url": ""
           },
-          "base": "../ext/.sdk",
+          "base": "",
           "comment": {
             "line": "#"
           },
@@ -2079,9 +3624,10 @@
             "create": true,
             "path": "",
             "repo": "",
+            "root": false,
             "sdkrel": ""
           },
-          "package": "@voxgig-sdk/sdkgen-elementdemo-ext",
+          "package": "",
           "phase": {
             "agentguide": {
               "active": false
@@ -2150,10 +3696,12 @@
             "create": true,
             "path": "",
             "repo": "",
+            "root": false,
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
           "provides": {
+            "schema": true,
             "sekreto": true
           },
           "publish": {
@@ -2181,7 +3729,10 @@
             "version": "0.1.0"
           },
           "srcfeature": false,
-          "superseded": [],
+          "superseded": [
+            "test/runner_test.go",
+            "test/struct_runner_test.go"
+          ],
           "title": "Golang"
         },
         "java": {
@@ -2215,10 +3766,14 @@
             "create": true,
             "path": "",
             "repo": "",
+            "root": false,
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
-          "provides": {},
+          "provides": {
+            "schema": true,
+            "sekreto": true
+          },
           "publish": {
             "registry": {
               "active": false,
@@ -2284,10 +3839,12 @@
             "create": true,
             "path": "",
             "repo": "",
+            "root": false,
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
           "provides": {
+            "schema": true,
             "sekreto": true
           },
           "publish": {
@@ -2315,82 +3872,10 @@
             "version": "0.1.0"
           },
           "srcfeature": false,
-          "superseded": [],
-          "title": "Python"
-        },
-        "rb": {
-          "active": true,
-          "author": {
-            "name": "",
-            "url": ""
-          },
-          "base": "node_modules/@voxgig/sdkgen/project/.sdk",
-          "comment": {
-            "line": "#"
-          },
-          "deps": {
-            "json": {
-              "active": true,
-              "kind": "prod",
-              "version": "0"
-            },
-            "voxgig-struct": {
-              "active": true,
-              "kind": "prod",
-              "version": "0.0.10"
-            }
-          },
-          "ext": "rb",
-          "feature": {
-            "fullset": [],
-            "trim": true
-          },
-          "module": {
-            "goversion": "",
-            "name": "elementdemo",
-            "package": "",
-            "path": ""
-          },
-          "name": "rb",
-          "origname": "",
-          "output": {
-            "adopt": false,
-            "create": true,
-            "path": "",
-            "repo": "",
-            "sdkrel": ""
-          },
-          "package": "@voxgig/sdkgen",
-          "provides": {},
-          "publish": {
-            "registry": {
-              "active": false,
-              "name": "rubygems",
-              "package": "",
-              "state": "pending",
-              "url": "https://rubygems.org",
-              "vault": {
-                "alias": "gem",
-                "env": "",
-                "recipe": "gem"
-              }
-            },
-            "tag": {
-              "active": true,
-              "prefix": "",
-              "vault": {
-                "alias": "github",
-                "recipe": "github"
-              },
-              "via": "port"
-            },
-            "version": "0.0.1"
-          },
-          "srcfeature": false,
           "superseded": [
-            "test/struct_runner.rb"
+            "test/struct_runner.py"
           ],
-          "title": "Ruby"
+          "title": "Python"
         },
         "ts": {
           "active": true,
@@ -2432,10 +3917,12 @@
             "create": true,
             "path": "",
             "repo": "",
+            "root": false,
             "sdkrel": ""
           },
           "package": "@voxgig/sdkgen",
           "provides": {
+            "schema": true,
             "sekreto": true
           },
           "publish": {
@@ -2462,7 +3949,14 @@
             },
             "version": "0.1.0"
           },
-          "superseded": [],
+          "superseded": [
+            "test/runner.ts",
+            "test/vendor/omni/compat.ts",
+            "src/feature/secrets/sekreto/Providers.ts",
+            "src/feature/secrets/sekreto/Sigv4.ts",
+            "src/feature/secrets/sekreto/provider/Registry.ts",
+            "src/feature/secrets/sekreto/provider/http.ts"
+          ],
           "title": "TypeScript"
         }
       },
@@ -2472,12 +3966,20 @@
           "base": "",
           "strict": true
         }
+      },
+      "text": {
+        "about_md": "",
+        "docs_url": "",
+        "entity_desc": {},
+        "homepage": "",
+        "meta_source": "",
+        "summary": "",
+        "tagline": "",
+        "title": "",
+        "website": ""
       }
     }
   },
   "name": "elementdemo",
-  "name-": "elementdemo",
-  "name_": "elementdemo",
-  "name__orig": "elementdemo",
   "origin": "voxgig-sdk"
 }

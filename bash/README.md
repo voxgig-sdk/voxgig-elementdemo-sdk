@@ -105,7 +105,8 @@ elementcard render, against it.
 ## Regeneration
 
 This directory is generated output. Do not edit it — change the model or
-the `bash` target's templates and components (in `ext/`) and regenerate:
+the `bash` target's templates and components (`.sdk/tm/bash/` and
+`.sdk/src/cmp/bash/`) and regenerate:
 
 ```bash
 cd .sdk && npm run build && npm run generate

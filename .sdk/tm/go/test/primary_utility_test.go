@@ -3,7 +3,10 @@ package sdktest
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	sdk "GOMODULE"
@@ -11,8 +14,6 @@ import (
 	vs "github.com/voxgig/struct"
 )
 
-// PENDING sections are the ones deliberately left empty in the shared corpus
-// (.sdk/test/primary/<name>.aon). Everything else MUST contribute cases.
 var pendingSections = map[string]bool{
 	"fetcher": true, "makeFetchDef": true, "makeResult": true,
 	"featureAdd": true, "featureHook": true, "featureInit": true,
@@ -37,12 +38,6 @@ func TestPrimaryUtility(t *testing.T) {
 		t.Fatal("primary section not found in test.json")
 	}
 
-	// Run one corpus section, failing loudly when it would run ZERO cases.
-	// A renamed section, a fixture that failed to compile, or an empty set
-	// used to report PASS while running zero assertions - the whole point
-	// of a shared oracle lost without a single red test. (The guard lives
-	// here rather than in the runner, which is vendored verbatim; the
-	// shared corpus is a v0 spec, and v0 tolerates an empty set.)
 	runsection := func(t *testing.T, name string, subject any) {
 		t.Helper()
 		section, _ := primary[name].(map[string]any)
@@ -283,9 +278,6 @@ func TestPrimaryUtility(t *testing.T) {
 	t.Run("fetcher-live", func(t *testing.T) {
 		calls := []map[string]any{}
 		liveClient := sdk.NewElementdemoSDK(map[string]any{
-			// Concrete base: a live construction must satisfy any server
-			// variables a templated base URL declares; a literal base
-			// sidesteps the requirement.
 			"base": "http://localhost:8080",
 			"system": map[string]any{
 				"fetch": func(url string, fetchdef map[string]any) (map[string]any, error) {
@@ -339,6 +331,91 @@ func TestPrimaryUtility(t *testing.T) {
 			t.Error("expected error for test mode fetch")
 		} else if !strings.Contains(err.Error(), "blocked") {
 			t.Errorf("expected error containing 'blocked', got: %v", err)
+		}
+	})
+
+	// Nothing listens on port 9: a request the guard let through fails there.
+	// A Django route answers its slashless form with a relative Location. The
+	// transport follows each hop, and answers a "manual" fetch with the 3xx.
+	t.Run("fetcher-redirect", func(t *testing.T) {
+		var mu sync.Mutex
+		seen := []string{}
+		moved := map[string]struct {
+			code int
+			to   string
+		}{"/redirect/r1": {301, "/redirect/r1/"}, "/redirect/r1/": {308, "done"}}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			seen = append(seen, r.URL.Path)
+			mu.Unlock()
+			if hop, ok := moved[r.URL.Path]; ok {
+				w.Header().Set("Location", hop.to)
+				w.WriteHeader(hop.code)
+				return
+			}
+			if r.URL.Path != "/redirect/r1/done" {
+				w.WriteHeader(404)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"id":"r1"}`)
+		}))
+		defer server.Close()
+
+		liveClient := sdk.NewElementdemoSDK(map[string]any{"base": server.URL})
+		liveUtility := liveClient.GetUtility()
+		ctx := liveUtility.MakeContext(map[string]any{
+			"opname":  "load",
+			"client":  liveClient,
+			"utility": liveUtility,
+		}, nil)
+
+		res, err := liveUtility.Fetcher(ctx, server.URL+"/redirect/r1", map[string]any{"method": "GET", "headers": map[string]any{}})
+		resmap, _ := res.(map[string]any)
+		if err != nil || resmap["status"] != 200 {
+			t.Fatalf("expected the redirect followed to a 200, got: %v %v", res, err)
+		}
+		if body := resmap["json"].(func() any)(); vs.GetProp(body, "id") != "r1" {
+			t.Errorf("unexpected body: %v", body)
+		}
+		mu.Lock()
+		sent := strings.Join(seen, " ")
+		mu.Unlock()
+		if sent != "/redirect/r1 /redirect/r1/ /redirect/r1/done" {
+			t.Errorf("unexpected requests: %v", sent)
+		}
+
+		res, err = liveUtility.Fetcher(ctx, server.URL+"/redirect/r1",
+			map[string]any{"method": "GET", "headers": map[string]any{}, "redirect": "manual"})
+		if resmap, _ = res.(map[string]any); err != nil || resmap["status"] != 301 {
+			t.Errorf("expected a manual redirect answered by its 301, got: %v %v", res, err)
+		}
+	})
+
+	t.Run("fetcher-getonly-guard", func(t *testing.T) {
+		liveClient := sdk.NewElementdemoSDK(map[string]any{"base": "http://127.0.0.1:9"})
+		liveUtility := liveClient.GetUtility()
+		ctx := liveUtility.MakeContext(map[string]any{
+			"opname":  "create",
+			"client":  liveClient,
+			"utility": liveUtility,
+		}, nil)
+		url := "http://127.0.0.1:9/planet/p1?apikey=GUARDKEY01"
+		t.Setenv("VOXGIG_GETONLY_GUARD", "TRUE")
+
+		_, err := liveUtility.Fetcher(ctx, url, map[string]any{"method": "POST", "headers": map[string]any{}})
+		var sdkerr *sdk.ElementdemoError
+		if !errors.As(err, &sdkerr) || sdkerr.Code != "fetch_getonly_block" {
+			t.Fatalf("expected fetch_getonly_block, got: %v", err)
+		}
+		if !strings.Contains(sdkerr.Msg, "[GET-ONLY GUARD] blocked POST /planet/p1") ||
+			strings.Contains(sdkerr.Msg, "GUARDKEY01") {
+			t.Errorf("unexpected guard message: %s", sdkerr.Msg)
+		}
+
+		_, err = liveUtility.Fetcher(ctx, url, map[string]any{"method": "GET", "headers": map[string]any{}})
+		if err == nil || errors.As(err, &sdkerr) {
+			t.Errorf("expected a GET to reach the closed port, got: %v", err)
 		}
 	})
 
@@ -553,16 +630,6 @@ func TestPrimaryUtility(t *testing.T) {
 		})
 	})
 
-	// Was one hand-written case (the single-point path) covering one of this
-	// utility's seven branches, which is how the corpus fixture came to be
-	// marked deferred as "needs a real client". It does not: NewContext
-	// rebuilds Op from opname + entity + config, and Options can be supplied
-	// literally. Driven from the corpus now, so TS and Go assert the same
-	// branches.
-	//
-	// TS returns the error AS the value; Go returns it as a second result. The
-	// corpus says `match: out: code` for both, so the error is normalised to a
-	// map carrying its code here rather than forking the fixture per language.
 	t.Run("makePoint-basic", func(t *testing.T) {
 		runsection(t, "makePoint", func(args ...any) (any, error) {
 			ctxmap, _ := args[0].(map[string]any)
@@ -570,12 +637,6 @@ func TestPrimaryUtility(t *testing.T) {
 				ctxmap = map[string]any{}
 			}
 
-			// NewContext resolves Op from the ENTITY NAME, and reaches it
-			// through the Entity interface - a literal {name:...} map from the
-			// fixture is not one, so entname would be "" and every lookup would
-			// miss, reporting point_no_points for all seven cases. TS reads the
-			// same field with getprop and accepts the plain map. Swap in the
-			// package's minimal Entity so both ports resolve the same op.
 			if em, ok := ctxmap["entity"].(map[string]any); ok {
 				name, _ := em["name"].(string)
 				made := []any{}
@@ -634,7 +695,6 @@ func TestPrimaryUtility(t *testing.T) {
 
 			result := utility.Param(ctx, paramdef)
 
-			// The spec alias mutation is what mark 80 asserts on.
 			omniSyncCtx(args[0], ctx)
 
 			return result, nil
@@ -645,6 +705,23 @@ func TestPrimaryUtility(t *testing.T) {
 		setupOpts := getSpec(primary, "prepareAuth", "DEF", "setup", "a")
 		authClient := sdk.TestSDK(nil, setupOpts)
 		authUtility := authClient.GetUtility()
+
+		// The corpus writes the credential as `headers.authorization`: a
+		// PLACEHOLDER each runner points at the container and name this API
+		// actually uses. plAuthCredential (pipeline_test.go, same package)
+		// discovers both by running PrepareAuth once.
+		cred := plAuthCredential(t)
+		if cred == nil {
+			t.Fatal("prepareAuth placed no credential in headers or query")
+		}
+
+		// An absent section is runsection's report to make, not a nil-map write.
+		if section, has := primary["prepareAuth"].(map[string]any); has &&
+			("headers" != cred.where || "authorization" != cred.name) {
+			original := section["basic"]
+			section["basic"] = retargetAuth(original, cred)
+			defer func() { section["basic"] = original }()
+		}
 
 		runsection(t, "prepareAuth", func(args ...any) (any, error) {
 			ctx := omniCtx(args[0], authClient, authUtility)
@@ -695,10 +772,6 @@ func TestPrimaryUtility(t *testing.T) {
 		})
 	})
 
-	// Was two hand-written cases that had drifted out of the shared corpus
-	// (the preparePath fixture shipped as an empty `set: []`). Now driven by
-	// the corpus like every other section, so all ports assert the same
-	// separator/blank-segment behaviour.
 	t.Run("preparePath-basic", func(t *testing.T) {
 		runsection(t, "preparePath", func(args ...any) (any, error) {
 			ctx := omniCtx(args[0], client, utility)
@@ -821,6 +894,43 @@ func (f *testInitFeature) Init(ctx *sdk.Context, options map[string]any) {
 	}
 }
 
+// A typed slice in the call's match is a list to the struct port, so a cookie
+// argument repeats its name for each item rather than sending the slice's
+// text.
+func TestPrepareHeadersCookieTypedSlice(t *testing.T) {
+	client := sdk.TestSDK(nil, nil)
+	utility := client.GetUtility()
+	ctx := makeTestCtx(client, utility, nil)
+	ctx.Point = map[string]any{
+		"args": map[string]any{"cookie": []any{
+			map[string]any{"name": "theme", "orig": "theme", "kind": "cookie"},
+		}},
+	}
+	ctx.Reqmatch = map[string]any{"theme": []string{"dark", "x y"}}
+	headers := utility.PrepareHeaders(ctx)
+	if "theme=dark; theme=x%20y" != headers["cookie"] {
+		t.Errorf("expected the slice as repeated pairs, got %v", headers["cookie"])
+	}
+}
+
+// A typed map is a map to a cookie argument as a typed slice is a list: its
+// keys go out as pairs, and replace the caller's cookies of those names.
+func TestPrepareHeadersCookieTypedMap(t *testing.T) {
+	client := sdk.TestSDK(nil, map[string]any{"headers": map[string]any{"Cookie": "lang=old; theme=dark"}})
+	utility := client.GetUtility()
+	ctx := makeTestCtx(client, utility, nil)
+	ctx.Point = map[string]any{
+		"args": map[string]any{"cookie": []any{
+			map[string]any{"name": "prefs", "orig": "prefs", "kind": "cookie"},
+		}},
+	}
+	ctx.Reqmatch = map[string]any{"prefs": map[string]string{"size": "2", "lang": "en gb"}}
+	headers := utility.PrepareHeaders(ctx)
+	if "theme=dark; lang=en%20gb; size=2" != headers["cookie"] {
+		t.Errorf("expected the map as its pairs, got %v", headers["cookie"])
+	}
+}
+
 // Helper: create basic test context
 func makeTestCtx(client *sdk.ElementdemoSDK, utility *sdk.Utility, overrides map[string]any) *sdk.Context {
 	ctxmap := map[string]any{
@@ -855,3 +965,38 @@ func makeTestFullCtx(client *sdk.ElementdemoSDK, utility *sdk.Utility) *sdk.Cont
 
 // useVS prevents unused import error
 var _ = vs.Clone
+
+// retargetAuth rewrites the corpus's `headers` bag to the container this
+// SDK's PrepareAuth writes to, and the `authorization` key inside it to the
+// API's own credential name. Applied only to the prepareAuth section, so
+// real header assertions elsewhere are untouched.
+func retargetAuth(node any, cred *plAuthCred) any {
+	switch value := node.(type) {
+	case map[string]any:
+		out := map[string]any{}
+		for key, child := range value {
+			if "headers" == key {
+				bag := map[string]any{}
+				inner, _ := child.(map[string]any)
+				for bagkey, bagvalue := range inner {
+					name := bagkey
+					if "authorization" == bagkey {
+						name = cred.name
+					}
+					bag[name] = retargetAuth(bagvalue, cred)
+				}
+				out[cred.where] = bag
+			} else {
+				out[key] = retargetAuth(child, cred)
+			}
+		}
+		return out
+	case []any:
+		out := make([]any, len(value))
+		for index, child := range value {
+			out[index] = retargetAuth(child, cred)
+		}
+		return out
+	}
+	return node
+}

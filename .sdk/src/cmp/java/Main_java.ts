@@ -4,6 +4,8 @@ import * as Path from 'node:path'
 import {
   cmp, each,
   File, Content, Copy, Folder, Fragment,
+  inactiveFeatureExcludes,
+  pluginExcludes,
   targetFeatures,
   TEST_CONTROL_EXCLUDE
 } from '@voxgig/sdkgen'
@@ -22,11 +24,13 @@ import {
 
 import { Package } from './Package_java'
 import { Config } from './Config_java'
+import { Schema } from './Schema_java'
 import { Gitignore } from './Gitignore_java'
 import { MainEntity } from './MainEntity_java'
 import { EntityBase } from './EntityBase_java'
 import { EntityTypes } from './EntityTypes_java'
 import { SdkError } from './SdkError_java'
+import { PrepareAuth } from './PrepareAuth_java'
 import { javaPackage } from './utility_java'
 
 
@@ -41,8 +45,6 @@ const Main = cmp(async function Main(props: any) {
   // helpers/applicability.
   const feature = targetFeatures(model, target)
 
-  // The Java package root for every runtime piece (like GOMODULE for go):
-  // e.g. voxgig.solardemosdk -> voxgig.solardemosdk.core etc.
   const javapackage = javaPackage(model)
 
   Package({ target })
@@ -53,17 +55,18 @@ const Main = cmp(async function Main(props: any) {
   // token used throughout the templates (package/import statements).
   Copy({
     from: 'tm/' + target.name,
-    exclude: [/src\//, TEST_CONTROL_EXCLUDE],
+    exclude: [/src\//, TEST_CONTROL_EXCLUDE,
+      ...inactiveFeatureExcludes(props.ctx$, target), ...pluginExcludes(model)],
     replace: {
       ...props.ctx$.stdrep,
       JAVAPACKAGE: javapackage,
     }
   })
 
-  // Shared entity runtime (entity/EntityBase.java).
   EntityBase({ target })
 
-  // Generate the client class and config in core/.
+  PrepareAuth({ target })
+
   Folder({ name: 'core' }, () => {
 
     SdkError({ target })
@@ -85,7 +88,6 @@ this.utility.featureHook.apply(this.rootctx, "${name}");
           }
         },
 
-        // Entities - injected at SLOT
         () => {
           each(entity, (entity: ModelEntity) => {
             const entitySDK = getModelPath(model, `main.${KIT}.entity.${entity.name}`)
@@ -96,6 +98,7 @@ this.utility.featureHook.apply(this.rootctx, "${name}");
     })
 
     Config({ target })
+    Schema({ target })
 
     // Generate the typed reference-model file (<Name>Types.java) beside the
     // other generated core files. Documentation/DX shapes only — not wired

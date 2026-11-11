@@ -1,26 +1,3 @@
-// Behavioural tests for the secrets feature (vendored @voxgig/sekreto) -
-// the go port of tm/ts/test/feature/secrets/Secrets.test.ts.
-//
-// The contract under test: the `apikey` OPTION keeps its exact old meaning
-// and always wins, because SecretsFeature places it FIRST in the provider
-// chain (a `memory` store named `options`) - explicit-beats-lookup falls
-// out of sekreto's first-hit rule rather than from special-case logic.
-// With the feature inactive nothing changes at all. With it active and the
-// option unset, the chain (env, a custom provider, a vault) supplies the
-// credential instead.
-//
-// This file lives in the test `feature/` container on purpose: `target
-// add` trims it, along with the feature source and the vendored library,
-// for a project whose model does not select `secrets`.
-//
-// The feature is CONSTRUCTED DIRECTLY and handed in through the
-// `extend` option, so these tests hold in any generated tree - whether or
-// not the project's model activated the feature (activation only changes
-// whether config.go registers a constructor for it). The credential is
-// asserted ON THE WIRE: a live-mode client with a recording system.fetch,
-// driven through a real entity operation, which is what exercises the
-// PreSpec resolution seam. (See the migration guide: an options-level
-// assertion passes for a port that never consults the value.)
 
 package secretstest
 
@@ -42,6 +19,17 @@ import (
 )
 
 const envprefix = "PROJECTENV_TEST_SECRETS_"
+
+// credheader is the header the credential travels in: the DEFAULT
+// client's auth.name, lower-cased as prepare_auth sends it. Read from a
+// default client because a test's `auth: nil` leaves no name to read.
+var credheader = func() string {
+	auth, _ := sdk.TestSDK(nil, nil).OptionsMap()["auth"].(map[string]any)
+	if name, _ := auth["name"].(string); "" != name {
+		return strings.ToLower(name)
+	}
+	return "authorization"
+}()
 
 // ---------------------------------------------------------------------
 // The recording transport: system.fetch for a LIVE client, scripting one
@@ -82,7 +70,7 @@ func (w *wire) fetch(url string, fetchdef map[string]any) (map[string]any, error
 	auth := ""
 	has := false
 	if headers, is := fetchdef["headers"].(map[string]any); is {
-		if v, found := headers["authorization"]; found {
+		if v, found := headers[credheader]; found {
 			auth, _ = v.(string)
 			has = true
 		}
@@ -146,13 +134,13 @@ func (w *wire) token() []wirecall {
 // ---------------------------------------------------------------------
 // Support.
 
-// The Authorization header carries the SPEC's credential prefix, which a
-// TEMPLATE cannot know - so assert on the CREDENTIAL and let the prefix be
-// whatever this SDK's API declares.
+// The credential header carries the SPEC's credential prefix (if any),
+// which a TEMPLATE cannot know - so assert on the CREDENTIAL and let the
+// prefix be whatever this SDK's API declares.
 func credentialIs(t *testing.T, header string, token string) {
 	t.Helper()
 	if header != token && !strings.HasSuffix(header, " "+token) {
-		t.Fatalf("expected the authorization header to carry %s, got: %q", token, header)
+		t.Fatalf("expected the %s header to carry %s, got: %q", credheader, token, header)
 	}
 }
 
@@ -174,13 +162,6 @@ func secretsClient(w *wire, sdkopts map[string]any) *sdk.ElementdemoSDK {
 	})
 }
 
-// withSecrets constructs the client and ADOPTS the feature via `extend`
-// ONLY when the generated config did not already install it - when this
-// SDK was generated with `secrets` model-active, the ordinary factory
-// path builds the instance, and adding a second via extend would DOUBLE
-// the feature: two transport wraps, two resolutions, and a token
-// purchase the assertions cannot account for. (The py harness guards the
-// same way via _has_feature.)
 func withSecrets(build func(extend bool) *sdk.ElementdemoSDK) *sdk.ElementdemoSDK {
 	client := build(false)
 	if nil == secretsFeatureOf(client) {
@@ -213,13 +194,6 @@ func secretsFeatureOf(client *sdk.ElementdemoSDK) *feat.SecretsFeature {
 	return nil
 }
 
-// driveEntityOpUntil performs real entity operations - which is what runs
-// the PreSpec hook - until `stop` reports the observable state a test is
-// waiting for. Each op's own outcome is irrelevant (no seeded data, a
-// scripted response); an op the API does not define fails BEFORE the
-// PreSpec hook, which is why several may need driving. Entity names come
-// from the SDK's own config, because this file is a TEMPLATE and no
-// project's entity names are known here.
 func driveEntityOpUntil(t *testing.T, client *sdk.ElementdemoSDK, what string, stop func() bool) {
 	t.Helper()
 
@@ -227,9 +201,7 @@ func driveEntityOpUntil(t *testing.T, client *sdk.ElementdemoSDK, what string, s
 	clientval := reflect.ValueOf(client)
 
 	for name := range entities {
-		runes := []rune(name)
-		runes[0] = unicode.ToUpper(runes[0])
-		accessor := clientval.MethodByName(string(runes))
+		accessor := clientval.MethodByName(exported(name))
 		if !accessor.IsValid() || 1 != accessor.Type().NumIn() {
 			continue
 		}
@@ -258,6 +230,85 @@ func driveEntityOpUntil(t *testing.T, client *sdk.ElementdemoSDK, what string, s
 	t.Fatalf("no entity operation %s - nothing to assert on", what)
 }
 
+// exported is the accessor name for an entity: the model spells entities in
+// lower case, the generated client exports them capitalised.
+func exported(name string) string {
+	runes := []rune(name)
+	if 0 < len(runes) {
+		runes[0] = unicode.ToUpper(runes[0])
+	}
+	return string(runes)
+}
+
+func routableOp(t *testing.T) (string, string) {
+	t.Helper()
+
+	w := makewire()
+	client := secretsClient(w, map[string]any{
+		"feature": map[string]any{"secrets": map[string]any{
+			"active": true,
+			"providers": []any{
+				&customProvider{
+					lookup: func(name string) (string, bool, error) { return "PROBE01", true, nil },
+				},
+			},
+		}},
+	})
+
+	entities, _ := client.OptionsMap()["entity"].(map[string]any)
+	clientval := reflect.ValueOf(client)
+
+	for name := range entities {
+		accessor := clientval.MethodByName(exported(name))
+		if !accessor.IsValid() || 1 != accessor.Type().NumIn() {
+			continue
+		}
+		ent := accessor.Call([]reflect.Value{reflect.Zero(accessor.Type().In(0))})[0]
+
+		for _, opname := range []string{"List", "Load"} {
+			op := ent.MethodByName(opname)
+			if !op.IsValid() {
+				continue
+			}
+			before := len(w.api())
+			in := make([]reflect.Value, op.Type().NumIn())
+			for i := range in {
+				in[i] = reflect.Zero(op.Type().In(i))
+			}
+			op.Call(in)
+			if before < len(w.api()) {
+				return name, opname
+			}
+		}
+	}
+
+	t.Fatal("no entity operation reaches the transport - nothing to assert on")
+	return "", ""
+}
+
+// driveNamedOp drives ONE operation already known to be routable.
+//
+// Safe to call from a spawned goroutine, unlike driveEntityOpUntil: it never
+// calls t.Fatal, which Go permits only from the test goroutine.
+func driveNamedOp(t *testing.T, client *sdk.ElementdemoSDK, entity string, opname string) {
+	t.Helper()
+
+	accessor := reflect.ValueOf(client).MethodByName(exported(entity))
+	if !accessor.IsValid() || 1 != accessor.Type().NumIn() {
+		return
+	}
+	ent := accessor.Call([]reflect.Value{reflect.Zero(accessor.Type().In(0))})[0]
+	op := ent.MethodByName(opname)
+	if !op.IsValid() {
+		return
+	}
+	in := make([]reflect.Value, op.Type().NumIn())
+	for i := range in {
+		in[i] = reflect.Zero(op.Type().In(i))
+	}
+	op.Call(in)
+}
+
 // driveEntityOp drives ops until one request reached the recorder.
 func driveEntityOp(t *testing.T, client *sdk.ElementdemoSDK, w *wire) {
 	t.Helper()
@@ -279,7 +330,7 @@ func TestSecretsInactive(t *testing.T) {
 			t.Fatalf("prepare failed: %v", err)
 		}
 		headers, _ := fetchdef["headers"].(map[string]any)
-		auth, _ := headers["authorization"].(string)
+		auth, _ := headers[credheader].(string)
 		credentialIs(t, auth, "OPTKEY01")
 
 		if nil != secretsFeatureOf(client) {
@@ -287,15 +338,15 @@ func TestSecretsInactive(t *testing.T) {
 		}
 	})
 
-	t.Run("no apikey means no authorization header", func(t *testing.T) {
+	t.Run("no apikey means no credential header", func(t *testing.T) {
 		client := sdk.TestSDK(nil, nil)
 		fetchdef, err := client.Prepare(map[string]any{"path": "/"})
 		if err != nil {
 			t.Fatalf("prepare failed: %v", err)
 		}
 		headers, _ := fetchdef["headers"].(map[string]any)
-		if _, has := headers["authorization"]; has {
-			t.Fatalf("unexpected authorization header: %v", headers["authorization"])
+		if _, has := headers[credheader]; has {
+			t.Fatalf("unexpected %s header: %v", credheader, headers[credheader])
 		}
 	})
 }
@@ -345,12 +396,6 @@ func TestSecretsChain(t *testing.T) {
 
 		driveEntityOp(t, client, w)
 
-		// Resolution happens AT THE TRANSPORT - the one seam every wire
-		// path crosses - so the credential is on the wire, not merely
-		// resolved. go holds it in FEATURE STATE and injects there; the
-		// options map is never mutated (it stays raced-read-safe for
-		// every concurrent operation), so the state assertion reads the
-		// feature.
 		credentialIs(t, w.api()[0].auth, "ENVKEY02")
 		if v := secretsFeatureOf(client).Credential(); "ENVKEY02" != v {
 			t.Fatalf("the entity op did not resolve the secret through PreSpec: %q", v)
@@ -488,6 +533,80 @@ func TestSecretsChain(t *testing.T) {
 	})
 }
 
+func TestSecretsCachedMissIsReasked(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+
+	w := makewire()
+	client := secretsClient(w, map[string]any{
+		"feature": map[string]any{"secrets": map[string]any{
+			"active": true,
+			"providers": []any{
+				&customProvider{
+					lookup: func(name string) (string, bool, error) {
+						mu.Lock()
+						defer mu.Unlock()
+						calls++
+						// Absent on the first ask, present on the second.
+						if 1 < calls {
+							return "LATEKEY01", true, nil
+						}
+						return "", false, nil
+					},
+				},
+			},
+		}},
+	})
+
+	driveEntityOp(t, client, w)
+	if first := w.api()[0]; first.has && "" != first.auth {
+		t.Fatalf("the first resolve missed, so no credential should go out; got %q", first.auth)
+	}
+
+	driveEntityOp(t, client, w)
+	credentialIs(t, w.api()[len(w.api())-1].auth, "LATEKEY01")
+
+	mu.Lock()
+	defer mu.Unlock()
+	if 1 >= calls {
+		t.Fatal("the chain was asked once and the MISS cached: a secret " +
+			"that appears later can never be picked up")
+	}
+}
+
+// The other half of the same rule: a HIT is still cached by default, so the
+// fix above must not turn every request into a chain walk.
+func TestSecretsCachedHitIsKept(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+
+	w := makewire()
+	client := secretsClient(w, map[string]any{
+		"feature": map[string]any{"secrets": map[string]any{
+			"active": true,
+			"providers": []any{
+				&customProvider{
+					lookup: func(name string) (string, bool, error) {
+						mu.Lock()
+						defer mu.Unlock()
+						calls++
+						return "STABLEKEY01", true, nil
+					},
+				},
+			},
+		}},
+	})
+
+	driveEntityOp(t, client, w)
+	driveEntityOp(t, client, w)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if 1 != calls {
+		t.Fatalf("a hit must be cached under the default cache: true, chain asked %d times", calls)
+	}
+}
+
 // customProvider is a sekreto.Provider built in code (the interface is
 // structural: Lookup + Describe).
 type customProvider struct {
@@ -534,8 +653,34 @@ func TestSecretsExchange(t *testing.T) {
 			t.Fatalf("expected the request to be retried exactly once, got %d calls", len(api))
 		}
 		credentialIs(t, api[0].auth, "ACCESS01")
-		// The retry must carry the NEW token, not the spent one.
 		credentialIs(t, api[1].auth, "ACCESS02")
+	})
+
+	t.Run("auth nil buys no token at all", func(t *testing.T) {
+		os.Setenv(envprefix+"REFRESH_TOKEN", "REFRESH01")
+		defer os.Unsetenv(envprefix + "REFRESH_TOKEN")
+
+		w := makewire()
+		w.apistatus = []int{401}
+
+		client := secretsClient(w, map[string]any{
+			"auth": nil,
+			"feature": secretsOpts(map[string]any{
+				"name":     "refresh_token",
+				"exchange": map[string]any{"active": true},
+			}),
+		})
+
+		driveEntityOp(t, client, w)
+
+		if 0 != len(w.token()) {
+			t.Fatalf("auth nil suppressed the credential but the refresh "+
+				"token was still POSTed to the exchange endpoint (%d calls)",
+				len(w.token()))
+		}
+		if call := w.api()[0]; call.has {
+			t.Fatalf("no credential may be sent when auth is suppressed, got %q", call.auth)
+		}
 	})
 
 	t.Run("test mode buys nothing and needs no token endpoint", func(t *testing.T) {
@@ -572,11 +717,6 @@ func TestSecretsExchange(t *testing.T) {
 	})
 }
 
-// ---------------------------------------------------------------------
-// Review-hardening pins (vendor-tag rollout, PR review): the exchange
-// works with ORDINARY options (no custom transport), the token body is
-// real JSON, an uncached miss retracts the credential, and a failed
-// resolution recovers safely under concurrency.
 
 // The exchange with NO system.fetch: the raw fallback transport carries
 // the purchase, and the body is MARSHALLED - a refresh token full of
@@ -601,7 +741,7 @@ func TestSecretsExchangeRawFetch(t *testing.T) {
 			return
 		}
 		mu.Lock()
-		gotauth = req.Header.Get("authorization")
+		gotauth = req.Header.Get(credheader)
 		mu.Unlock()
 		res.Header().Set("content-type", "application/json")
 		res.Write([]byte(`{}`))
@@ -732,10 +872,118 @@ func TestSecretsDirectPath(t *testing.T) {
 	}
 }
 
+func TestSecretsMalformedProviderEntry(t *testing.T) {
+	// A kind NAME where a provider or spec belongs.
+	malformed := []any{"hashicorp"}
+	const notaprovider = "not a provider or a provider spec"
+
+	workingchain := func(value string) map[string]any {
+		return map[string]any{"secrets": map[string]any{
+			"active": true,
+			"providers": []any{
+				&customProvider{
+					lookup: func(name string) (string, bool, error) {
+						if "apikey" == name {
+							return value, true, nil
+						}
+						return "", false, nil
+					},
+				},
+			},
+		}}
+	}
+	malformedchain := map[string]any{"secrets": map[string]any{
+		"active":    true,
+		"providers": malformed,
+	}}
+
+	t.Run("fails the entity op and nothing reaches the wire", func(t *testing.T) {
+		// CONTROL FIRST, so the zero below is known to be observable at all.
+		control := makewire()
+		ok := secretsClient(control, map[string]any{"feature": workingchain("INITKEY01")})
+		driveEntityOp(t, ok, control)
+		if 1 != len(control.api()) {
+			t.Fatalf("the control operation did not reach system.fetch exactly once,"+
+				" so this test cannot observe a request going out at all: got %d",
+				len(control.api()))
+		}
+		credentialIs(t, control.api()[0].auth, "INITKEY01")
+
+		// THE RULE.
+		w := makewire()
+		client := secretsClient(w, map[string]any{"feature": malformedchain})
+
+		// The feature must still be INSTALLED: a construction failure that
+		// silently uninstalled it would be the same fail-open by another
+		// route, with nothing downstream gating anything.
+		if nil == secretsFeatureOf(client) {
+			t.Fatal("the secrets feature must stay installed on a construction failure")
+		}
+
+		// Every op the control leg could have taken: the gate sits at the
+		// transport, so an op that never reached it proves nothing either way.
+		driveEntityOpUntil(t, client, "was driven", func() bool { return true })
+
+		if 0 != len(w.api()) {
+			t.Fatalf("a malformed providers entry was DROPPED and the shortened chain"+
+				" sent an UNAUTHENTICATED request: %d calls went out, first %q auth=%q",
+				len(w.api()), w.api()[0].url, w.api()[0].auth)
+		}
+	})
+
+	t.Run("fails Direct rather than sending, with sekreto's own message", func(t *testing.T) {
+		// CONTROL FIRST.
+		control := makewire()
+		res, err := secretsClient(control, map[string]any{
+			"allow":   map[string]any{"op": "direct"},
+			"feature": workingchain("INITKEY01"),
+		}).Direct(map[string]any{"path": "/thing"})
+		if nil != err {
+			t.Fatalf("the control request failed: %v", err)
+		}
+		if ok, _ := res["ok"].(bool); !ok {
+			t.Fatalf("the control request was refused: %v", res["err"])
+		}
+		if 1 != len(control.api()) {
+			t.Fatalf("the control request did not reach system.fetch exactly once,"+
+				" so this test cannot observe a request going out at all: got %d",
+				len(control.api()))
+		}
+		credentialIs(t, control.api()[0].auth, "INITKEY01")
+
+		// THE RULE. Direct runs no feature hook at all, so the ONLY thing
+		// that can refuse it is the transport gate.
+		w := makewire()
+		out, err := secretsClient(w, map[string]any{
+			"allow":   map[string]any{"op": "direct"},
+			"feature": malformedchain,
+		}).Direct(map[string]any{"path": "/thing"})
+		if nil != err {
+			t.Fatalf("direct must report the refusal in-band: %v", err)
+		}
+
+		if 0 != len(w.api()) {
+			t.Fatalf("a malformed providers entry was DROPPED and the shortened chain"+
+				" sent an UNAUTHENTICATED direct request: %d calls went out, first %q auth=%q",
+				len(w.api()), w.api()[0].url, w.api()[0].auth)
+		}
+		if ok, _ := out["ok"].(bool); ok {
+			t.Fatal("a chain that could not be built must refuse the raw path fail-closed")
+		}
+		msg := fmt.Sprint(out["err"])
+		if !strings.Contains(msg, notaprovider) {
+			t.Fatalf("the refusal must carry sekreto's own message (%s), got: %s",
+				notaprovider, msg)
+		}
+	})
+}
+
 // A provider failure closes the transport gate; a later retry that
 // SUCCEEDS reopens it and every waiting operation goes out with the FRESH
 // credential - never the stale pre-failure header, and never nothing.
 func TestSecretsGateRecovery(t *testing.T) {
+	entity, opname := routableOp(t)
+
 	var mu sync.Mutex
 	mode := "fail"
 	release := make(chan struct{})
@@ -764,14 +1012,11 @@ func TestSecretsGateRecovery(t *testing.T) {
 		}},
 	})
 
-	// 1. The failure closes the gate: nothing reaches the wire.
-	driveEntityOpUntil(t, client, "was refused by the gate", func() bool { return true })
+	driveNamedOp(t, client, entity, opname)
 	if 0 != len(w.api()) {
 		t.Fatalf("a failed resolution must keep the wire silent, saw %d calls", len(w.api()))
 	}
 
-	// 2. Recovery under concurrency: two operations race the slow retry;
-	// both must come out carrying the fresh credential.
 	mu.Lock()
 	mode = "slow"
 	mu.Unlock()
@@ -781,7 +1026,7 @@ func TestSecretsGateRecovery(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			driveEntityOpUntil(t, client, "recovered", func() bool { return true })
+			driveNamedOp(t, client, entity, opname)
 		}()
 	}
 	go func() {
@@ -793,7 +1038,10 @@ func TestSecretsGateRecovery(t *testing.T) {
 	for _, call := range w.api() {
 		credentialIs(t, call.auth, "FRESH01")
 	}
-	if 0 == len(w.api()) {
-		t.Fatal("recovery must let the operations out")
+	// BOTH, not "at least one": the claim is that a concurrent retry serves
+	// every caller waiting on it, so one call reaching the wire while the
+	// other is dropped is exactly the failure this guards.
+	if 2 != len(w.api()) {
+		t.Fatalf("recovery must let both operations out, saw %d", len(w.api()))
 	}
 }

@@ -1,14 +1,24 @@
 package utility
 
 import (
+	"strings"
+
 	vs "github.com/voxgig-sdk/voxgig-elementdemo-sdk/go/utility/struct"
 
 	"github.com/voxgig-sdk/voxgig-elementdemo-sdk/go/core"
 )
 
-const headerAuth = "authorization"
+const credName = "authorization"
 const optionApikey = "apikey"
 const notFound = "__NOTFOUND__"
+
+// The client's auth.name option, when set, replaces the name the API declares.
+func authName(options map[string]any) string {
+	if name, ok := vs.GetPath(options, []any{"auth", "name"}).(string); ok && name != "" {
+		return strings.ToLower(name)
+	}
+	return credName
+}
 
 func prepareAuthUtil(ctx *core.Context) (*core.Spec, error) {
 	spec := ctx.Spec
@@ -22,8 +32,15 @@ func prepareAuthUtil(ctx *core.Context) (*core.Spec, error) {
 
 	// Public APIs that need no auth omit the options.auth block entirely.
 	if options["auth"] == nil {
-		delete(headers, headerAuth)
+		delete(headers, credName)
 		return spec, nil
+	}
+
+	name := authName(options)
+
+	// A credential left under the declared name would travel beside the renamed one.
+	if name != credName {
+		delete(headers, credName)
 	}
 
 	apikey := vs.GetProp(options, optionApikey, notFound)
@@ -37,7 +54,7 @@ func prepareAuthUtil(ctx *core.Context) (*core.Spec, error) {
 	}
 
 	if skip {
-		delete(headers, headerAuth)
+		delete(headers, name)
 	} else {
 		authPrefix := ""
 		if ap := vs.GetPath(options, []any{"auth", "prefix"}); ap != nil {
@@ -49,9 +66,9 @@ func prepareAuthUtil(ctx *core.Context) (*core.Spec, error) {
 		}
 		// Empty prefix (raw apiKey credential) must not add a leading space.
 		if authPrefix == "" {
-			headers[headerAuth] = apikeyVal
+			headers[name] = apikeyVal
 		} else {
-			headers[headerAuth] = authPrefix + " " + apikeyVal
+			headers[name] = authPrefix + " " + apikeyVal
 		}
 	}
 

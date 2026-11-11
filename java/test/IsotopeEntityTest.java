@@ -3,6 +3,7 @@ package voxgig.elementdemosdk.sdktest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -16,14 +17,24 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import voxgig.elementdemosdk.core.Config;
+import voxgig.elementdemosdk.core.Context;
 import voxgig.elementdemosdk.core.Helpers;
 import voxgig.elementdemosdk.core.SdkEntity;
+import voxgig.elementdemosdk.core.SdkError;
 import voxgig.elementdemosdk.core.ElementdemoSDK;
+import voxgig.elementdemosdk.feature.BaseFeature;
 import voxgig.elementdemosdk.utility.Json;
 import voxgig.elementdemosdk.utility.struct.Struct;
 
 @SuppressWarnings({"unchecked", "unused"})
 public class IsotopeEntityTest {
+
+  // main.kit.test.live.strict is true (the default is true): a live
+  // request that fails, or a live test missing an input it needs,
+  // fails the test.
+  // An account with no record for a test to read skips it either way.
+  static final boolean LIVE_STRICT = true;
 
   @Test
   public void instance() {
@@ -44,12 +55,75 @@ public class IsotopeEntityTest {
           reason == null || "".equals(reason)
               ? "skipped via sdk-test-control.json" : reason);
     }
-    // The basic flow consumes synthetic IDs from the fixture. In live mode
-    // without an *_ENTID env override, those IDs hit the live API and 4xx.
-    Assumptions.assumeFalse(setup.syntheticOnly,
-        "live entity test uses synthetic IDs from fixture — set ELEMENTDEMO_TEST_ISOTOPE_ENTID JSON to run live");
+    if (setup.live && "TRUE".equals(System.getenv("VOXGIG_GETONLY_GUARD"))) {
+      System.out.println("LIVE STEP {\"id\":\"isotope.create.0\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: needs POST /element/{element_id}/isotope/{isotope_id}/decay\"}");
+      System.out.println("LIVE STEP {\"id\":\"isotope.update.2\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: needs PUT /element/{element_id}/isotope/{isotope_id}\"}");
+      System.out.println("LIVE STEP {\"id\":\"isotope.remove.4\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: needs DELETE /element/{element_id}/isotope/{isotope_id}\"}");
+      System.out.println("LIVE STEP {\"id\":\"isotope.list.5\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: checks a removal this run does not make\"}");
+    if (setup.live) {
+      for (String liveKey : new String[] { "element01" }) {
+        if (setup.syntheticOnly || setup.idmap.get(liveKey) == null) {
+          RunnerSupport.liveMiss(LIVE_STRICT, "Live entity test blocked: needs " + liveKey + " via ELEMENTDEMO_TEST_ISOTOPE_ENTID");
+        }
+      }
+    }
+    ElementdemoSDK client = setup.client;
+    if (setup.live) {
+      Object liveId = setup.syntheticOnly ? null : setup.idmap.get("isotope01");
+      RunnerSupport.livePace();
+      RunnerSupport.liveExisting(setup.data, LIVE_STRICT, "isotope",
+          "id", liveId, () -> {
+        Map<String, Object> match = new LinkedHashMap<>(); match.put("element_id", setup.idmap.get("element01"));
+        return client.isotope(null).list(match, null);
+      });
+    }
+
+    // Bootstrap entity data from existing test data (no create step in flow).
+    List<List<Object>> isotopeRef01DataRaw = Struct.items(Helpers.toMapAny(
+        Struct.getpath(setup.data, "existing.isotope")));
+    Map<String, Object> isotopeRef01Data = isotopeRef01DataRaw.isEmpty()
+        ? null : Helpers.toMapAny(isotopeRef01DataRaw.get(0).get(1));
+
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
+    // LIST
+    SdkEntity isotopeRef01Ent = client.isotope(null);
+    Map<String, Object> isotopeRef01Match = new LinkedHashMap<>();
+    isotopeRef01Match.put("element_id", setup.idmap.get("element01"));
+
+    Object isotopeRef01ListResult = isotopeRef01Ent.list(isotopeRef01Match, null);
+    assertTrue(isotopeRef01ListResult instanceof List,
+        "expected list result to be an array, got " + isotopeRef01ListResult);
+
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
+    // LOAD
+    Map<String, Object> isotopeRef01MatchDt0 = new LinkedHashMap<>();
+    isotopeRef01MatchDt0.put("id", isotopeRef01Data.get("id"));
+    isotopeRef01MatchDt0.put("element_id", isotopeRef01Data.get("element_id") instanceof String || isotopeRef01Data.get("element_id") instanceof Number
+        || isotopeRef01Data.get("element_id") instanceof Boolean ? isotopeRef01Data.get("element_id") : (null != setup.idmap.get("element_id") ? setup.idmap.get("element_id") : setup.idmap.get("element01")));
+    Object isotopeRef01DataDt0Loaded = isotopeRef01Ent.load(isotopeRef01MatchDt0, null);
+    Map<String, Object> isotopeRef01DataDt0LoadResult = Helpers.toMapAny(isotopeRef01DataDt0Loaded instanceof SdkEntity ? ((SdkEntity) isotopeRef01DataDt0Loaded).data() : isotopeRef01DataDt0Loaded);
+    assertNotNull(isotopeRef01DataDt0LoadResult, "expected load result to be a map");
+    assertTrue(RunnerSupport.liveSameId(isotopeRef01DataDt0LoadResult.get("id"), isotopeRef01Data.get("id")), "expected load result id to match");
+
+      return;
+    }
+
+    if (setup.live) {
+      for (String liveKey : new String[] { "element01" }) {
+        if (setup.syntheticOnly || setup.idmap.get(liveKey) == null) {
+          RunnerSupport.liveMiss(LIVE_STRICT, "Live entity test blocked: needs " + liveKey + " via ELEMENTDEMO_TEST_ISOTOPE_ENTID");
+        }
+      }
+    }
     ElementdemoSDK client = setup.client;
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // CREATE
     SdkEntity isotopeRef01Ent = client.isotope(null);
     Map<String, Object> isotopeRef01Data = Helpers.toMapAny(Struct.getprop(
@@ -61,6 +135,9 @@ public class IsotopeEntityTest {
     assertNotNull(isotopeRef01Data, "expected create result to be a map");
     assertNotNull(isotopeRef01Data.get("id"), "expected created entity to have an id");
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // LIST
     Map<String, Object> isotopeRef01Match = new LinkedHashMap<>();
     isotopeRef01Match.put("element_id", setup.idmap.get("element01"));
@@ -75,6 +152,9 @@ public class IsotopeEntityTest {
         Struct.jm("id", isotopeRef01Data.get("id")));
     assertFalse(Struct.isempty(foundItem), "expected to find created entity in list");
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // UPDATE
     Map<String, Object> isotopeRef01DataUp0Up = new LinkedHashMap<>();
     isotopeRef01DataUp0Up.put("id", isotopeRef01Data.get("id"));
@@ -87,25 +167,36 @@ public class IsotopeEntityTest {
     Object isotopeRef01ResdataUp0Result = isotopeRef01Ent.update(isotopeRef01DataUp0Up, null);
     Map<String, Object> isotopeRef01ResdataUp0 = Helpers.toMapAny(isotopeRef01ResdataUp0Result instanceof SdkEntity ? ((SdkEntity) isotopeRef01ResdataUp0Result).data() : isotopeRef01ResdataUp0Result);
     assertNotNull(isotopeRef01ResdataUp0, "expected update result to be a map");
-    assertEquals(isotopeRef01DataUp0Up.get("id"), isotopeRef01ResdataUp0.get("id"),
-        "expected update result id to match");
+    assertTrue(RunnerSupport.liveSameId(isotopeRef01ResdataUp0.get("id"), isotopeRef01DataUp0Up.get("id")), "expected update result id to match");
     assertEquals(isotopeRef01MarkdefUp0Value, isotopeRef01ResdataUp0.get(isotopeRef01MarkdefUp0Name),
         "expected " + isotopeRef01MarkdefUp0Name + " to be updated");
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // LOAD
     Map<String, Object> isotopeRef01MatchDt0 = new LinkedHashMap<>();
     isotopeRef01MatchDt0.put("id", isotopeRef01Data.get("id"));
+    isotopeRef01MatchDt0.put("element_id", isotopeRef01Data.get("element_id") instanceof String || isotopeRef01Data.get("element_id") instanceof Number
+        || isotopeRef01Data.get("element_id") instanceof Boolean ? isotopeRef01Data.get("element_id") : (null != setup.idmap.get("element_id") ? setup.idmap.get("element_id") : setup.idmap.get("element01")));
     Object isotopeRef01DataDt0Loaded = isotopeRef01Ent.load(isotopeRef01MatchDt0, null);
     Map<String, Object> isotopeRef01DataDt0LoadResult = Helpers.toMapAny(isotopeRef01DataDt0Loaded instanceof SdkEntity ? ((SdkEntity) isotopeRef01DataDt0Loaded).data() : isotopeRef01DataDt0Loaded);
     assertNotNull(isotopeRef01DataDt0LoadResult, "expected load result to be a map");
-    assertEquals(isotopeRef01Data.get("id"), isotopeRef01DataDt0LoadResult.get("id"),
-        "expected load result id to match");
+    assertTrue(RunnerSupport.liveSameId(isotopeRef01DataDt0LoadResult.get("id"), isotopeRef01Data.get("id")), "expected load result id to match");
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // REMOVE
     Map<String, Object> isotopeRef01MatchRm0 = new LinkedHashMap<>();
     isotopeRef01MatchRm0.put("id", isotopeRef01Data.get("id"));
+    isotopeRef01MatchRm0.put("element_id", null != setup.idmap.get("element_id")
+        ? setup.idmap.get("element_id") : setup.idmap.get("element01"));
     isotopeRef01Ent.remove(isotopeRef01MatchRm0, null);
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // LIST
     Map<String, Object> isotopeRef01MatchRt0 = new LinkedHashMap<>();
     isotopeRef01MatchRt0.put("element_id", setup.idmap.get("element01"));
@@ -122,42 +213,19 @@ public class IsotopeEntityTest {
 
   }
 
+  static boolean hasFeature(String name) {
+    Map<String, Object> fm = Helpers.toMapAny(Config.makeConfig().get("feature"));
+    return fm != null && fm.get(name) != null;
+  }
+
   @Test
-  public void stream() {
-    Map<String, Object> streamingActive = new LinkedHashMap<>();
-    Map<String, Object> streamingOpts = new LinkedHashMap<>();
-    streamingOpts.put("active", true);
-    Map<String, Object> featureOpts = new LinkedHashMap<>();
-    featureOpts.put("streaming", streamingOpts);
-    streamingActive.put("feature", featureOpts);
-
-    RunnerSupport.EntityTestSetup setup = isotopeBasicSetup(streamingActive);
-    Assumptions.assumeFalse(setup.live,
-        "stream test streams the seeded fixture data (unit mode only)");
-
-    SdkEntity ent = setup.client.isotope(null);
-    Map<String, Object> match = new LinkedHashMap<>();
-
-    // Materialised list result for the same op.
-    Object listedResult = ent.list(match, null);
-    List<Object> listed = listedResult instanceof List
-        ? (List<Object>) listedResult : new ArrayList<>();
-
-    // stream("list") yields items via the streaming feature's iterator.
-    List<Object> streamed = ent.stream("list", match, null)
-        .collect(Collectors.toList());
-    assertTrue(streamed.size() > 0, "expected stream to yield items");
-    assertEquals(listed.size(), streamed.size(),
-        "expected stream to yield the same item count as list");
-
-    // Fallback: with streaming inactive, stream still yields the
-    // materialised items.
-    RunnerSupport.EntityTestSetup setup2 = isotopeBasicSetup(null);
-    SdkEntity ent2 = setup2.client.isotope(null);
-    List<Object> streamed2 = ent2.stream("list", match, null)
-        .collect(Collectors.toList());
-    assertEquals(listed.size(), streamed2.size(),
-        "expected fallback stream to yield the materialised items");
+  public void validate() {
+    Assumptions.assumeTrue(hasFeature("validate"), "feature not present in this SDK: validate");
+    ElementdemoSDK client = ElementdemoSDK.testSDK(null,
+        Struct.jm("feature", Struct.jm("validate", Struct.jm("active", true))));
+    SdkError err = assertThrows(SdkError.class, () ->
+        client.isotope(null).list(Struct.jm("element_id", 1), null));
+    assertEquals("validate_failed", err.code);
   }
 
   static RunnerSupport.EntityTestSetup isotopeBasicSetup(Map<String, Object> extra) {
@@ -192,10 +260,8 @@ public class IsotopeEntityTest {
         + "\"`$VAL`\": [\"`$FORMAT`\", \"upper\", \"`$COPY`\"]"
         + "}]}"));
 
-    // Detect ENTID env override before envOverride consumes it. When live
-    // mode is on without a real override, the basic test runs against
-    // synthetic IDs from the fixture and 4xx's. Surface this so the test
-    // can skip.
+    // Whether *_ENTID supplied the idmap, read before envOverride consumes
+    // it: without it, the ids a live flow binds are the fixture's synthetic ones.
     String entidEnvRaw = RunnerSupport.getenv("ELEMENTDEMO_TEST_ISOTOPE_ENTID");
     boolean idmapOverridden = entidEnvRaw != null
         && entidEnvRaw.trim().startsWith("{");

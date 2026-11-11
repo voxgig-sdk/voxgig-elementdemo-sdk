@@ -1,3 +1,4 @@
+import { flowSteps, opReachable } from '@voxgig/sdkgen'
 
 import {
   flatten,
@@ -26,7 +27,12 @@ import {
   isAuthActive,
   serverVarEnv,
   serverVariables,
-  entityDataIdField, envName, envToken
+  entityDataIdField, entityRecordIdField, envName, envToken,
+  invalidRequest,
+  liveFlowNeeds, liveStrict, liveStrictNote,
+  liveRouteExamples, liveStepExamples, flowLoadRoute, flowLoadReadsRecord,
+  liveGates, liveExcludedLines, liveExcludedSummary, LIVE_GETONLY_ENV,
+  liveEntity, liveIdentity, liveRepeatsId, liveLoadComparesId, liveUnrouted,
 } from '@voxgig/sdkgen'
 
 
@@ -36,8 +42,6 @@ function goVar(name: string): string {
 }
 
 
-// Go's GenCtx mirrors the shared shape (see TestEntity_ts.ts) plus a
-// `gomodule` slot used to build qualified package paths in emitted code.
 type GenCtx = {
   model: Model
   entity: ModelEntity
@@ -54,14 +58,14 @@ const TestEntity = cmp(function TestEntity(props: any) {
   const model: Model = ctx$.model
 
   const target = props.target
-  const entity: ModelEntity = props.entity
+  const entity: ModelEntity = liveEntity(ctx$, props.entity)
   const gomodule: string = props.gomodule
 
-  // The stream test streams the "list" op and asserts a 3-item collection, so
-  // it only applies to entities that declare a list op. Others (e.g. Batch =
-  // create/load) have no list endpoint — make_point errors and the stream
-  // yields nothing — so skip the stream test for them.
-  const hasList = !!(entity.op && (entity.op as any)?.list)
+  // The stream test streams the "list" op with no match and asserts a 3-item
+  // collection, so it only applies to an entity whose list a bare call can
+  // reach: not one without a list (e.g. Batch = create/load), not a nested
+  // list needing its parent's id, and not one whose routes all need an action.
+  const hasList = opReachable((entity.op as any)?.list, [])
 
   const basicflow: ModelEntityFlow | undefined =
     getModelPath(model, `main.${KIT}.flow.Basic${nom(entity, 'Name')}Flow`)
@@ -97,22 +101,25 @@ const TestEntity = cmp(function TestEntity(props: any) {
   const idnamesStr = idnames.map(n => `"${n}"`).join(', ')
 
   // Get all update data entries for alias generation
-  const allSteps = Object.values(basicflow.step) as any[]
-  const updateStep = allSteps.find((s: any) => s.op === 'update')
-  const updateData = updateStep?.data
-    ? Object.entries(updateStep.data).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
+  const allSteps = Object.values(flowSteps(basicflow)) as any[]
+  const updateStep = allSteps.find((s: any) => s.o === 'update')
+  const updateData = updateStep?.d
+    ? Object.entries(updateStep.d).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
     : []
   const aliases = updateData.map(([k, v]: any) => [k, v])
 
   const genCtx: GenCtx = { model, entity, gomodule, flow: basicflow, PROJUPPER }
 
+  const strict = liveStrict(model, target.name)
+  const strictConst = entity.name + 'EntityLiveStrict'
+
   // fmt is only used by the TextFieldMark Update branch — omit the import
   // when no step needs it, otherwise Go's strict unused-import check fails.
   const needsFmt = allSteps.some((s: any) =>
-    s.op === 'update' &&
-    s.input.textfield &&
-    Array.isArray(s.spec) &&
-    s.spec.some((sp: any) => sp.apply === 'TextFieldMark'))
+    s.o === 'update' &&
+    s.i.textfield &&
+    Array.isArray(s.s) &&
+    s.s.some((sp: any) => sp.apply === 'TextFieldMark'))
 
   File({ name: entity.name + '_entity_test.' + target.ext }, () => {
 
@@ -133,6 +140,10 @@ import (
 	vs "${gomodule}/utility/struct"
 )
 
+${liveStrictNote(strict, '//')}
+const ${strictConst} = ${strict}
+
+${hasList ? failHookType(entity) : ''}
 func Test${entity.Name}Entity(t *testing.T) {
 	t.Run("instance", func(t *testing.T) {
 		testsdk := sdk.TestSDK(nil, nil)
@@ -160,8 +171,11 @@ ${hasList ? `
 		// Fallback: streaming inactive -> yields the materialised list items.
 		base := sdk.TestSDK(seed, nil)
 		var seen []any
-		for item := range base.${entity.Name}(nil).Stream("list", nil, nil) {
-			seen = append(seen, item)
+		for si := range base.${entity.Name}(nil).Stream("list", nil, nil) {
+			if si.Err != nil {
+				t.Fatalf("stream failed: %v", si.Err)
+			}
+			seen = append(seen, si.Item)
 		}
 		if len(seen) != 3 {
 			t.Fatalf("expected 3 streamed items, got %d", len(seen))
@@ -177,11 +191,14 @@ ${hasList ? `
 				"feature": map[string]any{"streaming": map[string]any{"active": true}},
 			})
 			var got []any
-			for item := range streamSdk.${entity.Name}(nil).Stream("list", nil, nil) {
-				if sub, ok := item.([]any); ok {
+			for si := range streamSdk.${entity.Name}(nil).Stream("list", nil, nil) {
+				if si.Err != nil {
+					t.Fatalf("stream failed: %v", si.Err)
+				}
+				if sub, ok := si.Item.([]any); ok {
 					got = append(got, sub...)
 				} else {
-					got = append(got, item)
+					got = append(got, si.Item)
 				}
 			}
 			if len(got) != 3 {
@@ -189,8 +206,9 @@ ${hasList ? `
 			}
 		}
 	})
-` : ''}
-	t.Run("basic", func(t *testing.T) {
+${failureTests(model, entity)}` : ''}${validateTest(model, entity)}
+	t.Run("basic", func(tt *testing.T) {
+		var t testing.TB = tt
 		setup := ${entity.name}BasicSetup(nil)
 		// Per-op sdk-test-control.json skip — basic test exercises a flow
 		// with multiple ops; skipping any op skips the whole flow.
@@ -198,7 +216,7 @@ ${hasList ? `
 		if setup.live {
 			_mode = "live"
 		}
-		for _, _op := range []string{${(Array.from(new Set((allSteps as any[]).map((s: any) => s.op).filter(Boolean)))).map(o => `"${o}"`).join(', ')}} {
+		for _, _op := range []string{${(Array.from(new Set((allSteps as any[]).map((s: any) => s.o).filter(Boolean)))).map(o => `"${o}"`).join(', ')}} {
 			if _shouldSkip, _reason := isControlSkipped("entityOp", "${entity.name}." + _op, _mode); _shouldSkip {
 				if _reason == "" {
 					_reason = "skipped via sdk-test-control.json"
@@ -207,20 +225,19 @@ ${hasList ? `
 				return
 			}
 		}
-		// The basic flow consumes synthetic IDs from the fixture. In live mode
-		// without an *_ENTID env override, those IDs hit the live API and 4xx.
-		if setup.syntheticOnly {
-			t.Skip("live entity test uses synthetic IDs from fixture — set ${PROJUPPER}_TEST_${envToken(entity.name)}_ENTID JSON to run live")
-			return
-		}
-${allSteps.length > 0 ? '\t\tclient := setup.client\n\n' : ''}`)
+`)
 
-    // Check if the flow has a create step; if not, bootstrap entity data
-    const flowHasCreate = allSteps.some((s: any) => s.op === 'create')
-    if (!flowHasCreate) {
-      const preambleRef = entity.name + '_ref01'
-      const preambleVar = goVar(preambleRef)
-      Content(`		// Bootstrap entity data from existing test data (no create step in flow).
+    const flowBody = (flow: any) => {
+      const steps = flowSteps(flow) as any[]
+      Content(liveFlowGate(entity, liveFlowNeeds(entity, flow), liveIdentity(entity, flow), strict,
+        strictConst, PROJUPPER + '_TEST_' + envToken(entity.name) + '_ENTID', steps.length > 0))
+
+      // Check if the flow has a create step; if not, bootstrap entity data
+      const flowHasCreate = steps.some((s: any) => s.o === 'create')
+      if (!flowHasCreate) {
+        const preambleRef = entity.name + '_ref01'
+        const preambleVar = goVar(preambleRef)
+        Content(`		// Bootstrap entity data from existing test data (no create step in flow).
 		${preambleVar}DataRaw := vs.Items(core.ToMapAny(vs.GetPath(setup.data, "existing.${entity.name}")))
 		var ${preambleVar}Data map[string]any
 		if len(${preambleVar}DataRaw) > 0 {
@@ -231,24 +248,47 @@ ${allSteps.length > 0 ? '\t\tclient := setup.client\n\n' : ''}`)
 		_ = ${preambleVar}Data
 
 `)
+      }
+
+      // Model-driven step iteration
+      each(steps, (step: any, index: any) => {
+        // Never emit a REMOVE (or its removed-item verify LIST) without a
+        // preceding CREATE: a coherent CRUD flow only removes what it created,
+        // so a create-less remove would mutate pre-existing (live) data.
+        if (!flowHasCreate) {
+          if ('remove' === step.o) { return }
+          if ('list' === step.o &&
+            (step.v || []).some((v: any) => 'ItemNotExists' === v.apply)) { return }
+        }
+        const opgen: OpGen = GENERATE_OP[step.o]
+        if (opgen) {
+          Content(LIVE_PACE)
+          opgen({ ...genCtx, flow }, step, index)
+          Content('\n')
+        }
+      })
     }
 
-    // Model-driven step iteration
-    each(basicflow.step, (step: any, index: any) => {
-      // Never emit a REMOVE (or its removed-item verify LIST) without a
-      // preceding CREATE: a coherent CRUD flow only removes what it created,
-      // so a create-less remove would mutate pre-existing (live) data.
-      if (!flowHasCreate) {
-        if ('remove' === step.op) { return }
-        if ('list' === step.op &&
-          (step.valid || []).some((v: any) => 'ItemNotExists' === v.apply)) { return }
+    for (const { getOnly, plan, runs } of liveGates(entity, basicflow)) {
+      Content(`		if setup.live${getOnly ? ` && os.Getenv(${JSON.stringify(LIVE_GETONLY_ENV)}) == "TRUE"` : ''} {
+${liveExcludedLines(plan).map((line) => '\t\t\tt.Log(' + JSON.stringify(line) + ')\n').join('')}`)
+      if (!runs) {
+        Content(`			t.Skip(${JSON.stringify(liveExcludedSummary(plan))})
+			return
+		}
+
+`)
       }
-      const opgen: OpGen = GENERATE_OP[step.op]
-      if (opgen) {
-        opgen(genCtx, step, index)
-        Content('\n')
+      else {
+        flowBody(plan.flow)
+        Content(`		return
+		}
+
+`)
       }
-    })
+    }
+
+    flowBody(basicflow)
 
     Content(`	})
 }
@@ -273,7 +313,7 @@ ${allSteps.length > 0 ? '\t\tclient := setup.client\n\n' : ''}`)
 	if err := json.Unmarshal(entityDataSource, &entityData); err != nil {
 		panic("failed to parse ${entity.name} test data: " + err.Error())
 	}
-
+${fixtureIdentity(entity)}
 	options := map[string]any{}
 	options["entity"] = entityData["existing"]
 
@@ -281,12 +321,6 @@ ${allSteps.length > 0 ? '\t\tclient := setup.client\n\n' : ''}`)
 
 `)
 
-    // Generate idmap via vs.Transform.
-    //
-    // The error return Transform gained in struct go 0.1.3 is discarded
-    // deliberately: this transforms the entity's own id names, which the
-    // generator produced, so an error would be a generator bug rather than
-    // anything the generated test can act on.
     Content('\t// Generate idmap via transform, matching TS pattern.\n')
     Content('\tidmap, _ := vs.Transform(\n')
     Content('\t\t[]any{' + idnamesStr + '},\n')
@@ -299,9 +333,8 @@ ${allSteps.length > 0 ? '\t\tclient := setup.client\n\n' : ''}`)
     Content('\t)\n')
 
     Content(`
-	// Detect ENTID env override before envOverride consumes it. When live
-	// mode is on without a real override, the basic test runs against synthetic
-	// IDs from the fixture and 4xx's. Surface this so the test can skip.
+	// Whether *_ENTID supplied the idmap, read before envOverride consumes it:
+	// without it, the ids a live flow binds are the fixture's synthetic ones.
 	entidEnvRaw := os.Getenv("${PROJUPPER}_TEST_${envToken(entity.name)}_ENTID")
 	idmapOverridden := entidEnvRaw != "" && strings.HasPrefix(strings.TrimSpace(entidEnvRaw), "{")
 
@@ -365,20 +398,106 @@ ${allSteps.length > 0 ? '\t\tclient := setup.client\n\n' : ''}`)
 })
 
 
+const LIVE_PACE = `		if setup.live {
+			livePace()
+		}
+`
+
+
+// The live prologue of a flow built from offline fixtures: blocked without
+// the ids it binds, a create-less load reading the first listed record, and
+// a lenient run observing its checks rather than failing on them.
+function liveFlowGate(entity: any, needs: any, identity: any, strict: boolean, strictConst: string,
+  entidEnv: string, hasSteps: boolean): string {
+  let out = ''
+  if (null != needs.examples) {
+    out += `		if setup.live {
+			for _liveKey, _liveEx := range map[string]any{${needs.examples
+      .map(([k, ex]: any) => JSON.stringify(k) + ': ' + goIdLit(ex)).join(', ')}} {
+				if setup.syntheticOnly || setup.idmap[_liveKey] == nil {
+					setup.idmap[_liveKey] = _liveEx
+				}
+			}
+		}
+`
+  }
+  if (0 < needs.keys.length) {
+    out += `		if setup.live {
+			for _, _liveKey := range []string{${needs.keys.map((k: string) => JSON.stringify(k)).join(', ')}} {
+				if setup.syntheticOnly || setup.idmap[_liveKey] == nil {
+					liveMiss(t, ${strictConst}, "Live entity test blocked: needs %s via ${entidEnv}", _liveKey)
+				}
+			}
+		}
+`
+  }
+  if (null != needs.blocked) {
+    out += `		if setup.live {
+			liveMiss(t, ${strictConst}, "Live entity test blocked: %s", ${JSON.stringify(needs.blocked)})
+		}
+`
+  }
+  if (hasSteps) {
+    // A flow whose every step is skipped (a remove with no data id) uses none.
+    out += '\t\tclient := setup.client\n\t\t_ = client\n'
+  }
+  if (null != needs.record) {
+    const id = `setup.idmap[${JSON.stringify(needs.record)}]`
+    out += `		if setup.live {
+			liveExisting(t, ${strictConst}, setup.data, ${JSON.stringify(entity.name)}, ${JSON.stringify(identity.field)}, ${id},
+				func() (any, error) {
+					return []any{map[string]any{"id": ${id}}}, nil
+				})
+		}
+`
+  }
+  if (null != needs.discover) {
+    const match = 'map[string]any{' + Object.entries(needs.discover)
+      .map(([k, v]: any) => `${JSON.stringify(k)}: setup.idmap[${JSON.stringify(v)}]`)
+      .concat(liveRouteExamples(entity, 'list', Object.keys(needs.discover))
+        .map(([k, ex]) => `${JSON.stringify(k)}: ${JSON.stringify(ex)}`)).join(', ') + '}'
+    const omit = needs.unrouted || []
+    out += `		if setup.live {
+			var _liveId any
+			if !setup.syntheticOnly {
+				_liveId = setup.idmap[${JSON.stringify(identity.key)}]
+			}
+${undefined === identity.ex ? '' : `			if _liveId == nil {
+				_liveId = ${goIdLit(identity.ex)}
+			}
+`}${0 === omit.length ? '' : `			_liveMatch := ${match}
+${liveOmit(omit, '_liveMatch', '\t\t\t')}`}			livePace()
+			liveExisting(t, ${strictConst}, setup.data, ${JSON.stringify(entity.name)}, ${JSON.stringify(identity.field)}, _liveId,
+				func() (any, error) {
+					return client.${entity.Name}(nil).List(${0 === omit.length ? match : '_liveMatch'}, nil)
+				})
+		}
+`
+  }
+  if (!strict) {
+    out += `		if setup.live {
+			t = liveObserver{tt}
+		}
+`
+  }
+  return out + (hasSteps ? '\n' : '')
+}
+
+
 const generateCreate: OpGen = (ctx, step, index) => {
   const { entity, flow } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = goVar(step.input.entvar ?? ref + '_ent')
-  const datavar = goVar(step.input.datavar ?? (ref + '_data' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = goVar(step.i.entvar ?? ref + '_ent')
+  const datavar = goVar(step.i.datavar ?? (ref + '_data' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   const hasDatvar = priorSteps.some((s: any) => {
-    if ('create' === s.op) {
-      const priorRef = s.input.ref ?? entity.name + '_ref01'
-      const priorDatvar = goVar(s.input.datavar ?? (priorRef + '_data' + (s.input.suffix ?? '')))
+    if ('create' === s.o) {
+      const priorRef = s.i.ref ?? entity.name + '_ref01'
+      const priorDatvar = goVar(s.i.datavar ?? (priorRef + '_data' + (s.i.suffix ?? '')))
       return priorDatvar === datavar
     }
     return false
@@ -420,7 +539,7 @@ const generateCreate: OpGen = (ctx, step, index) => {
 		}
 `)
   if (null != ctx.entity.id) {
-    Content(`		if ${datavar}["id"] == nil {
+    Content(`		if ${datavar}[${rid(ctx.entity)}] == nil {
 			t.Fatal("expected created entity to have an id")
 		}
 `)
@@ -431,14 +550,14 @@ const generateCreate: OpGen = (ctx, step, index) => {
 const generateList: OpGen = (ctx, step, index) => {
   const { entity, flow } = ctx
   const hasDataId = null != entityDataIdField(entity)
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = goVar(step.input.entvar ?? ref + '_ent')
-  const matchvar = goVar(step.input.matchvar ?? (ref + '_match' + (step.input.suffix ?? '')))
-  const listvar = goVar(step.input.listvar ?? (ref + '_list' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = goVar(step.i.entvar ?? ref + '_ent')
+  const matchvar = goVar(step.i.matchvar ?? (ref + '_match' + (step.i.suffix ?? '')))
+  const listvar = goVar(step.i.listvar ?? (ref + '_list' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   Content(`		// LIST
 `)
@@ -462,17 +581,18 @@ const generateList: OpGen = (ctx, step, index) => {
     Content(`		}
 `)
   }
+  liveFill(entity, step, matchvar, flow)
 
   // Only declare ${listvar} as a real var when a downstream validator
   // actually uses it; otherwise `_` to satisfy Go's unused-var check.
-  const allSteps = Object.values(flow.step) as any[]
+  const allSteps = Object.values(flowSteps(flow)) as any[]
   // hasDataId: the ItemExists/ItemNotExists asserts (the only listvar users) are
   // now gated on a real DATA id field, so without one the list result is unused.
-  const listvarUsed = hasDataId && !!step.valid?.some((v: any) => {
+  const listvarUsed = hasDataId && !!step.v?.some((v: any) => {
     if ('ItemExists' !== v.apply && 'ItemNotExists' !== v.apply) return false
     const validRef = v.def?.ref
-    return validRef && allSteps.some((s: any) => 'create' === s.op &&
-      ((s.input.ref ?? entity.name + '_ref01') === validRef))
+    return validRef && allSteps.some((s: any) => 'create' === s.o &&
+      ((s.i.ref ?? entity.name + '_ref01') === validRef))
   })
   const listvarBind = listvarUsed ? listvar : '_'
 
@@ -490,17 +610,17 @@ const generateList: OpGen = (ctx, step, index) => {
 		}
 `)
 
-  // Handle validators from step.valid
-  if (step.valid) {
-    for (const validator of step.valid) {
+  // Handle validators from step.v
+  if (step.v) {
+    for (const validator of step.v) {
       const validRef = validator.def?.ref
-      const hasRefData = validRef && allSteps.some((s: any) => 'create' === s.op &&
-        ((s.input.ref ?? entity.name + '_ref01') === validRef))
+      const hasRefData = validRef && allSteps.some((s: any) => 'create' === s.o &&
+        ((s.i.ref ?? entity.name + '_ref01') === validRef))
 
       if ('ItemExists' === validator.apply && hasRefData && hasDataId) {
         const refDataVar = goVar(validRef + '_data')
         Content(`
-		foundItem := vs.Select(entityListToData(${listvar}), map[string]any{"id": ${refDataVar}["id"]})
+		foundItem := vs.Select(entityListToData(${listvar}), map[string]any{${rid(entity)}: ${refDataVar}[${rid(entity)}]})
 		if vs.IsEmpty(foundItem) {
 			t.Fatal("expected to find created entity in list")
 		}
@@ -508,7 +628,7 @@ const generateList: OpGen = (ctx, step, index) => {
       } else if ('ItemNotExists' === validator.apply && hasRefData && hasDataId) {
         const refDataVar = goVar(validRef + '_data')
         Content(`
-		notFoundItem := vs.Select(entityListToData(${listvar}), map[string]any{"id": ${refDataVar}["id"]})
+		notFoundItem := vs.Select(entityListToData(${listvar}), map[string]any{${rid(entity)}: ${refDataVar}[${rid(entity)}]})
 		if !vs.IsEmpty(notFoundItem) {
 			t.Fatal("expected removed entity to not be in list")
 		}
@@ -521,16 +641,16 @@ const generateList: OpGen = (ctx, step, index) => {
 
 const generateUpdate: OpGen = (ctx, step, index) => {
   const { entity, flow } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = goVar(step.input.entvar ?? ref + '_ent')
-  const datavar = goVar(step.input.datavar ?? (ref + '_data' + (step.input.suffix ?? '')))
-  const resdatavar = goVar(step.input.resdatavar ?? (ref + '_resdata' + (step.input.suffix ?? '')))
-  const markdefvar = goVar(step.input.markdefvar ?? (ref + '_markdef' + (step.input.suffix ?? '')))
-  const srcdatavar = goVar(step.input.srcdatavar ?? (ref + '_data' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = goVar(step.i.entvar ?? ref + '_ent')
+  const datavar = goVar(step.i.datavar ?? (ref + '_data' + (step.i.suffix ?? '')))
+  const resdatavar = goVar(step.i.resdatavar ?? (ref + '_resdata' + (step.i.suffix ?? '')))
+  const markdefvar = goVar(step.i.markdefvar ?? (ref + '_markdef' + (step.i.suffix ?? '')))
+  const srcdatavar = goVar(step.i.srcdatavar ?? (ref + '_data' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   const hasEntIdU = null != entity.id
 
@@ -543,13 +663,13 @@ const generateUpdate: OpGen = (ctx, step, index) => {
   Content(`		${datavar}Up := map[string]any{
 `)
   if (hasEntIdU) {
-    Content(`			"id": ${srcdatavar}["id"],
+    Content(`			"id": ${srcdatavar}[${rid(entity)}],
 `)
   }
 
-  // Add data entries from step.data
-  if (step.data) {
-    const dataEntries = Object.entries(step.data).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
+  // Add data entries from step.d
+  if (step.d) {
+    const dataEntries = Object.entries(step.d).filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
     for (const [key] of dataEntries) {
       Content(`			"${key}": setup.idmap["${key}"],
 `)
@@ -560,10 +680,10 @@ const generateUpdate: OpGen = (ctx, step, index) => {
 `)
 
   // Handle TextFieldMark spec
-  if (step.spec) {
-    for (const spec of step.spec) {
-      if ('TextFieldMark' === spec.apply && null != step.input.textfield) {
-        const fieldname = step.input.textfield
+  if (step.s) {
+    for (const spec of step.s) {
+      if ('TextFieldMark' === spec.apply && null != step.i.textfield) {
+        const fieldname = step.i.textfield
         const fieldvalue = spec.def?.mark ?? `Mark01-${ref}`
         Content(`
 		${markdefvar}Name := "${fieldname}"
@@ -585,16 +705,16 @@ const generateUpdate: OpGen = (ctx, step, index) => {
 		}
 `)
   if (hasEntIdU) {
-    Content(`		if ${resdatavar}["id"] != ${datavar}Up["id"] {
+    Content(`		if ${liveDeclared(liveRepeatsId(entity))}!liveSameId(${resdatavar}[${rid(entity)}], ${datavar}Up["id"]) {
 			t.Fatal("expected update result id to match")
 		}
 `)
   }
 
   // Assert TextFieldMark
-  if (step.spec) {
-    for (const spec of step.spec) {
-      if ('TextFieldMark' === spec.apply && null != step.input.textfield) {
+  if (step.s) {
+    for (const spec of step.s) {
+      if ('TextFieldMark' === spec.apply && null != step.i.textfield) {
         Content(`		if ${resdatavar}[${markdefvar}Name] != ${markdefvar}Value {
 			t.Fatalf("expected %s to be updated, got %v", ${markdefvar}Name, ${resdatavar}[${markdefvar}Name])
 		}
@@ -607,24 +727,24 @@ const generateUpdate: OpGen = (ctx, step, index) => {
 
 const generateLoad: OpGen = (ctx, step, index) => {
   const { entity, flow } = ctx
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = goVar(step.input.entvar ?? ref + '_ent')
-  const matchvar = goVar(step.input.matchvar ?? (ref + '_match' + (step.input.suffix ?? '')))
-  const datavar = goVar(step.input.datavar ?? (ref + '_data' + (step.input.suffix ?? '')))
-  const srcdatavar = goVar(step.input.srcdatavar ?? (ref + '_data' + (step.input.suffix ?? '')))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = goVar(step.i.entvar ?? ref + '_ent')
+  const matchvar = goVar(step.i.matchvar ?? (ref + '_match' + (step.i.suffix ?? '')))
+  const datavar = goVar(step.i.datavar ?? (ref + '_data' + (step.i.suffix ?? '')))
+  const srcdatavar = goVar(step.i.srcdatavar ?? (ref + '_data' + (step.i.suffix ?? '')))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const hasEntVar = priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   // Check if srcdatavar was declared by a prior create step or preamble
-  const flowHasCreate = Object.values(flow.step).some((s: any) => (s as any).op === 'create')
+  const flowHasCreate = Object.values(flowSteps(flow)).some((s: any) => (s as any).o === 'create')
   const preambleRef = entity.name + '_ref01'
   const hasSrcData = (!flowHasCreate && srcdatavar === goVar(preambleRef + '_data')) ||
     priorSteps.some((s: any) => {
-      if ('create' === s.op) {
-        const priorRef = s.input.ref ?? entity.name + '_ref01'
-        const priorDatvar = goVar(s.input.datavar ?? (priorRef + '_data' + (s.input.suffix ?? '')))
+      if ('create' === s.o) {
+        const priorRef = s.i.ref ?? entity.name + '_ref01'
+        const priorDatvar = goVar(s.i.datavar ?? (priorRef + '_data' + (s.i.suffix ?? '')))
         return priorDatvar === srcdatavar
       }
       return false
@@ -638,7 +758,7 @@ const generateLoad: OpGen = (ctx, step, index) => {
     Content(`		${entvar} := client.${entity.Name}(nil)
 `)
   }
-  if (!hasSrcData && hasEntId) {
+  if (!hasSrcData && (hasEntId || flowLoadReadsRecord(entity, step))) {
     Content(`		${srcdatavar}Raw := vs.Items(core.ToMapAny(vs.GetPath(setup.data, "existing.${entity.name}")))
 		var ${srcdatavar} map[string]any
 		if len(${srcdatavar}Raw) > 0 {
@@ -648,9 +768,12 @@ const generateLoad: OpGen = (ctx, step, index) => {
   }
   if (hasEntId) {
     Content(`		${matchvar} := map[string]any{
-			"id": ${srcdatavar}["id"],
+			"id": ${srcdatavar}[${rid(entity)}],
 		}
-		${datavar}Loaded, err := ${entvar}.Load(${matchvar}, nil)
+`)
+    loadMatch(entity, step, matchvar, srcdatavar)
+    liveFill(entity, step, matchvar, flow)
+    Content(`		${datavar}Loaded, err := ${entvar}.Load(${matchvar}, nil)
 		if err != nil {
 			t.Fatalf("load failed: %v", err)
 		}
@@ -658,14 +781,17 @@ const generateLoad: OpGen = (ctx, step, index) => {
 		if ${datavar}LoadResult == nil {
 			t.Fatal("expected load result to be a map")
 		}
-		if ${datavar}LoadResult["id"] != ${srcdatavar}["id"] {
+		if ${liveDeclared(liveLoadComparesId(entity, flow))}!liveSameId(${datavar}LoadResult[${rid(entity)}], ${srcdatavar}[${rid(entity)}]) {
 			t.Fatal("expected load result id to match")
 		}
 `)
   }
   else {
     Content(`		${matchvar} := map[string]any{}
-		${datavar}Loaded, err := ${entvar}.Load(${matchvar}, nil)
+`)
+    loadMatch(entity, step, matchvar, srcdatavar)
+    liveFill(entity, step, matchvar, flow)
+    Content(`		${datavar}Loaded, err := ${entvar}.Load(${matchvar}, nil)
 		if err != nil {
 			t.Fatalf("load failed: %v", err)
 		}
@@ -682,14 +808,14 @@ const generateRemove: OpGen = (ctx, step, index) => {
   if (null == entityDataIdField(entity)) {
     return
   }
-  const ref = step.input.ref ?? entity.name + '_ref01'
-  const entvar = goVar(step.input.entvar ?? ref + '_ent')
-  const matchvar = goVar(step.input.matchvar ?? (ref + '_match' + (step.input.suffix ?? '')))
-  const srcdatavar = goVar(step.input.srcdatavar ?? (ref + '_data'))
+  const ref = step.i.ref ?? entity.name + '_ref01'
+  const entvar = goVar(step.i.entvar ?? ref + '_ent')
+  const matchvar = goVar(step.i.matchvar ?? (ref + '_match' + (step.i.suffix ?? '')))
+  const srcdatavar = goVar(step.i.srcdatavar ?? (ref + '_data'))
 
-  const priorSteps = Object.values(flow.step).slice(0, Number(index)) as any[]
+  const priorSteps = Object.values(flowSteps(flow)).slice(0, Number(index)) as any[]
   const needsEnt = !priorSteps.some((s: any) =>
-    ['create', 'list', 'load', 'update', 'remove'].includes(s.op))
+    ['create', 'list', 'load', 'update', 'remove'].includes(s.o))
 
   // Use `:=` when this is the first op step (so `err` gets declared);
   // otherwise reuse the `err` from a prior op step.
@@ -703,13 +829,122 @@ const generateRemove: OpGen = (ctx, step, index) => {
   }
   // Always match the prior-created entity by id to avoid mock-order flakes.
   Content(`		${matchvar} := map[string]any{
-			"id": ${srcdatavar}["id"],
+			"id": ${srcdatavar}[${rid(entity)}],
 		}
-		_, err ${errOp} ${entvar}.Remove(${matchvar}, nil)
+`)
+  parentMatch(step, matchvar)
+  Content(`		_, err ${errOp} ${entvar}.Remove(${matchvar}, nil)
 		if err != nil {
 			t.Fatalf("remove failed: %v", err)
 		}
 `)
+}
+
+
+// The record field the entity's identity is read from, as a Go string literal.
+function rid(entity: any): string {
+  return JSON.stringify(entityRecordIdField(entity))
+}
+
+
+// A live result is compared on its identity only as the live entity harness does.
+function liveDeclared(compares: boolean): string {
+  return compares ? '' : '!setup.live && '
+}
+
+
+// The fixture keeps each record's key in `id`; an entity keeping its identity
+// in another field reads the key from there too.
+function fixtureIdentity(entity: any): string {
+  const field = entityRecordIdField(entity)
+  return 'id' === field ? '' : `
+	for _, rec := range core.ToMapAny(vs.GetPath(entityData, "existing.${entity.name}")) {
+		if recMap := core.ToMapAny(rec); recMap != nil && recMap["id"] != nil {
+			recMap[${JSON.stringify(field)}] = recMap["id"]
+		}
+	}
+`
+}
+
+
+// A child's route names its parents, and an entity no earlier step has
+// filled knows none of them, so the call itself gives each parent id. A live
+// ENTID may key a parent by its field name, the fixture by its own name.
+// A live step sends each example its route requires and the step leaves unbound.
+function liveFill(entity: any, step: any, matchvar: string, flow: any) {
+  const fills = liveStepExamples(entity, step, flow)
+  const omit = liveUnrouted(entity, step, flow)
+  if (0 < fills.length + omit.length) {
+    Content(`		if setup.live {
+${fills.map(([k, ex]) => `			${matchvar}[${JSON.stringify(k)}] = ${JSON.stringify(ex)}\n`).join('')}${liveOmit(omit, matchvar, '\t\t\t')}		}
+`)
+  }
+}
+
+
+// A binding the live route does not take is sent only as *_ENTID gives it.
+function liveOmit(omit: [string, string][], matchvar: string, indent: string): string {
+  return omit.map(([name, key]) => `${indent}if setup.syntheticOnly || setup.idmap[${JSON.stringify(key)}] == nil {
+${indent}	delete(${matchvar}, ${JSON.stringify(name)})
+${indent}}
+`).join('')
+}
+
+
+// A number as JSON decodes one, so an example compares equal to a record's id.
+function goIdLit(value: any): string {
+  return 'number' === typeof value ? 'float64(' + value + ')' : JSON.stringify(value)
+}
+
+
+function parentMatch(step: any, matchvar: string) {
+  const parents = Object.entries(step.m || {})
+    .filter(([k]: any) => k !== 'id' && !k.endsWith('$'))
+  for (const [key, val] of parents) {
+    Content(boundMatch(matchvar, key, [key, val as string], '\t\t'))
+  }
+}
+
+
+function boundMatch(matchvar: string, name: string, keys: string[], indent: string): string {
+  return 1 === keys.length ? `${indent}${matchvar}["${name}"] = setup.idmap["${keys[0]}"]
+` : `${indent}if v := setup.idmap["${keys[0]}"]; v != nil {
+${indent}	${matchvar}["${name}"] = v
+${indent}} else {
+${indent}	${matchvar}["${name}"] = setup.idmap["${keys[1]}"]
+${indent}}
+`
+}
+
+
+// A load of a known record fills its route from that record, and from the
+// step's binding where the record holds no scalar for it. A record only the
+// fixture holds replaces the step's binding offline.
+function loadMatch(entity: any, step: any, matchvar: string, srcdatavar: string) {
+  const route = flowLoadRoute(entity, step)
+  if (null == route) {
+    return parentMatch(step, matchvar)
+  }
+  if (route.offline) {
+    parentMatch(step, matchvar)
+    const own = route.args.filter((arg) => null != arg.field)
+    return 0 === own.length ? undefined : Content(`		if !setup.live {
+${own.map((arg) => `			switch v := ${srcdatavar}["${arg.field}"].(type) {
+			case string, bool, float64, int, int64:
+				${matchvar}["${arg.name}"] = v
+			}
+`).join('')}		}
+`)
+  }
+  for (const arg of route.args) {
+    Content(null == arg.field ? boundMatch(matchvar, arg.name, arg.idmap, '\t\t') :
+      `		switch v := ${srcdatavar}["${arg.field}"].(type) {
+		case string, bool, float64, int, int64:
+			${matchvar}["${arg.name}"] = v
+		default:
+${boundMatch(matchvar, arg.name, arg.idmap, '\t\t\t')}		}
+`)
+  }
 }
 
 
@@ -719,6 +954,131 @@ const GENERATE_OP: Record<string, OpGen> = {
   update: generateUpdate,
   load: generateLoad,
   remove: generateRemove,
+}
+
+
+// A feature whose PreSpec hook panics, counting the PreUnexpected calls it sees.
+function failHookType(entity: ModelEntity): string {
+  return `
+type ${entity.name}FailHook struct {
+	sdk.BaseFeature
+	unexpected int
+}
+
+func (f *${entity.name}FailHook) PreSpec(ctx *sdk.Context) {
+	panic("${entity.name} hook failed")
+}
+
+func (f *${entity.name}FailHook) PreUnexpected(ctx *sdk.Context) {
+	f.unexpected++
+}
+`
+}
+
+
+// A failed operation ends a stream with its error as the last value: a
+// transport failure, and a hook that rejects the call. A panicking hook
+// fires PreUnexpected. The caller's ctrl stays its own.
+function failureTests(model: Model, entity: ModelEntity): string {
+  const Name = entity.Name
+  const SdkError = 'core.' + model.const.Name + 'Error'
+  return `
+	t.Run("stream-error", func(t *testing.T) {
+		offline := map[string]any{"net": map[string]any{"offline": true}}
+		var streamerr error
+		for si := range sdk.TestSDK(offline, nil).${Name}(nil).Stream("list", nil, nil) {
+			if si.Err != nil {
+				streamerr = si.Err
+			}
+		}
+		if nil == streamerr || !strings.Contains(streamerr.Error(), "offline") {
+			t.Fatalf("expected the transport failure as a stream value, got %v", streamerr)
+		}
+
+		quiet := map[string]any{"ctrl": map[string]any{"throw": false}}
+		for si := range sdk.TestSDK(offline, nil).${Name}(nil).Stream("list", nil, quiet) {
+			if si.Err != nil {
+				t.Fatalf("throw false: expected no error value, got %v", si.Err)
+			}
+		}
+
+		if fhHasFeature("rbac") {
+			denied := sdk.TestSDK(nil, map[string]any{
+				"feature": map[string]any{"rbac": map[string]any{"active": true, "deny": true}},
+			})
+			var denyerr error
+			for si := range denied.${Name}(nil).Stream("list", nil, nil) {
+				if si.Err != nil {
+					denyerr = si.Err
+				}
+			}
+			if sdkerr, ok := denyerr.(*${SdkError}); !ok || "rbac_denied" != sdkerr.Code {
+				t.Fatalf("expected the rbac denial as a stream value, got %v", denyerr)
+			}
+		}
+	})
+
+	t.Run("stream-ctrl", func(t *testing.T) {
+		explain := map[string]any{}
+		ctrl := map[string]any{"explain": explain}
+		for range sdk.TestSDK(nil, nil).${Name}(nil).Stream("list", nil, map[string]any{"ctrl": ctrl}) {
+		}
+		if _, has := ctrl["stream"]; has || 1 != len(ctrl) {
+			t.Fatalf("the stream changed the caller's ctrl")
+		}
+		if 0 == len(explain) {
+			t.Fatalf("the caller's explain record was not filled")
+		}
+	})
+
+	t.Run("unexpected", func(t *testing.T) {
+		hook := &${entity.name}FailHook{
+			BaseFeature: sdk.BaseFeature{Version: "0.0.1", Name: "failhook", Active: true}}
+		client := sdk.TestSDK(nil, map[string]any{"extend": []any{hook}})
+
+		_, err := client.${Name}(nil).List(nil, nil)
+		if nil == err || !strings.Contains(err.Error(), "hook failed") {
+			t.Fatalf("expected the hook's failure, got %v", err)
+		}
+		if 0 == hook.unexpected {
+			t.Fatalf("PreUnexpected did not fire")
+		}
+
+		fired := hook.unexpected
+		if _, err := client.${Name}(nil).List(nil, map[string]any{"throw": false}); nil != err {
+			t.Fatalf("throw false: expected no error, got %v", err)
+		}
+		if fired == hook.unexpected {
+			t.Fatalf("throw false: PreUnexpected did not fire")
+		}
+	})
+`
+}
+
+
+// An invalid request fails with validate's own error, before it is sent.
+function validateTest(model: Model, entity: ModelEntity): string {
+  const bad = invalidRequest(entity)
+  if (null == bad) {
+    return ''
+  }
+  const SdkError = 'core.' + model.const.Name + 'Error'
+  const args = Object.entries(bad.args)
+    .map(([k, v]) => JSON.stringify(k) + ': ' + JSON.stringify(v)).join(', ')
+  return `
+	t.Run("validate", func(t *testing.T) {
+		if !fhHasFeature("validate") {
+			t.Skip("feature not present in this SDK: validate")
+		}
+		client := sdk.TestSDK(nil, map[string]any{
+			"feature": map[string]any{"validate": map[string]any{"active": true}},
+		})
+		_, err := client.${entity.Name}(nil).${bad.op[0].toUpperCase() + bad.op.slice(1)}(map[string]any{${args}}, nil)
+		if sdkerr, ok := err.(*${SdkError}); !ok || "validate_failed" != sdkerr.Code {
+			t.Fatalf("expected validate_failed, got %v", err)
+		}
+	})
+`
 }
 
 

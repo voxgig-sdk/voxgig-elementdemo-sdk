@@ -1,5 +1,5 @@
-// VENDORED: @voxgig/sekreto sdk-20260904-1610-0 (go/plugins/onepassword/onepassword.go)
-// Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/sekreto sdk-20261016-0845-0 (go/plugins/onepassword/onepassword.go)
+// Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 // The onepassword plugin: 1Password, through a Connect server. Needs
 // HTTPS. A port of typescript/plugins/onepassword.ts.
@@ -15,12 +15,6 @@ import (
 	"GOMODULE/feature/secrets/sekreto"
 )
 
-// Provider reads 1Password, through a Connect server.
-//
-// The item titled api.token (titles keep their dots), in the named vault.
-// The value is the field with purpose PASSWORD, or the field labelled
-// `value`. A vault that cannot be found is an error - config names it, so
-// its absence is a broken store, not a missing secret.
 type Provider struct {
 	Addr  string
 	Token string

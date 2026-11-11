@@ -16,12 +16,97 @@ func MakeConfig() map[string]any {
 			"target": "go",
 		},
 		"feature": map[string]any{
+			"debug": map[string]any{
+				"options": map[string]any{
+					"active": false,
+					"max": 100,
+					"redact": []any{
+						"authorization",
+						"cookie",
+						"set-cookie",
+						"api-key",
+						"apikey",
+						"x-api-key",
+						"idempotency-key",
+					},
+				},
+				"optspec": map[string]any{
+					"now": "`$FUNCTION`",
+					"onEntry": "`$FUNCTION`",
+				},
+				"strict": false,
+				"transport": "none",
+			},
 			"elementcard": map[string]any{
 				"options": map[string]any{
 					"active": false,
 					"print": false,
 				},
+				"optspec": map[string]any{},
+				"strict": false,
 				"transport": "none",
+			},
+			"idempotency": map[string]any{
+				"options": map[string]any{
+					"active": false,
+					"header": "Idempotency-Key",
+					"methods": []any{
+						"POST",
+						"PUT",
+						"PATCH",
+						"DELETE",
+					},
+					"ops": []any{
+						"create",
+						"update",
+						"remove",
+					},
+				},
+				"optspec": map[string]any{
+					"keygen": "`$FUNCTION`",
+				},
+				"strict": false,
+				"transport": "none",
+			},
+			"metrics": map[string]any{
+				"options": map[string]any{
+					"active": false,
+				},
+				"optspec": map[string]any{
+					"now": "`$FUNCTION`",
+				},
+				"strict": false,
+				"transport": "none",
+			},
+			"paging": map[string]any{
+				"options": map[string]any{
+					"active": false,
+					"afterVar": "after",
+					"cursorParam": "cursor",
+					"firstVar": "first",
+					"limitParam": "limit",
+					"pageParam": "page",
+					"startPage": 1,
+				},
+				"optspec": map[string]any{
+					"limit": "`$NUMBER`",
+					"ops": "`$LIST`",
+				},
+				"strict": false,
+				"transport": "none",
+			},
+			"ratelimit": map[string]any{
+				"options": map[string]any{
+					"active": false,
+					"burst": 5,
+					"rate": 5,
+				},
+				"optspec": map[string]any{
+					"now": "`$FUNCTION`",
+					"sleep": "`$FUNCTION`",
+				},
+				"strict": false,
+				"transport": "wrap",
 			},
 			"retry": map[string]any{
 				"options": map[string]any{
@@ -40,6 +125,11 @@ func MakeConfig() map[string]any {
 						504,
 					},
 				},
+				"optspec": map[string]any{
+					"jitter": "`$BOOLEAN`",
+					"sleep": "`$FUNCTION`",
+				},
+				"strict": false,
 				"transport": "wrap",
 			},
 			"secrets": map[string]any{
@@ -61,12 +151,19 @@ func MakeConfig() map[string]any {
 					"name": "apikey",
 					"providers": []any{},
 				},
+				"optspec": map[string]any{},
+				"strict": false,
 				"transport": "wrap",
 			},
 			"test": map[string]any{
 				"options": map[string]any{
 					"active": false,
 				},
+				"optspec": map[string]any{
+					"entity": "`$MAP`",
+					"net": "`$MAP`",
+				},
+				"strict": false,
 				"transport": "base",
 			},
 			"timeout": map[string]any{
@@ -74,6 +171,12 @@ func MakeConfig() map[string]any {
 					"active": false,
 					"ms": 30000,
 				},
+				"optspec": map[string]any{
+					"clearTimer": "`$FUNCTION`",
+					"now": "`$FUNCTION`",
+					"setTimer": "`$FUNCTION`",
+				},
+				"strict": false,
 				"transport": "wrap",
 			},
 		},
@@ -100,79 +203,83 @@ func MakeConfig() map[string]any {
 				"fields": []any{
 					map[string]any{
 						"name": "block",
+						"title": "Block",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Orbital block, one of s, p, d, f.",
-						"type": "`$STRING`",
-					},
-					map[string]any{
-						"name": "charge",
-						"type": "`$INTEGER`",
 					},
 					map[string]any{
 						"name": "discovered",
-						"short": "Year of discovery, absent for elements known since antiquity.",
+						"title": "Discovered",
 						"type": "`$INTEGER`",
+						"short": "Year of discovery, absent for elements known since antiquity.",
 					},
 					map[string]any{
 						"name": "group",
-						"short": "Periodic table column, 1 to 18, absent for the f-block.",
+						"title": "Group",
 						"type": "`$INTEGER`",
+						"short": "Periodic table column, 1 to 18, absent for the f-block.",
 					},
 					map[string]any{
 						"name": "id",
+						"title": "Id",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Element identifier, the lowercase symbol.",
-						"type": "`$STRING`",
-					},
-					map[string]any{
-						"name": "ion",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "mass",
+						"title": "Mass",
+						"type": "`$NUMBER`",
 						"req": true,
 						"short": "Standard atomic weight in daltons.",
-						"type": "`$NUMBER`",
+						"format": "float",
 					},
 					map[string]any{
 						"name": "name",
+						"title": "Name",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Element name.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "number",
+						"title": "Number",
+						"type": "`$INTEGER`",
 						"req": true,
 						"short": "Atomic number.",
-						"type": "`$INTEGER`",
-					},
-					map[string]any{
-						"name": "ok",
-						"type": "`$BOOLEAN`",
 					},
 					map[string]any{
 						"name": "period",
+						"title": "Period",
+						"type": "`$INTEGER`",
 						"req": true,
 						"short": "Periodic table row, 1 to 7.",
-						"type": "`$INTEGER`",
 					},
 					map[string]any{
 						"name": "phase",
-						"short": "Phase at standard temperature and pressure.",
+						"title": "Phase",
 						"type": "`$STRING`",
+						"short": "Phase at standard temperature and pressure.",
 					},
 					map[string]any{
 						"name": "series_id",
+						"title": "Series Id",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Chemical series this element belongs to.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "symbol",
+						"title": "Symbol",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Chemical symbol.",
-						"type": "`$STRING`",
 					},
+				},
+				"id": map[string]any{
+					"field": "id",
+					"name": "id",
 				},
 				"name": "element",
 				"op": map[string]any{
@@ -181,30 +288,9 @@ func MakeConfig() map[string]any {
 						"name": "create",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "POST",
 								"orig": "/element/{element_id}/ionize",
-								"parts": []any{
-									"element",
-									"{id}",
-									"ionize",
-								},
-								"rename": map[string]any{
-									"param": map[string]any{
-										"element_id": "id",
-									},
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
@@ -216,34 +302,64 @@ func MakeConfig() map[string]any {
 										"lit": "ionize",
 									},
 								},
+								"parts": []any{
+									"element",
+									"{id}",
+									"ionize",
+								},
+								"rename": map[string]any{
+									"param": map[string]any{
+										"element_id": "id",
+									},
+								},
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+									},
+								},
 								"select": map[string]any{
 									"$action": "ionize",
 									"exist": []any{
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 							map[string]any{
-								"args": map[string]any{},
 								"kind": "http",
 								"method": "POST",
 								"orig": "/element",
-								"parts": []any{
-									"element",
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
 									},
 								},
-								"select": map[string]any{},
+								"parts": []any{
+									"element",
+								},
+								"rename": map[string]any{},
 								"transform": map[string]any{
 									"req": "`reqdata`",
 									"res": "`body`",
+								},
+								"args": map[string]any{},
+								"select": map[string]any{},
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -253,22 +369,27 @@ func MakeConfig() map[string]any {
 						"name": "list",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/element",
-								"parts": []any{
-									"element",
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
 									},
 								},
-								"select": map[string]any{},
+								"parts": []any{
+									"element",
+								},
+								"rename": map[string]any{},
 								"transform": map[string]any{
 									"req": "`reqdata`",
 									"res": "`body`",
+								},
+								"args": map[string]any{},
+								"select": map[string]any{},
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -278,20 +399,17 @@ func MakeConfig() map[string]any {
 						"name": "load",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/element/{element_id}",
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "id",
+									},
+								},
 								"parts": []any{
 									"element",
 									"{id}",
@@ -301,12 +419,19 @@ func MakeConfig() map[string]any {
 										"element_id": "id",
 									},
 								},
-								"segments": []any{
-									map[string]any{
-										"lit": "element",
-									},
-									map[string]any{
-										"var": "id",
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
 									},
 								},
 								"select": map[string]any{
@@ -314,9 +439,9 @@ func MakeConfig() map[string]any {
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -326,20 +451,17 @@ func MakeConfig() map[string]any {
 						"name": "remove",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "DELETE",
 								"orig": "/element/{element_id}",
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "id",
+									},
+								},
 								"parts": []any{
 									"element",
 									"{id}",
@@ -349,22 +471,25 @@ func MakeConfig() map[string]any {
 										"element_id": "id",
 									},
 								},
-								"segments": []any{
-									map[string]any{
-										"lit": "element",
-									},
-									map[string]any{
-										"var": "id",
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
 									},
 								},
 								"select": map[string]any{
 									"exist": []any{
 										"id",
 									},
-								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
 								},
 							},
 						},
@@ -374,20 +499,17 @@ func MakeConfig() map[string]any {
 						"name": "update",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "PUT",
 								"orig": "/element/{element_id}",
+								"segments": []any{
+									map[string]any{
+										"lit": "element",
+									},
+									map[string]any{
+										"var": "id",
+									},
+								},
 								"parts": []any{
 									"element",
 									"{id}",
@@ -397,12 +519,19 @@ func MakeConfig() map[string]any {
 										"element_id": "id",
 									},
 								},
-								"segments": []any{
-									map[string]any{
-										"lit": "element",
-									},
-									map[string]any{
-										"var": "id",
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
 									},
 								},
 								"select": map[string]any{
@@ -410,9 +539,9 @@ func MakeConfig() map[string]any {
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -426,27 +555,35 @@ func MakeConfig() map[string]any {
 				"fields": []any{
 					map[string]any{
 						"name": "cas",
+						"title": "Cas",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "CAS group designation.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "id",
+						"title": "Id",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Group identifier, g1 to g18.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "name",
-						"short": "Trivial name, where one exists.",
+						"title": "Name",
 						"type": "`$STRING`",
+						"short": "Trivial name, where one exists.",
 					},
 					map[string]any{
 						"name": "number",
+						"title": "Number",
+						"type": "`$INTEGER`",
 						"req": true,
 						"short": "Group number, 1 to 18.",
-						"type": "`$INTEGER`",
 					},
+				},
+				"id": map[string]any{
+					"field": "id",
+					"name": "id",
 				},
 				"name": "group",
 				"op": map[string]any{
@@ -455,22 +592,27 @@ func MakeConfig() map[string]any {
 						"name": "list",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/group",
-								"parts": []any{
-									"group",
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "group",
 									},
 								},
-								"select": map[string]any{},
+								"parts": []any{
+									"group",
+								},
+								"rename": map[string]any{},
 								"transform": map[string]any{
 									"req": "`reqdata`",
 									"res": "`body`",
+								},
+								"args": map[string]any{},
+								"select": map[string]any{},
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -480,20 +622,17 @@ func MakeConfig() map[string]any {
 						"name": "load",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "group_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/group/{group_id}",
+								"segments": []any{
+									map[string]any{
+										"lit": "group",
+									},
+									map[string]any{
+										"var": "id",
+									},
+								},
 								"parts": []any{
 									"group",
 									"{id}",
@@ -503,12 +642,19 @@ func MakeConfig() map[string]any {
 										"group_id": "id",
 									},
 								},
-								"segments": []any{
-									map[string]any{
-										"lit": "group",
-									},
-									map[string]any{
-										"var": "id",
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "id",
+											"orig": "group_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
 									},
 								},
 								"select": map[string]any{
@@ -516,9 +662,9 @@ func MakeConfig() map[string]any {
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -532,68 +678,76 @@ func MakeConfig() map[string]any {
 				"fields": []any{
 					map[string]any{
 						"name": "abundance",
-						"short": "Natural abundance as a fraction, absent for synthetic isotopes.",
+						"title": "Abundance",
 						"type": "`$NUMBER`",
+						"short": "Natural abundance as a fraction, absent for synthetic isotopes.",
+						"format": "float",
 					},
 					map[string]any{
 						"name": "element_id",
+						"title": "Element Id",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Parent element identifier.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "halflife",
-						"short": "Half-life, absent for stable isotopes.",
+						"title": "Halflife",
 						"type": "`$STRING`",
+						"short": "Half-life, absent for stable isotopes.",
 					},
 					map[string]any{
 						"name": "id",
+						"title": "Id",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Isotope identifier, symbol dash mass number.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "mass",
+						"title": "Mass",
+						"type": "`$NUMBER`",
 						"req": true,
 						"short": "Isotopic mass in daltons.",
-						"type": "`$NUMBER`",
+						"format": "float",
 					},
 					map[string]any{
 						"name": "mass_number",
+						"title": "Mass Number",
+						"type": "`$INTEGER`",
 						"req": true,
 						"short": "Total protons and neutrons.",
-						"type": "`$INTEGER`",
 					},
 					map[string]any{
 						"name": "mode",
-						"short": "Primary decay mode, absent for stable isotopes.",
+						"title": "Mode",
 						"type": "`$STRING`",
+						"short": "Primary decay mode, absent for stable isotopes.",
 					},
 					map[string]any{
 						"name": "name",
+						"title": "Name",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Isotope name.",
-						"type": "`$STRING`",
-					},
-					map[string]any{
-						"name": "ok",
-						"type": "`$BOOLEAN`",
 					},
 					map[string]any{
 						"name": "product",
-						"short": "Primary decay product isotope, absent for stable isotopes.",
+						"title": "Product",
 						"type": "`$STRING`",
+						"short": "Primary decay product isotope, absent for stable isotopes.",
 					},
 					map[string]any{
 						"name": "stable",
+						"title": "Stable",
+						"type": "`$BOOLEAN`",
 						"req": true,
 						"short": "True if the isotope is stable.",
-						"type": "`$BOOLEAN`",
 					},
-					map[string]any{
-						"name": "steps",
-						"type": "`$INTEGER`",
-					},
+				},
+				"id": map[string]any{
+					"field": "id",
+					"name": "id",
 				},
 				"name": "isotope",
 				"op": map[string]any{
@@ -602,39 +756,9 @@ func MakeConfig() map[string]any {
 						"name": "create",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "element_id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "isotope_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "POST",
 								"orig": "/element/{element_id}/isotope/{isotope_id}/decay",
-								"parts": []any{
-									"element",
-									"{element_id}",
-									"isotope",
-									"{id}",
-									"decay",
-								},
-								"rename": map[string]any{
-									"param": map[string]any{
-										"isotope_id": "id",
-									},
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
@@ -652,6 +776,40 @@ func MakeConfig() map[string]any {
 										"lit": "decay",
 									},
 								},
+								"parts": []any{
+									"element",
+									"{element_id}",
+									"isotope",
+									"{id}",
+									"decay",
+								},
+								"rename": map[string]any{
+									"param": map[string]any{
+										"isotope_id": "id",
+									},
+								},
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "element_id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+										map[string]any{
+											"name": "id",
+											"orig": "isotope_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+									},
+								},
 								"select": map[string]any{
 									"$action": "decay",
 									"exist": []any{
@@ -659,31 +817,15 @@ func MakeConfig() map[string]any {
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "element_id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "POST",
 								"orig": "/element/{element_id}/isotope",
-								"parts": []any{
-									"element",
-									"{element_id}",
-									"isotope",
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
@@ -695,14 +837,35 @@ func MakeConfig() map[string]any {
 										"lit": "isotope",
 									},
 								},
+								"parts": []any{
+									"element",
+									"{element_id}",
+									"isotope",
+								},
+								"rename": map[string]any{},
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "element_id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+									},
+								},
 								"select": map[string]any{
 									"exist": []any{
 										"element_id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -712,25 +875,9 @@ func MakeConfig() map[string]any {
 						"name": "list",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "element_id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/element/{element_id}/isotope",
-								"parts": []any{
-									"element",
-									"{element_id}",
-									"isotope",
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
@@ -742,14 +889,35 @@ func MakeConfig() map[string]any {
 										"lit": "isotope",
 									},
 								},
+								"parts": []any{
+									"element",
+									"{element_id}",
+									"isotope",
+								},
+								"rename": map[string]any{},
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "element_id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+									},
+								},
 								"select": map[string]any{
 									"exist": []any{
 										"element_id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -759,38 +927,9 @@ func MakeConfig() map[string]any {
 						"name": "load",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "element_id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "isotope_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/element/{element_id}/isotope/{isotope_id}",
-								"parts": []any{
-									"element",
-									"{element_id}",
-									"isotope",
-									"{id}",
-								},
-								"rename": map[string]any{
-									"param": map[string]any{
-										"isotope_id": "id",
-									},
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
@@ -805,15 +944,48 @@ func MakeConfig() map[string]any {
 										"var": "id",
 									},
 								},
+								"parts": []any{
+									"element",
+									"{element_id}",
+									"isotope",
+									"{id}",
+								},
+								"rename": map[string]any{
+									"param": map[string]any{
+										"isotope_id": "id",
+									},
+								},
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "element_id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+										map[string]any{
+											"name": "id",
+											"orig": "isotope_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+									},
+								},
 								"select": map[string]any{
 									"exist": []any{
 										"element_id",
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -823,38 +995,9 @@ func MakeConfig() map[string]any {
 						"name": "remove",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "element_id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "isotope_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "DELETE",
 								"orig": "/element/{element_id}/isotope/{isotope_id}",
-								"parts": []any{
-									"element",
-									"{element_id}",
-									"isotope",
-									"{id}",
-								},
-								"rename": map[string]any{
-									"param": map[string]any{
-										"isotope_id": "id",
-									},
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
@@ -869,15 +1012,44 @@ func MakeConfig() map[string]any {
 										"var": "id",
 									},
 								},
-								"select": map[string]any{
-									"exist": []any{
-										"element_id",
-										"id",
+								"parts": []any{
+									"element",
+									"{element_id}",
+									"isotope",
+									"{id}",
+								},
+								"rename": map[string]any{
+									"param": map[string]any{
+										"isotope_id": "id",
 									},
 								},
 								"transform": map[string]any{
 									"req": "`reqdata`",
 									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "element_id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+										map[string]any{
+											"name": "id",
+											"orig": "isotope_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+									},
+								},
+								"select": map[string]any{
+									"exist": []any{
+										"element_id",
+										"id",
+									},
 								},
 							},
 						},
@@ -887,38 +1059,9 @@ func MakeConfig() map[string]any {
 						"name": "update",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "element_id",
-											"orig": "element_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "isotope_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "PUT",
 								"orig": "/element/{element_id}/isotope/{isotope_id}",
-								"parts": []any{
-									"element",
-									"{element_id}",
-									"isotope",
-									"{id}",
-								},
-								"rename": map[string]any{
-									"param": map[string]any{
-										"isotope_id": "id",
-									},
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "element",
@@ -933,15 +1076,48 @@ func MakeConfig() map[string]any {
 										"var": "id",
 									},
 								},
+								"parts": []any{
+									"element",
+									"{element_id}",
+									"isotope",
+									"{id}",
+								},
+								"rename": map[string]any{
+									"param": map[string]any{
+										"isotope_id": "id",
+									},
+								},
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "element_id",
+											"orig": "element_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+										map[string]any{
+											"name": "id",
+											"orig": "isotope_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
+									},
+								},
 								"select": map[string]any{
 									"exist": []any{
 										"element_id",
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -950,7 +1126,7 @@ func MakeConfig() map[string]any {
 				"relations": map[string]any{
 					"ancestors": []any{
 						[]any{
-							"element",
+							"$.main.kit.entity.element",
 						},
 					},
 				},
@@ -959,28 +1135,36 @@ func MakeConfig() map[string]any {
 				"fields": []any{
 					map[string]any{
 						"name": "color",
+						"title": "Color",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Display color used by the element card renderer.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "description",
+						"title": "Description",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "One-line description of the series.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "id",
+						"title": "Id",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Series identifier.",
-						"type": "`$STRING`",
 					},
 					map[string]any{
 						"name": "name",
+						"title": "Name",
+						"type": "`$STRING`",
 						"req": true,
 						"short": "Series name.",
-						"type": "`$STRING`",
 					},
+				},
+				"id": map[string]any{
+					"field": "id",
+					"name": "id",
 				},
 				"name": "series",
 				"op": map[string]any{
@@ -989,22 +1173,27 @@ func MakeConfig() map[string]any {
 						"name": "list",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/series",
-								"parts": []any{
-									"series",
-								},
 								"segments": []any{
 									map[string]any{
 										"lit": "series",
 									},
 								},
-								"select": map[string]any{},
+								"parts": []any{
+									"series",
+								},
+								"rename": map[string]any{},
 								"transform": map[string]any{
 									"req": "`reqdata`",
 									"res": "`body`",
+								},
+								"args": map[string]any{},
+								"select": map[string]any{},
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -1014,20 +1203,17 @@ func MakeConfig() map[string]any {
 						"name": "load",
 						"points": []any{
 							map[string]any{
-								"args": map[string]any{
-									"params": []any{
-										map[string]any{
-											"kind": "param",
-											"name": "id",
-											"orig": "series_id",
-											"reqd": true,
-											"type": "`$STRING`",
-										},
-									},
-								},
 								"kind": "http",
 								"method": "GET",
 								"orig": "/series/{series_id}",
+								"segments": []any{
+									map[string]any{
+										"lit": "series",
+									},
+									map[string]any{
+										"var": "id",
+									},
+								},
 								"parts": []any{
 									"series",
 									"{id}",
@@ -1037,12 +1223,19 @@ func MakeConfig() map[string]any {
 										"series_id": "id",
 									},
 								},
-								"segments": []any{
-									map[string]any{
-										"lit": "series",
-									},
-									map[string]any{
-										"var": "id",
+								"transform": map[string]any{
+									"req": "`reqdata`",
+									"res": "`body`",
+								},
+								"args": map[string]any{
+									"params": []any{
+										map[string]any{
+											"name": "id",
+											"orig": "series_id",
+											"type": "`$STRING`",
+											"kind": "param",
+											"reqd": true,
+										},
 									},
 								},
 								"select": map[string]any{
@@ -1050,9 +1243,9 @@ func MakeConfig() map[string]any {
 										"id",
 									},
 								},
-								"transform": map[string]any{
-									"req": "`reqdata`",
-									"res": "`body`",
+								"response": map[string]any{
+									"kind": "json",
+									"media": "application/json",
 								},
 							},
 						},
@@ -1097,9 +1290,29 @@ func SharedConfig() map[string]any {
 
 func makeFeature(name string) Feature {
 	switch name {
+	case "debug":
+		if NewDebugFeatureFunc != nil {
+			return NewDebugFeatureFunc()
+		}
 	case "elementcard":
 		if NewElementcardFeatureFunc != nil {
 			return NewElementcardFeatureFunc()
+		}
+	case "idempotency":
+		if NewIdempotencyFeatureFunc != nil {
+			return NewIdempotencyFeatureFunc()
+		}
+	case "metrics":
+		if NewMetricsFeatureFunc != nil {
+			return NewMetricsFeatureFunc()
+		}
+	case "paging":
+		if NewPagingFeatureFunc != nil {
+			return NewPagingFeatureFunc()
+		}
+	case "ratelimit":
+		if NewRatelimitFeatureFunc != nil {
+			return NewRatelimitFeatureFunc()
 		}
 	case "retry":
 		if NewRetryFeatureFunc != nil {

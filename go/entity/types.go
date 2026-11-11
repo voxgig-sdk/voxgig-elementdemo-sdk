@@ -1,7 +1,7 @@
 // Typed models for the Elementdemo SDK.
 //
-// GENERATED from the API model: main.kit.entity.<e>.fields[] and per-op
-// params (op.<name>.points[].args.params[]). Field/param types come from the
+// GENERATED from the API model: main.kit.entity.<e>.fields{} and per-op
+// params (op.<name>.points[].g.params[]). Field/param types come from the
 // canonical type sentinels via @voxgig/sdkgen canonToType (source of truth:
 // @voxgig/apidef VALID_CANON). Do not edit by hand.
 package entity
@@ -14,20 +14,6 @@ import (
 
 // Element is the typed data model for the element entity.
 type Element struct {
-	Block string `json:"block"`
-	Charge *int `json:"charge,omitempty"`
-	Discovered *int `json:"discovered,omitempty"`
-	Group *int `json:"group,omitempty"`
-	Id string `json:"id"`
-	Ion *string `json:"ion,omitempty"`
-	Mass float64 `json:"mass"`
-	Name string `json:"name"`
-	Number int `json:"number"`
-	Ok *bool `json:"ok,omitempty"`
-	Period int `json:"period"`
-	Phase *string `json:"phase,omitempty"`
-	SeriesId string `json:"series_id"`
-	Symbol string `json:"symbol"`
 }
 
 // ElementLoadMatch is the typed request payload for Element.LoadTyped.
@@ -38,15 +24,12 @@ type ElementLoadMatch struct {
 // ElementListMatch is the typed request payload for Element.ListTyped.
 type ElementListMatch struct {
 	Block *string `json:"block,omitempty"`
-	Charge *int `json:"charge,omitempty"`
 	Discovered *int `json:"discovered,omitempty"`
 	Group *int `json:"group,omitempty"`
 	Id *string `json:"id,omitempty"`
-	Ion *string `json:"ion,omitempty"`
 	Mass *float64 `json:"mass,omitempty"`
 	Name *string `json:"name,omitempty"`
 	Number *int `json:"number,omitempty"`
-	Ok *bool `json:"ok,omitempty"`
 	Period *int `json:"period,omitempty"`
 	Phase *string `json:"phase,omitempty"`
 	SeriesId *string `json:"series_id,omitempty"`
@@ -56,15 +39,12 @@ type ElementListMatch struct {
 // ElementCreateData is the typed request payload for Element.CreateTyped.
 type ElementCreateData struct {
 	Block string `json:"block"`
-	Charge *int `json:"charge,omitempty"`
 	Discovered *int `json:"discovered,omitempty"`
 	Group *int `json:"group,omitempty"`
 	Id string `json:"id"`
-	Ion *string `json:"ion,omitempty"`
 	Mass float64 `json:"mass"`
 	Name string `json:"name"`
 	Number int `json:"number"`
-	Ok *bool `json:"ok,omitempty"`
 	Period int `json:"period"`
 	Phase *string `json:"phase,omitempty"`
 	SeriesId string `json:"series_id"`
@@ -75,14 +55,11 @@ type ElementCreateData struct {
 type ElementUpdateData struct {
 	Id string `json:"id"`
 	Block *string `json:"block,omitempty"`
-	Charge *int `json:"charge,omitempty"`
 	Discovered *int `json:"discovered,omitempty"`
 	Group *int `json:"group,omitempty"`
-	Ion *string `json:"ion,omitempty"`
 	Mass *float64 `json:"mass,omitempty"`
 	Name *string `json:"name,omitempty"`
 	Number *int `json:"number,omitempty"`
-	Ok *bool `json:"ok,omitempty"`
 	Period *int `json:"period,omitempty"`
 	Phase *string `json:"phase,omitempty"`
 	SeriesId *string `json:"series_id,omitempty"`
@@ -96,10 +73,6 @@ type ElementRemoveMatch struct {
 
 // Group is the typed data model for the group entity.
 type Group struct {
-	Cas string `json:"cas"`
-	Id string `json:"id"`
-	Name *string `json:"name,omitempty"`
-	Number int `json:"number"`
 }
 
 // GroupLoadMatch is the typed request payload for Group.LoadTyped.
@@ -117,18 +90,6 @@ type GroupListMatch struct {
 
 // Isotope is the typed data model for the isotope entity.
 type Isotope struct {
-	Abundance *float64 `json:"abundance,omitempty"`
-	ElementId string `json:"element_id"`
-	Halflife *string `json:"halflife,omitempty"`
-	Id string `json:"id"`
-	Mass float64 `json:"mass"`
-	MassNumber int `json:"mass_number"`
-	Mode *string `json:"mode,omitempty"`
-	Name string `json:"name"`
-	Ok *bool `json:"ok,omitempty"`
-	Product *string `json:"product,omitempty"`
-	Stable bool `json:"stable"`
-	Steps *int `json:"steps,omitempty"`
 }
 
 // IsotopeLoadMatch is the typed request payload for Isotope.LoadTyped.
@@ -152,10 +113,8 @@ type IsotopeCreateData struct {
 	MassNumber int `json:"mass_number"`
 	Mode *string `json:"mode,omitempty"`
 	Name string `json:"name"`
-	Ok *bool `json:"ok,omitempty"`
 	Product *string `json:"product,omitempty"`
 	Stable bool `json:"stable"`
-	Steps *int `json:"steps,omitempty"`
 }
 
 // IsotopeUpdateData is the typed request payload for Isotope.UpdateTyped.
@@ -168,10 +127,8 @@ type IsotopeUpdateData struct {
 	MassNumber *int `json:"mass_number,omitempty"`
 	Mode *string `json:"mode,omitempty"`
 	Name *string `json:"name,omitempty"`
-	Ok *bool `json:"ok,omitempty"`
 	Product *string `json:"product,omitempty"`
 	Stable *bool `json:"stable,omitempty"`
-	Steps *int `json:"steps,omitempty"`
 }
 
 // IsotopeRemoveMatch is the typed request payload for Isotope.RemoveTyped.
@@ -182,10 +139,6 @@ type IsotopeRemoveMatch struct {
 
 // Series is the typed data model for the series entity.
 type Series struct {
-	Color string `json:"color"`
-	Description string `json:"description"`
-	Id string `json:"id"`
-	Name string `json:"name"`
 }
 
 // SeriesLoadMatch is the typed request payload for Series.LoadTyped.

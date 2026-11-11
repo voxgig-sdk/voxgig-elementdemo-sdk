@@ -20,7 +20,6 @@ import type {
   GroupListMatch,
 } from '../ElementdemoTypes'
 
-// TODO: needs Entity superclass
 class GroupEntity extends ElementdemoEntityBase<Group> {
 
   constructor(client: ElementdemoSDK, entopts: any) {
@@ -131,18 +130,21 @@ class GroupEntity extends ElementdemoEntityBase<Group> {
 
       const out = done(ctx)
 
-      // An operation resolves to the ENTITY, not the raw data — the record
-      // has just been absorbed into this instance and is reached through
-      // data(). `done` still runs: it completes the pipeline and raises on
-      // failure, and when throwing is disabled it hands back the error
-      // payload, which passes through unchanged. See AGENTS.md "Entity
-      // operations return ENTITIES".
       return (ctx.result && ctx.result.ok) ? this : out
     }
     catch (err: any) {
+      // What a hook throws here must not escape the cleaning below.
+      try {
+        // Once per operation: makeError fires it for its own error.
+        if (!ctx.unexpectedFired) {
 
-      fres = featureHook(ctx, 'PreUnexpected')
-      if (fres instanceof Promise) { await fres }
+          fres = featureHook(ctx, 'PreUnexpected')
+          if (fres instanceof Promise) { await fres }
+        }
+      }
+      catch (hookerr: any) {
+        err = hookerr
+      }
 
       err = this._unexpected(ctx, err)
 
@@ -151,7 +153,7 @@ class GroupEntity extends ElementdemoEntityBase<Group> {
       }
       else {
         // Off-happy-path (throw disabled): typed as any so the method's
-        // Promise<Group> return stays clean under strict null checks.
+        // Promise<GroupEntity> return stays clean under strict null checks.
         return undefined as any
       }
     }
@@ -250,9 +252,18 @@ class GroupEntity extends ElementdemoEntityBase<Group> {
       return done(ctx)
     }
     catch (err: any) {
+      // What a hook throws here must not escape the cleaning below.
+      try {
+        // Once per operation: makeError fires it for its own error.
+        if (!ctx.unexpectedFired) {
 
-      fres = featureHook(ctx, 'PreUnexpected')
-      if (fres instanceof Promise) { await fres }
+          fres = featureHook(ctx, 'PreUnexpected')
+          if (fres instanceof Promise) { await fres }
+        }
+      }
+      catch (hookerr: any) {
+        err = hookerr
+      }
 
       err = this._unexpected(ctx, err)
 
@@ -261,11 +272,12 @@ class GroupEntity extends ElementdemoEntityBase<Group> {
       }
       else {
         // Off-happy-path (throw disabled): typed as any so the method's
-        // Promise<Group[]> return stays clean under strict null checks.
+        // Promise<GroupEntity[]> return stays clean under strict null checks.
         return undefined as any
       }
     }
   }
+
 
 
 

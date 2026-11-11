@@ -1,5 +1,5 @@
-// VENDORED: @voxgig/sekreto sdk-20260904-1610-0 (go/plugins/gcpsecrets/gcpsecrets.go)
-// Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/sekreto sdk-20261016-0845-0 (go/plugins/gcpsecrets/gcpsecrets.go)
+// Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 // The gcpsecrets plugin: GCP Secret Manager. Needs HTTPS. A port of
 // typescript/plugins/gcpsecrets.ts.
@@ -18,17 +18,6 @@ import (
 	"GOMODULE/feature/secrets/sekreto"
 )
 
-// Provider reads GCP Secret Manager.
-//
-// api.token reads secret api_token (dots flattened to `_`; Secret Manager
-// ids have no hierarchy and reject dots), latest version. The token comes
-// from config, then GOOGLE_OAUTH_ACCESS_TOKEN, then the GCE/GKE metadata
-// server - so on Google's own platform no credential configuration is
-// needed at all.
-//
-// The metadata call itself is plain http to a link-local host by platform
-// design; no credential rides on it, so checkaddr guards the Secret
-// Manager address instead.
 type Provider struct {
 	Project      string
 	Token        string

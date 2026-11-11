@@ -2,12 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RetryFeature = void 0;
 const BaseFeature_1 = require("../base/BaseFeature");
-// Automatic retry of transient failures with exponential backoff and
-// jitter. Wraps the active transport so a single operation call may make
-// several HTTP attempts. A failure is retryable when the transport throws
-// / returns an Error, or responds with a status in `statuses`
-// (default: 408, 425, 429, 500, 502, 503, 504). An HTTP 429/503 with a
-// `Retry-After` header overrides the computed backoff.
 class RetryFeature extends BaseFeature_1.BaseFeature {
     version = '0.0.1';
     name = 'retry';
@@ -34,6 +28,7 @@ class RetryFeature extends BaseFeature_1.BaseFeature {
         const minDelay = null == opts.minDelay ? 50 : opts.minDelay;
         const maxDelay = null == opts.maxDelay ? 2000 : opts.maxDelay;
         const factor = null == opts.factor ? 2 : opts.factor;
+        const signal = fetchdef?.signal;
         let attempt = 0;
         let last;
         for (;;) {
@@ -47,6 +42,11 @@ class RetryFeature extends BaseFeature_1.BaseFeature {
                 res = err;
             }
             last = res;
+            // An abort is never retried, whatever the transport threw for it: the
+            // reason need not be an Error, so decide before the retryable test.
+            if (threw && true === signal?.aborted) {
+                throw signal.reason;
+            }
             const retryable = this._retryable(res);
             if (!retryable || attempt >= max) {
                 // Out of attempts: rethrow a thrown error to preserve pipeline
@@ -56,9 +56,12 @@ class RetryFeature extends BaseFeature_1.BaseFeature {
                 }
                 return res;
             }
+            if (true === signal?.aborted) {
+                throw signal.reason;
+            }
             const wait = this._backoff(res, attempt, minDelay, maxDelay, factor);
             this._track(ctx, attempt + 1, res, wait);
-            await this._sleep(wait);
+            await this._sleep(wait, signal);
             attempt++;
         }
     }
@@ -103,15 +106,16 @@ class RetryFeature extends BaseFeature_1.BaseFeature {
         const n = Number(v);
         return isNaN(n) ? null : n * 1000;
     }
-    _sleep(ms) {
+    _sleep(ms, signal) {
         if (null == ms || 0 >= ms) {
             return Promise.resolve();
         }
         const sleep = this._options.sleep;
         if ('function' === typeof sleep) {
-            return Promise.resolve(sleep(ms));
+            return this._untilAbort(Promise.resolve(sleep(ms)), signal);
         }
-        return new Promise((r) => setTimeout(r, ms));
+        let timer;
+        return this._untilAbort(new Promise((r) => { timer = setTimeout(r, ms); }), signal, () => clearTimeout(timer));
     }
     _track(ctx, attempt, res, wait) {
         const client = this._client;

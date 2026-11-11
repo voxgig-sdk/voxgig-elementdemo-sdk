@@ -1,5 +1,5 @@
-# VENDORED: @voxgig/plugin 0.1.6 (python/voxgig_plugin/host.py)
-# Source: https://github.com/voxgig/plugin @ 8d8968afc0a2008fbd795b41ab166307d989f02a  [tag: sdk-20260904-1610-0]
+# VENDORED: @voxgig/plugin 0.2.0 (python/voxgig_plugin/host.py)
+# Source: https://github.com/voxgig/plugin @ caa404b2dfa206d77db6c2869e5b31c2a3202b2d  [tag: sdk-20261016-0845-0]
 # License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 """The host: the lifecycle state machine (section 5), extension points
 (section 6), and resource capture (section 8).
@@ -128,6 +128,22 @@ class Inst:
         """Published for other plugins and for the application (section
         11)."""
         self._entry['exports'][key] = value
+
+    def capability(self, name):
+        """WHICH provider this instance is bound to for `name` (section
+        11.1), as a ref, or None when nothing provides it.
+
+        The host's own `capability` answers with the live providers
+        RANKED, not with the one THIS instance took; section 11.4's
+        reluctant rebinding makes those differ. A REF, not the instance:
+        every port can return a string and a corpus entry can assert on
+        one. The selection is REMEMBERED, because this is the instance
+        asking.
+        """
+        for req in requirements(self._entry['options']):
+            if req['name'] == name:
+                return self._host._chosen(self._entry, req, True)
+        return None
 
     def provides(self, prov):
         """What this instance can do for others (section 11.1)."""

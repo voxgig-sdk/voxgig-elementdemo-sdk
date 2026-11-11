@@ -6,6 +6,9 @@ import type { Context, Feature } from './types'
 import { config } from './Config'
 import { ProjectNameEntityBase } from './ProjectNameEntityBase'
 import { Utility } from './utility/Utility'
+import { unreadableBody } from './utility/ResultBodyUtility'
+import { abortError } from './utility/MakeRequestUtility'
+import { allowed } from './utility/PrepareMethodUtility'
 
 
 import { BaseFeature } from './feature/base/BaseFeature'
@@ -13,6 +16,13 @@ import { BaseFeature } from './feature/base/BaseFeature'
 
 
 const stdutil = new Utility()
+
+
+// A request's outcome: ok is false alone on an error with no response, so a
+// caller narrowing on it reaches the status and the data.
+type DirectResult =
+  | { ok: false, err: any, status?: undefined, headers?: undefined, data?: undefined }
+  | { ok: boolean, status: number, headers: any, data: any, err?: any }
 
 
 class ProjectNameSDK {
@@ -34,6 +44,12 @@ class ProjectNameSDK {
     })
 
     this._options = this._utility.makeOptions(this._rootctx)
+
+    for (const key of ['_options', '_rootctx', '_features']) {
+      Object.defineProperty(this, key, {
+        value: (this as any)[key], enumerable: false, writable: true, configurable: true
+      })
+    }
 
     const struct = this._utility.struct
     const getpath = struct.getpath
@@ -117,14 +133,19 @@ class ProjectNameSDK {
     }, this._rootctx)
 
     const options = this._options
+    const method = String(fetchargs.method || 'GET').toUpperCase()
 
-    // Build spec directly from SDK options + user-provided fetch args.
+    if (!allowed(options.allow.method, method)) {
+      return ctx.error('spec_method_allow', 'Method "' + method +
+        '" not allowed by SDK option allow.method value: "' + options.allow.method + '"')
+    }
+
     const spec: any = {
       base: options.base,
       prefix: options.prefix,
       suffix: options.suffix,
       path: fetchargs.path || '',
-      method: fetchargs.method || 'GET',
+      method,
       params: fetchargs.params || {},
       query: fetchargs.query || {},
       headers: prepareHeaders(ctx),
@@ -134,7 +155,6 @@ class ProjectNameSDK {
 
     ctx.spec = spec
 
-    // Merge user-provided headers over SDK defaults.
     if (fetchargs.headers) {
       const uheaders = fetchargs.headers
       for (let key in uheaders) {
@@ -142,9 +162,15 @@ class ProjectNameSDK {
       }
     }
 
+    // A raw request has no point to declare its response type, so it asks
+    // for the JSON it reads: an API that negotiates on Accept otherwise
+    // answers in its own default format. A caller's own accept wins.
+    if (!Object.keys(spec.headers).some((key) => 'accept' === key.toLowerCase())) {
+      spec.headers.accept = 'application/json'
+    }
+
     // #SecretsResolve
 
-    // Apply SDK auth (apikey, auth prefix, etc.)
     const authResult = prepareAuth(ctx)
     if (authResult instanceof Error) {
       return authResult
@@ -157,8 +183,8 @@ class ProjectNameSDK {
   // Raw endpoint access is operator-controllable, like every entity op.
   // Blocking it means denying BOTH the 'direct' and 'graphql' tokens, since
   // either one reaches the same endpoint.
-  async direct(fetchargs?: any) {
-    if (!this._options.allow.op.includes('direct')) {
+  async direct(fetchargs?: any): Promise<DirectResult> {
+    if (!allowed(this._options.allow.op, 'direct')) {
       return {
         ok: false,
         err: new Error('ProjectNameSDK: direct: operation not allowed by' +
@@ -174,7 +200,7 @@ class ProjectNameSDK {
   // checks its own allow.op token first. Private, rather than a flag on
   // fetchargs: a caller-supplied marker would let anyone opt straight back
   // out of the gate by passing it.
-  async _rawRequest(fetchargs?: any) {
+  async _rawRequest(fetchargs?: any): Promise<DirectResult> {
     const utility = this._utility
 
     const fetcher = utility.fetcher
@@ -182,7 +208,7 @@ class ProjectNameSDK {
 
     const fetchdef = await this.prepare(fetchargs)
     if (fetchdef instanceof Error) {
-      return fetchdef
+      return { ok: false, err: utility.clean(this._rootctx, fetchdef) }
     }
 
     let ctx: Context = makeContext({
@@ -191,13 +217,17 @@ class ProjectNameSDK {
     }, this._rootctx)
 
     try {
+      if (true === fetchdef.signal?.aborted) {
+        throw fetchdef.signal.reason
+      }
+
       const fetched = await fetcher(ctx, fetchdef.url, fetchdef)
 
       if (null == fetched) {
         return { ok: false, err: ctx.error('direct_no_response', 'response: undefined') }
       }
       else if (fetched instanceof Error) {
-        return { ok: false, err: fetched }
+        return { ok: false, err: utility.clean(ctx, abortError(ctx, fetched)) }
       }
 
       const status = fetched.status
@@ -212,47 +242,50 @@ class ProjectNameSDK {
       const noBody = 204 === status || 304 === status || '0' === String(contentLength)
 
       let json: any = undefined
+      let err: any = undefined
       if (!noBody) {
+        let text: any = undefined
         try {
-          json = 'function' === typeof fetched.json ? await fetched.json() : fetched.json
+          const raw: any = fetched
+          if ('function' === typeof raw.text) {
+            text = await raw.text()
+            json = '' === text.trim() ? undefined : JSON.parse(text)
+          }
+          else {
+            json = 'function' === typeof fetched.json ? await fetched.json() : fetched.json
+          }
         }
-        catch (parseErr) {
-          // Body wasn't valid JSON — surface the raw response rather than
-          // throwing. data stays undefined; callers can inspect status/headers.
-          json = undefined
+        catch (parseErr: any) {
+          if ('SyntaxError' !== parseErr?.name) {
+            throw parseErr
+          }
+          err = unreadableBody(ctx, {
+            status, headers, text: text ?? parseErr.text, sent: fetchdef.headers,
+            failed: 200 <= status && status < 300 ? undefined :
+              ctx.error('request_status', 'request: ' + status + ': ' + fetched.statusText),
+          })
         }
       }
 
       return {
-        ok: status >= 200 && status < 300,
+        ok: null == err && status >= 200 && status < 300,
         status,
         headers: fetched.headers,
         data: json,
+        ...(null == err ? {} : { err: utility.clean(ctx, err) }),
       }
     }
     catch (err: any) {
-      return { ok: false, err }
+      return { ok: false, err: utility.clean(ctx, abortError(ctx, err)) }
     }
   }
 
 
 
-  // Raw GraphQL access: the pressure valve that makes the generated
-  // surface's deliberate omissions (per-call selection sets, typed filter
-  // builders, batching, subscriptions) livable — the whole schema stays
-  // reachable.
-  //
-  // Thin wrapper over the same prepare/fetch path `direct` uses, with the
-  // one thing raw `direct` cannot do for GraphQL: a GraphQL failure rides
-  // HTTP 200 as a top-level `errors` array, so status alone would report a
-  // failed query as ok.
-  //
-  // NOTE: like `direct`, this bypasses the feature pipeline — no retry,
-  // ratelimit or paging features apply.
   async graphql(query: string, variables?: any, ctrl?: any) {
     const options = this._options
 
-    if (!options.allow.op.includes('graphql')) {
+    if (!allowed(options.allow.op, 'graphql')) {
       return {
         ok: false,
         err: new Error('ProjectNameSDK: graphql: operation not allowed by' +
@@ -266,10 +299,6 @@ class ProjectNameSDK {
       body: { query, variables: variables || {} },
       ctrl,
     })
-
-    if (res instanceof Error) {
-      return res
-    }
 
     // Errors are read BEFORE any status check: a GraphQL parse or validation
     // failure comes back as HTTP 400 carrying the standard { errors: [...] }
@@ -350,3 +379,4 @@ export {
 }
 
 
+export type { DirectResult }

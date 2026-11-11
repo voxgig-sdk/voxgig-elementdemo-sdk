@@ -6,6 +6,9 @@ import {
   configDefinition,
   each,
   isAuthActive,
+  isHttpBasicAuth,
+  resolveAuthIn,
+  resolveAuthName,
   resolveAuthPrefix,
   targetFeatures,
 } from '@voxgig/sdkgen'
@@ -43,25 +46,62 @@ const Config = cmp(async function Config(props: any) {
   const javapackage = javaPackage(model)
 
   const entity = getModelPath(model, `main.${KIT}.entity`)
-  // Gated by the applicability tags, so this target never imports or
-  // registers a feature it has no source for. One rule, one place:
-  // helpers/applicability.
   const feature = targetFeatures(model, target)
 
   const headers = getModelPath(model, `main.${KIT}.config.headers`) || {}
 
   const authActive = isAuthActive(model)
-  // config.auth.prefix override -> spec-derived info.security.prefix -> 'Bearer'
   const authPrefix = resolveAuthPrefix(model)
+  const authBasic = isHttpBasicAuth(model)
+  const authIn = resolveAuthIn(model)
+  const authName = resolveAuthName(model)
 
   let baseUrl = ''
   try { baseUrl = getModelPath(model, `main.${KIT}.info.servers.0.url`) } catch (_e) { }
 
-  // Identity comes from configDefinition's def, not re-derived here, so
-  // this target cannot disagree with the shared emitter on main.slug /
-  // main.version / main.target (the three station descriptor fields,
-  // station design §4) — passing target.name is what opts this target in.
   const { def: configDef } = configDefinition(model, target.name)
+
+  const pluginImports = new Set<string>()
+  const featurePlugins: Record<string, string[]> = {}
+
+  each(feature, (f: any) => {
+    const syms: string[] = []
+    each(f.plugin, (plugin: any) => {
+      if (false === plugin.active || null == plugin.active) return
+      for (const [sym, one] of Object.entries(plugin.def?.java || {})) {
+        const dir = String(one).replace(/\/[^/]+$/, '').replace(/\//g, '.')
+        pluginImports.add(javapackage + '.' + dir + '.' + sym.split('.')[0])
+        syms.push(sym)
+      }
+    })
+
+    if (0 < syms.length) {
+      featurePlugins[f.name] = Array.from(new Set(syms)).sort()
+    }
+  })
+
+  const pluginImportBlock = Array.from(pluginImports).sort()
+    .map((p: string) => `import ${p};\n`).join('')
+
+  const featurePluginsBlock =
+    `  /**
+   * The plugin definitions the model selected for one feature's chain, as
+   * List&lt;Object&gt; so core never names a vendored type. Empty for a
+   * feature whose model declares no active plugin group.
+   */
+  public static List<Object> featurePlugins(String name) {
+    switch (name) {
+` +
+    Object.keys(featurePlugins).sort().map((fname: string) =>
+      `      case "${fname}":
+        return List.of(${featurePlugins[fname].join(', ')});
+`).join('') +
+    `      default:
+        return List.of();
+    }
+  }
+
+`
 
   // Assemble the config shape (mirrors Config_go's emitted map). The
   // feature block comes from configDefinition's def, not from f.config,
@@ -93,17 +133,15 @@ const Config = cmp(async function Config(props: any) {
   }
 
   if (authActive) {
-    options.auth = { prefix: authPrefix }
+    const auth: Record<string, any> = { prefix: authPrefix }
+    if (authBasic) { auth.basic = true }
+    if ('header' !== authIn) { auth.in = authIn }
+    if ('Authorization' !== authName) { auth.name = authName }
+    options.auth = auth
   }
   options.headers = headers
   options.entity = optionsEntity
 
-  // configDefinition's `def.entity` verbatim, NOT rebuilt here. This reduce
-  // was one of fourteen copies of that function's entityDefs loop, and when
-  // configDefinition started reconstructing a point's `parts` from apidef's
-  // segment vector (its ADR-003), only the copies that read `configDef` got
-  // it — this target's literal config emitted paths with no parts at all
-  // while its data config had them. One rule, one place.
   const entityConfig = configDef.entity
 
   const config = {
@@ -113,15 +151,15 @@ const Config = cmp(async function Config(props: any) {
     entity: entityConfig,
   }
 
-  // Config lives in the core package alongside the client.
   File({ name: 'Config.' + target.ext }, () => {
 
     Content(`package ${javapackage}.core;
 
+import java.util.List;
 import java.util.Map;
 
 import ${javapackage}.utility.Json;
-
+${pluginImportBlock}
 /** Static SDK configuration and by-name feature construction. */
 @SuppressWarnings({"unchecked"})
 public final class Config {
@@ -171,7 +209,7 @@ public final class Config {
     }
   }
 
-  private static String configJson() {
+${featurePluginsBlock}  private static String configJson() {
     StringBuilder b = new StringBuilder();
 `)
 

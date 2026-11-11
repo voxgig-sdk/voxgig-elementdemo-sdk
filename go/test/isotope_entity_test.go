@@ -16,6 +16,13 @@ import (
 	vs "github.com/voxgig-sdk/voxgig-elementdemo-sdk/go/utility/struct"
 )
 
+// main.kit.test.live.strict is true (the default is true): a live
+// request that fails, or a live test missing an input it needs,
+// fails the test.
+// An account with no record for a test to read skips it either way.
+const isotopeEntityLiveStrict = true
+
+
 func TestIsotopeEntity(t *testing.T) {
 	t.Run("instance", func(t *testing.T) {
 		testsdk := sdk.TestSDK(nil, nil)
@@ -25,55 +32,21 @@ func TestIsotopeEntity(t *testing.T) {
 		}
 	})
 
-	// Feature #4: the entity Stream(action, ...) method runs the op pipeline and
-	// returns a channel over result items. With the streaming feature active it
-	// yields the feature's incremental output; otherwise it falls back to the
-	// materialised list so Stream always yields.
-	t.Run("stream", func(t *testing.T) {
-		seed := map[string]any{
-			"entity": map[string]any{
-				"isotope": map[string]any{
-					"s1": map[string]any{"id": "s1"},
-					"s2": map[string]any{"id": "s2"},
-					"s3": map[string]any{"id": "s3"},
-				},
-			},
+	t.Run("validate", func(t *testing.T) {
+		if !fhHasFeature("validate") {
+			t.Skip("feature not present in this SDK: validate")
 		}
-
-		// Fallback: streaming inactive -> yields the materialised list items.
-		base := sdk.TestSDK(seed, nil)
-		var seen []any
-		for item := range base.Isotope(nil).Stream("list", nil, nil) {
-			seen = append(seen, item)
-		}
-		if len(seen) != 3 {
-			t.Fatalf("expected 3 streamed items, got %d", len(seen))
-		}
-
-		// Inbound: streaming active -> yields each item from the feature iterator.
-		hasStreaming := false
-		if fm, ok := core.SharedConfig()["feature"].(map[string]any); ok {
-			_, hasStreaming = fm["streaming"]
-		}
-		if hasStreaming {
-			streamSdk := sdk.TestSDK(seed, map[string]any{
-				"feature": map[string]any{"streaming": map[string]any{"active": true}},
-			})
-			var got []any
-			for item := range streamSdk.Isotope(nil).Stream("list", nil, nil) {
-				if sub, ok := item.([]any); ok {
-					got = append(got, sub...)
-				} else {
-					got = append(got, item)
-				}
-			}
-			if len(got) != 3 {
-				t.Fatalf("expected 3 items via streaming feature, got %d", len(got))
-			}
+		client := sdk.TestSDK(nil, map[string]any{
+			"feature": map[string]any{"validate": map[string]any{"active": true}},
+		})
+		_, err := client.Isotope(nil).List(map[string]any{"element_id": 1}, nil)
+		if sdkerr, ok := err.(*core.ElementdemoError); !ok || "validate_failed" != sdkerr.Code {
+			t.Fatalf("expected validate_failed, got %v", err)
 		}
 	})
 
-	t.Run("basic", func(t *testing.T) {
+	t.Run("basic", func(tt *testing.T) {
+		var t testing.TB = tt
 		setup := isotopeBasicSetup(nil)
 		// Per-op sdk-test-control.json skip — basic test exercises a flow
 		// with multiple ops; skipping any op skips the whole flow.
@@ -90,14 +63,105 @@ func TestIsotopeEntity(t *testing.T) {
 				return
 			}
 		}
-		// The basic flow consumes synthetic IDs from the fixture. In live mode
-		// without an *_ENTID env override, those IDs hit the live API and 4xx.
-		if setup.syntheticOnly {
-			t.Skip("live entity test uses synthetic IDs from fixture — set ELEMENTDEMO_TEST_ISOTOPE_ENTID JSON to run live")
-			return
+		if setup.live && os.Getenv("VOXGIG_GETONLY_GUARD") == "TRUE" {
+			t.Log("LIVE STEP {\"id\":\"isotope.create.0\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: needs POST /element/{element_id}/isotope/{isotope_id}/decay\"}")
+			t.Log("LIVE STEP {\"id\":\"isotope.update.2\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: needs PUT /element/{element_id}/isotope/{isotope_id}\"}")
+			t.Log("LIVE STEP {\"id\":\"isotope.remove.4\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: needs DELETE /element/{element_id}/isotope/{isotope_id}\"}")
+			t.Log("LIVE STEP {\"id\":\"isotope.list.5\",\"state\":\"excluded\",\"attempted\":false,\"reason\":\"GET-only live run: checks a removal this run does not make\"}")
+		if setup.live {
+			for _, _liveKey := range []string{"element01"} {
+				if setup.syntheticOnly || setup.idmap[_liveKey] == nil {
+					liveMiss(t, isotopeEntityLiveStrict, "Live entity test blocked: needs %s via ELEMENTDEMO_TEST_ISOTOPE_ENTID", _liveKey)
+				}
+			}
 		}
 		client := setup.client
+		_ = client
+		if setup.live {
+			var _liveId any
+			if !setup.syntheticOnly {
+				_liveId = setup.idmap["isotope01"]
+			}
+			livePace()
+			liveExisting(t, isotopeEntityLiveStrict, setup.data, "isotope", "id", _liveId,
+				func() (any, error) {
+					return client.Isotope(nil).List(map[string]any{"element_id": setup.idmap["element01"]}, nil)
+				})
+		}
 
+		// Bootstrap entity data from existing test data (no create step in flow).
+		isotopeRef01DataRaw := vs.Items(core.ToMapAny(vs.GetPath(setup.data, "existing.isotope")))
+		var isotopeRef01Data map[string]any
+		if len(isotopeRef01DataRaw) > 0 {
+			isotopeRef01Data = core.ToMapAny(isotopeRef01DataRaw[0][1])
+		}
+		// Discard guards against Go's unused-var check when the flow's steps
+		// happen not to consume the bootstrap data (e.g. list-only flows).
+		_ = isotopeRef01Data
+
+		if setup.live {
+			livePace()
+		}
+		// LIST
+		isotopeRef01Ent := client.Isotope(nil)
+		isotopeRef01Match := map[string]any{
+			"element_id": setup.idmap["element01"],
+		}
+
+		isotopeRef01ListResult, err := isotopeRef01Ent.List(isotopeRef01Match, nil)
+		if err != nil {
+			t.Fatalf("list failed: %v", err)
+		}
+		_, isotopeRef01ListOk := isotopeRef01ListResult.([]any)
+		if !isotopeRef01ListOk {
+			t.Fatalf("expected list result to be an array, got %T", isotopeRef01ListResult)
+		}
+
+		if setup.live {
+			livePace()
+		}
+		// LOAD
+		isotopeRef01MatchDt0 := map[string]any{
+			"id": isotopeRef01Data["id"],
+		}
+		switch v := isotopeRef01Data["element_id"].(type) {
+		case string, bool, float64, int, int64:
+			isotopeRef01MatchDt0["element_id"] = v
+		default:
+			if v := setup.idmap["element_id"]; v != nil {
+				isotopeRef01MatchDt0["element_id"] = v
+			} else {
+				isotopeRef01MatchDt0["element_id"] = setup.idmap["element01"]
+			}
+		}
+		isotopeRef01DataDt0Loaded, err := isotopeRef01Ent.Load(isotopeRef01MatchDt0, nil)
+		if err != nil {
+			t.Fatalf("load failed: %v", err)
+		}
+		isotopeRef01DataDt0LoadResult := core.ToMapAny(entityData(isotopeRef01DataDt0Loaded))
+		if isotopeRef01DataDt0LoadResult == nil {
+			t.Fatal("expected load result to be a map")
+		}
+		if !liveSameId(isotopeRef01DataDt0LoadResult["id"], isotopeRef01Data["id"]) {
+			t.Fatal("expected load result id to match")
+		}
+
+		return
+		}
+
+		if setup.live {
+			for _, _liveKey := range []string{"element01"} {
+				if setup.syntheticOnly || setup.idmap[_liveKey] == nil {
+					liveMiss(t, isotopeEntityLiveStrict, "Live entity test blocked: needs %s via ELEMENTDEMO_TEST_ISOTOPE_ENTID", _liveKey)
+				}
+			}
+		}
+		client := setup.client
+		_ = client
+
+		if setup.live {
+			livePace()
+		}
 		// CREATE
 		isotopeRef01Ent := client.Isotope(nil)
 		isotopeRef01Data := core.ToMapAny(vs.GetProp(
@@ -116,6 +180,9 @@ func TestIsotopeEntity(t *testing.T) {
 			t.Fatal("expected created entity to have an id")
 		}
 
+		if setup.live {
+			livePace()
+		}
 		// LIST
 		isotopeRef01Match := map[string]any{
 			"element_id": setup.idmap["element01"],
@@ -135,6 +202,9 @@ func TestIsotopeEntity(t *testing.T) {
 			t.Fatal("expected to find created entity in list")
 		}
 
+		if setup.live {
+			livePace()
+		}
 		// UPDATE
 		isotopeRef01DataUp0Up := map[string]any{
 			"id": isotopeRef01Data["id"],
@@ -153,16 +223,29 @@ func TestIsotopeEntity(t *testing.T) {
 		if isotopeRef01ResdataUp0 == nil {
 			t.Fatal("expected update result to be a map")
 		}
-		if isotopeRef01ResdataUp0["id"] != isotopeRef01DataUp0Up["id"] {
+		if !liveSameId(isotopeRef01ResdataUp0["id"], isotopeRef01DataUp0Up["id"]) {
 			t.Fatal("expected update result id to match")
 		}
 		if isotopeRef01ResdataUp0[isotopeRef01MarkdefUp0Name] != isotopeRef01MarkdefUp0Value {
 			t.Fatalf("expected %s to be updated, got %v", isotopeRef01MarkdefUp0Name, isotopeRef01ResdataUp0[isotopeRef01MarkdefUp0Name])
 		}
 
+		if setup.live {
+			livePace()
+		}
 		// LOAD
 		isotopeRef01MatchDt0 := map[string]any{
 			"id": isotopeRef01Data["id"],
+		}
+		switch v := isotopeRef01Data["element_id"].(type) {
+		case string, bool, float64, int, int64:
+			isotopeRef01MatchDt0["element_id"] = v
+		default:
+			if v := setup.idmap["element_id"]; v != nil {
+				isotopeRef01MatchDt0["element_id"] = v
+			} else {
+				isotopeRef01MatchDt0["element_id"] = setup.idmap["element01"]
+			}
 		}
 		isotopeRef01DataDt0Loaded, err := isotopeRef01Ent.Load(isotopeRef01MatchDt0, nil)
 		if err != nil {
@@ -172,19 +255,30 @@ func TestIsotopeEntity(t *testing.T) {
 		if isotopeRef01DataDt0LoadResult == nil {
 			t.Fatal("expected load result to be a map")
 		}
-		if isotopeRef01DataDt0LoadResult["id"] != isotopeRef01Data["id"] {
+		if !liveSameId(isotopeRef01DataDt0LoadResult["id"], isotopeRef01Data["id"]) {
 			t.Fatal("expected load result id to match")
 		}
 
+		if setup.live {
+			livePace()
+		}
 		// REMOVE
 		isotopeRef01MatchRm0 := map[string]any{
 			"id": isotopeRef01Data["id"],
+		}
+		if v := setup.idmap["element_id"]; v != nil {
+			isotopeRef01MatchRm0["element_id"] = v
+		} else {
+			isotopeRef01MatchRm0["element_id"] = setup.idmap["element01"]
 		}
 		_, err = isotopeRef01Ent.Remove(isotopeRef01MatchRm0, nil)
 		if err != nil {
 			t.Fatalf("remove failed: %v", err)
 		}
 
+		if setup.live {
+			livePace()
+		}
 		// LIST
 		isotopeRef01MatchRt0 := map[string]any{
 			"element_id": setup.idmap["element01"],
@@ -241,9 +335,8 @@ func isotopeBasicSetup(extra map[string]any) *entityTestSetup {
 		},
 	)
 
-	// Detect ENTID env override before envOverride consumes it. When live
-	// mode is on without a real override, the basic test runs against synthetic
-	// IDs from the fixture and 4xx's. Surface this so the test can skip.
+	// Whether *_ENTID supplied the idmap, read before envOverride consumes it:
+	// without it, the ids a live flow binds are the fixture's synthetic ones.
 	entidEnvRaw := os.Getenv("ELEMENTDEMO_TEST_ISOTOPE_ENTID")
 	idmapOverridden := entidEnvRaw != "" && strings.HasPrefix(strings.TrimSpace(entidEnvRaw), "{")
 

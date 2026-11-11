@@ -9,6 +9,7 @@ import { cmp, each, Folder, entityCollection,
 
 import { TestEntity } from './TestEntity_java'
 import { TestDirect } from './TestDirect_java'
+import { TestClean } from './TestClean_java'
 import { ReadmeExamplesTest } from './ReadmeExamplesTest_java'
 import { javaPackage } from './utility_java'
 
@@ -23,13 +24,8 @@ const Test = cmp(function Test(props: any) {
 
     // Write-once: a project's edited control file survives regeneration.
     TestControl({ target, dir: 'test' })
+    TestClean({ target, javapackage })
 
-    // The shared test infrastructure (RunnerSupport, the vendored omni
-    // runner under test/vendor/omni with its OmniResolver/OmniSmokeTest,
-    // FeatureHarness, PipelineTest, FeatureTest, NetsimTest,
-    // PrimaryUtilityTest, CustomUtilityTest, StructCorpusTest, ExistsTest
-    // and sdk-test-control.json) ships as templates in tm/java/test/ and
-    // is copied by Main_java. Here we generate only the API-specific tests.
     const entity = each(entityCollection(model))
       .filter((e: any) => false !== e.active)
     each(entity, (entity: ModelEntity) => {

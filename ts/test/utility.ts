@@ -1,15 +1,8 @@
-/**
- * Shared utility functions for unit tests
- *
- * This module provides common helper functions used across unit tests
- * for creating test data, transformations, validations, and environment overrides.
- */
 
 import * as Fs from 'node:fs'
 import * as Path from 'node:path'
 
 
-// Creates a new step data structure within the data model
 function makeStepData(dm: Record<string, any>, stepname: string): Record<string, any> {
   dm.s[stepname] = {
     entity: undefined,
@@ -41,7 +34,6 @@ function makeReqdata(
 }
 
 
-// Validates data against validation rules and returns the result
 function makeValid(
   dm: Record<string, any>,
   validate: Function,
@@ -53,13 +45,10 @@ function makeValid(
 }
 
 
-// Creates a control object for test explanations when enabled
 function makeCtrl(explain: boolean) {
   return explain ? { explain: {} } : undefined
 }
-// CLAUDE: add a full stop to each function comment
 
-// Overrides configuration values with environment variables if available
 function envOverride(m: Record<string, any>) {
   if (
     'TRUE' === process.env.ELEMENTDEMO_TEST_LIVE ||
@@ -88,6 +77,7 @@ type TestControl = {
     skip?: {
       live?: { direct?: any[], entityOp?: any[] }
       unit?: { direct?: any[], entityOp?: any[] }
+      definition?: { direct?: any[], entityOp?: any[] }
     }
     live?: { delayMs?: number }
     client?: { options?: Record<string, any> }
@@ -116,11 +106,11 @@ function loadTestControl(): TestControl {
 
 // Returns the skip decision for a given test name from sdk-test-control.json.
 // `kind` is 'direct' (matches by `test` field) or 'entityOp' (matches by
-// `entity` + `op`). `mode` is 'live' or 'unit'.
+// `entity` + `op`). `mode` is 'live', 'unit' or 'definition'.
 function isControlSkipped(
   kind: 'direct' | 'entityOp',
   name: string,
-  mode: 'live' | 'unit'
+  mode: 'live' | 'unit' | 'definition'
 ): { skip: boolean, reason?: string } {
   const ctrl = loadTestControl()
   const list = ctrl?.test?.skip?.[mode]?.[kind] ?? []
@@ -154,49 +144,44 @@ function maybeSkipControl(
 }
 
 
-// Skips the current live test when required idmap keys aren't supplied.
-// Generated tests call this when they would otherwise pass `undefined`
-// values into a path/query param and 4xx the request.
-function skipIfMissingIds(t: any, setup: any, requiredKeys: string[]): boolean {
+// A live test without the ids its request needs is blocked rather than sent
+// with `undefined` in a path or query parameter. Returns true when skipped.
+function skipIfMissingIds(t: any, setup: any, requiredKeys: string[], strict = true): boolean {
   if (!setup.live) return false
   const missing = requiredKeys.filter(k => null == setup.idmap?.[k])
-  if (missing.length > 0) {
-    t.skip(`live test needs ${missing.join(', ')} via *_ENTID env var (synthetic IDs only)`)
-    return true
-  }
-  return false
+  return 0 < missing.length &&
+    liveMiss(t, strict, `Live test blocked: needs ${missing.join(', ')} via *_ENTID env var`)
 }
 
 
-// Extra SDK options every LIVE client is constructed with, from
-// sdk-test-control.json `test.client.options`.
-//
-// The generated live client knows two things: the base URL (from the spec)
-// and the credential (from the environment). Everything else about how a
-// particular API wants to be talked to — which features to switch on, and
-// with what settings — is a property of THAT API, known to the project and
-// to nothing in the toolchain.
-//
-// The concrete case: an API that issues short-lived access tokens needs the
-// `secrets` feature's exchange turned on and pointed at its token endpoint,
-// or the live suite gets a handful of calls in and then fails 401 with
-// nothing explaining why. There was no seam for that, so the suite could
-// not be run at all.
-//
-// A committed FILE rather than an environment variable, because it is
-// configuration, not a secret: it belongs in the repo next to the API it
-// describes, where it can be read and reviewed. Secrets still come from the
-// environment (the providers this block names read them).
-//
-// Merged UNDER the generated fields, so the suite's own base/apikey/server
-// values win — this adds to the live client, it does not redirect it.
-//
-// That contract is enforced HERE rather than left to each merge site: the
-// generated object only names a field when the model calls for one, so a
-// `base` in this block would face no competing value and would silently
-// redirect the whole suite — credential included — to another host. The
-// reserved fields are stripped once, where the block is read, so every
-// caller gets the same guarantee whether or not it happens to emit them.
+// A live check that did not pass: strict fails the test, lenient skips it.
+function liveMiss(t: any, strict: boolean, reason: string): boolean {
+  if (strict) throw new Error(reason)
+  t.skip(reason)
+  return true
+}
+
+
+// An empty list is a valid answer, so a test needing a record skips.
+function liveEmpty(t: any, reason: string): boolean {
+  t.skip(reason)
+  return true
+}
+
+
+// The SDK's error, already bounded and cleaned, or else status and content type.
+function describeLive(result: any): string {
+  const err = result?.err
+  if (null != err) {
+    return String(err.message || err.code || err)
+  }
+  const headers = result?.headers
+  const type = 'function' === typeof headers?.get ? headers.get('content-type') :
+    Object.entries(headers || {}).find(([k]) => 'content-type' === k.toLowerCase())?.[1]
+  return 'HTTP ' + result?.status + (type ? ' ' + String(type).split(';')[0] : '')
+}
+
+
 const LIVE_RESERVED = ['base', 'prefix', 'suffix', 'server', 'apikey', 'secret']
 
 function liveClientOptions(): Record<string, any> {
@@ -238,20 +223,6 @@ function liveDelay(liveEnvVar: string): () => Promise<void> {
 }
 
 
-// Load a .env.local file into process.env, replacing the `dotenv`
-// devDependency — the SDK's last non-tooling package.
-//
-// Same semantics dotenv gave these tests: a missing file is fine, and a key
-// already present in the environment is never overridden, so an explicit
-// export still beats the file.
-//
-// WHY NOT sekreto's parsedotenv, which does the same job and is already
-// vendored: sekreto lives INSIDE the secrets feature container, so `target
-// add` removes it whenever a project does not select that feature — while
-// these entity tests need the loader either way. Importing it here would
-// couple every generated test suite to an optional feature. The parser is
-// small enough that a second, independent copy is cheaper than that
-// coupling; it deliberately handles only what a .env.local holds.
 function loadEnvLocal(file: string): void {
   let text: string
   try {
@@ -267,7 +238,6 @@ function loadEnvLocal(file: string): void {
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim()
 
-    // Blank and comment lines. A '#' INSIDE a value is not a comment.
     if ('' === line || line.startsWith('#')) {
       continue
     }
@@ -319,6 +289,9 @@ export {
   isControlSkipped,
   maybeSkipControl,
   skipIfMissingIds,
+  liveMiss,
+  liveEmpty,
+  describeLive,
   liveClientOptions,
   liveDelayMs,
   liveDelay,

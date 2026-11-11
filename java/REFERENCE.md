@@ -106,15 +106,12 @@ SdkEntity element = client.element(null);
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `block` | `String` | Yes | Orbital block, one of s, p, d, f. |
-| `charge` | `Long` | No |  |
 | `discovered` | `Long` | No | Year of discovery, absent for elements known since antiquity. |
 | `group` | `Long` | No | Periodic table column, 1 to 18, absent for the f-block. |
 | `id` | `String` | Yes | Element identifier, the lowercase symbol. |
-| `ion` | `String` | No |  |
 | `mass` | `Double` | Yes | Standard atomic weight in daltons. |
 | `name` | `String` | Yes | Element name. |
 | `number` | `Long` | Yes | Atomic number. |
-| `ok` | `Boolean` | No |  |
 | `period` | `Long` | Yes | Periodic table row, 1 to 7. |
 | `phase` | `String` | No | Phase at standard temperature and pressure. |
 | `series_id` | `String` | Yes | Chemical series this element belongs to. |
@@ -124,7 +121,7 @@ SdkEntity element = client.element(null);
 
 #### `create(reqdata, ctrl) -> Object`
 
-Create a new entity with the given data. Returns the created entity data and raises on error.
+Create a new entity with the given data. Returns the created entity and raises on error.
 
 ```java
 Object result = client.element(null).create(Map.of(
@@ -141,16 +138,18 @@ Object result = client.element(null).create(Map.of(
 
 #### `list(reqmatch, ctrl) -> Object`
 
-List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns an aggregate list and raises on error.
+List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```java
-Object results = client.element(null).list(null, null);
-System.out.println(results);
+List<?> results = (List<?>) client.element(null).list(null, null);
+for (Object item : results) {
+    System.out.println(((SdkEntity) item).data());
+}
 ```
 
 #### `load(reqmatch, ctrl) -> Object`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data()` reads, and raises on error.
 
 ```java
 Object result = client.element(null).load(Map.of("id", "element_id"), null);
@@ -158,7 +157,7 @@ Object result = client.element(null).load(Map.of("id", "element_id"), null);
 
 #### `remove(reqmatch, ctrl) -> Object`
 
-Remove the entity matching the given criteria. Raises on error.
+Remove the entity matching the given criteria. Returns the entity, marked as deleted, and raises on error.
 
 ```java
 Object result = client.element(null).remove(Map.of("id", "element_id"), null);
@@ -166,7 +165,7 @@ Object result = client.element(null).remove(Map.of("id", "element_id"), null);
 
 #### `update(reqdata, ctrl) -> Object`
 
-Update an existing entity. The data must include the entity `id`. Returns the updated entity data and raises on error.
+Update an existing entity. The data must include the entity `id`. Returns the updated entity and raises on error.
 
 ```java
 Object result = client.element(null).update(Map.of(
@@ -214,16 +213,18 @@ SdkEntity group = client.group(null);
 
 #### `list(reqmatch, ctrl) -> Object`
 
-List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns an aggregate list and raises on error.
+List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```java
-Object results = client.group(null).list(null, null);
-System.out.println(results);
+List<?> results = (List<?>) client.group(null).list(null, null);
+for (Object item : results) {
+    System.out.println(((SdkEntity) item).data());
+}
 ```
 
 #### `load(reqmatch, ctrl) -> Object`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data()` reads, and raises on error.
 
 ```java
 Object result = client.group(null).load(Map.of("id", "group_id"), null);
@@ -268,16 +269,14 @@ SdkEntity isotope = client.isotope(null);
 | `mass_number` | `Long` | Yes | Total protons and neutrons. |
 | `mode` | `String` | No | Primary decay mode, absent for stable isotopes. |
 | `name` | `String` | Yes | Isotope name. |
-| `ok` | `Boolean` | No |  |
 | `product` | `String` | No | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | `Boolean` | Yes | True if the isotope is stable. |
-| `steps` | `Long` | No |  |
 
 ### Operations
 
 #### `create(reqdata, ctrl) -> Object`
 
-Create a new entity with the given data. Returns the created entity data and raises on error.
+Create a new entity with the given data. Returns the created entity and raises on error.
 
 ```java
 Object result = client.isotope(null).create(Map.of(
@@ -292,16 +291,18 @@ Object result = client.isotope(null).create(Map.of(
 
 #### `list(reqmatch, ctrl) -> Object`
 
-List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns an aggregate list and raises on error.
+List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```java
-Object results = client.isotope(null).list(null, null);
-System.out.println(results);
+List<?> results = (List<?>) client.isotope(null).list(Map.of("element_id", "example"), null);
+for (Object item : results) {
+    System.out.println(((SdkEntity) item).data());
+}
 ```
 
 #### `load(reqmatch, ctrl) -> Object`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data()` reads, and raises on error.
 
 ```java
 Object result = client.isotope(null).load(Map.of("id", "isotope_id", "element_id", "element_id"), null);
@@ -309,7 +310,7 @@ Object result = client.isotope(null).load(Map.of("id", "isotope_id", "element_id
 
 #### `remove(reqmatch, ctrl) -> Object`
 
-Remove the entity matching the given criteria. Raises on error.
+Remove the entity matching the given criteria. Returns the entity, marked as deleted, and raises on error.
 
 ```java
 Object result = client.isotope(null).remove(Map.of("id", "isotope_id", "element_id", "element_id"), null);
@@ -317,7 +318,7 @@ Object result = client.isotope(null).remove(Map.of("id", "isotope_id", "element_
 
 #### `update(reqdata, ctrl) -> Object`
 
-Update an existing entity. The data must include the entity `id`. Returns the updated entity data and raises on error.
+Update an existing entity. The data must include the entity `id`. Returns the updated entity and raises on error.
 
 ```java
 Object result = client.isotope(null).update(Map.of(
@@ -366,16 +367,18 @@ SdkEntity series = client.series(null);
 
 #### `list(reqmatch, ctrl) -> Object`
 
-List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns an aggregate list and raises on error.
+List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```java
-Object results = client.series(null).list(null, null);
-System.out.println(results);
+List<?> results = (List<?>) client.series(null).list(null, null);
+for (Object item : results) {
+    System.out.println(((SdkEntity) item).data());
+}
 ```
 
 #### `load(reqmatch, ctrl) -> Object`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data()` reads, and raises on error.
 
 ```java
 Object result = client.series(null).load(Map.of("id", "series_id"), null);
@@ -406,18 +409,28 @@ Return the entity name.
 
 | Feature | Version | Description |
 | --- | --- | --- |
+| `debug` | 0.0.1 | Debug capture |
 | `elementcard` | 0.1.0 | ASCII periodic-table tile for element-shaped results |
-| `retry` | 0.0.1 | Automatic retry of transient failures with exponential backoff |
-| `secrets` | 0.1.0 | Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens |
-| `test` | 0.0.1 | In-memory mock transport for testing without a live server |
-| `timeout` | 0.0.1 | Per-request timeout with transport abort |
+| `idempotency` | 0.0.1 | Idempotency |
+| `metrics` | 0.0.1 | Metrics |
+| `paging` | 0.0.1 | Paging |
+| `ratelimit` | 0.0.1 | Rate limiting |
+| `retry` | 0.0.1 | Retry |
+| `secrets` | 0.1.0 | Secrets |
+| `test` | 0.0.1 | Test transport |
+| `timeout` | 0.0.1 | Timeout |
 
 
 Features are activated via the `feature` option:
 
 ```java
 Map<String, Object> feature = new java.util.LinkedHashMap<>();
+feature.put("debug", Map.of("active", true));
 feature.put("elementcard", Map.of("active", true));
+feature.put("idempotency", Map.of("active", true));
+feature.put("metrics", Map.of("active", true));
+feature.put("paging", Map.of("active", true));
+feature.put("ratelimit", Map.of("active", true));
 feature.put("retry", Map.of("active", true));
 feature.put("secrets", Map.of("active", true));
 feature.put("test", Map.of("active", true));
@@ -439,7 +452,7 @@ transport, and the order you list them in is the order they nest.
 
 #### Ordering
 
-`retry`, `timeout` wrap the transport. Each
+`ratelimit`, `retry`, `secrets`, `timeout` wrap the transport. Each
 wraps whatever is already installed, so **activation order is nesting order**:
 a feature activated later sits OUTSIDE one activated earlier, and sees the call
 first.
@@ -448,8 +461,39 @@ That decides behaviour, not just sequence: a feature that short-circuits the
 call, such as a cache serving a hit, stops every feature nested inside it from
 ever seeing that call.
 
-`elementcard`, `test` attach to pipeline hooks
+`debug`, `elementcard`, `idempotency`, `metrics`, `paging`, `test` attach to pipeline hooks
 rather than the transport, so their order does not affect what they observe.
+
+#### `debug`
+
+Debug capture.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `max` | `100` |
+| `redact` | `['authorization', 'cookie', 'set-cookie', 'api-key', 'apikey', 'x-api-key', 'idempotency-key']` |
+
+| Option | Type |
+|---|---|
+| `now` | function |
+| `onEntry` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.debug.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
 
 #### `elementcard`
 
@@ -462,11 +506,6 @@ ASCII periodic-table tile for element-shaped results.
 | `active` | `false` |
 | `print` | `false` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
-
 **Usage**
 
 Set `feature.elementcard.active` to true in the client options, and override any option above in the same entry. Every option keeps
@@ -478,9 +517,134 @@ its default unless you name it.
   not change what it observes.
 - Inactive by default: leaving it out costs nothing at runtime.
 
+#### `idempotency`
+
+Idempotency.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `header` | `'Idempotency-Key'` |
+| `methods` | `['POST', 'PUT', 'PATCH', 'DELETE']` |
+| `ops` | `['create', 'update', 'remove']` |
+
+| Option | Type |
+|---|---|
+| `keygen` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.idempotency.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
+
+#### `metrics`
+
+Metrics.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+
+| Option | Type |
+|---|---|
+| `now` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.metrics.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
+
+#### `paging`
+
+Paging.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `afterVar` | `'after'` |
+| `cursorParam` | `'cursor'` |
+| `firstVar` | `'first'` |
+| `limitParam` | `'limit'` |
+| `pageParam` | `'page'` |
+| `startPage` | `1` |
+
+| Option | Type |
+|---|---|
+| `limit` | number |
+| `ops` | list |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.paging.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
+
+#### `ratelimit`
+
+Rate limiting.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `burst` | `5` |
+| `rate` | `5` |
+
+| Option | Type |
+|---|---|
+| `now` | function |
+| `sleep` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.ratelimit.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Wraps the transport: its place in the activation order decides what it
+  sees. See [Ordering](#ordering) above.
+- Inactive by default: leaving it out costs nothing at runtime.
+
 #### `retry`
 
-Automatic retry of transient failures with exponential backoff.
+Retry.
 
 **Configuration**
 
@@ -493,10 +657,13 @@ Automatic retry of transient failures with exponential backoff.
 | `retries` | `2` |
 | `statuses` | `[408, 425, 429, 500, 502, 503, 504]` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
+| Option | Type |
+|---|---|
+| `jitter` | boolean |
+| `sleep` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
 
 **Usage**
 
@@ -509,9 +676,34 @@ its default unless you name it.
   sees. See [Ordering](#ordering) above.
 - Inactive by default: leaving it out costs nothing at runtime.
 
+#### `secrets`
+
+Secrets.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `cache` | `true` |
+| `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
+| `name` | `'apikey'` |
+| `providers` | `[]` |
+
+**Usage**
+
+Set `feature.secrets.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Wraps the transport: its place in the activation order decides what it
+  sees. See [Ordering](#ordering) above.
+- Inactive by default: leaving it out costs nothing at runtime.
+
 #### `test`
 
-In-memory mock transport for testing without a live server.
+Test transport.
 
 **Configuration**
 
@@ -519,10 +711,13 @@ In-memory mock transport for testing without a live server.
 |---|---|
 | `active` | `false` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
+| Option | Type |
+|---|---|
+| `entity` | map |
+| `net` | map |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
 
 **Usage**
 
@@ -539,7 +734,7 @@ its default unless you name it.
 
 #### `timeout`
 
-Per-request timeout with transport abort.
+Timeout.
 
 **Configuration**
 
@@ -548,10 +743,14 @@ Per-request timeout with transport abort.
 | `active` | `false` |
 | `ms` | `30000` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
+| Option | Type |
+|---|---|
+| `clearTimer` | function |
+| `now` | function |
+| `setTimer` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
 
 **Usage**
 

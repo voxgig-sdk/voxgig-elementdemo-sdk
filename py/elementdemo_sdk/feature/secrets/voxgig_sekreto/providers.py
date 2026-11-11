@@ -1,5 +1,5 @@
 # VENDORED: @voxgig/sekreto 0.2.0 (python/voxgig_sekreto/providers.py)
-# Source: https://github.com/voxgig/sekreto @ a5a00db6e6d3a1ddbdef7ac62e8a75be53a9e042  [tag: sdk-20260904-1610-0]
+# Source: https://github.com/voxgig/sekreto @ ee837130bf444ca46a5a46181bdd6743e118898c  [tag: sdk-20261016-0845-0]
 # License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 # What a provider is, how a provider kind becomes a voxgig/plugin
 # definition - and the four BUILT-IN kinds.
@@ -207,5 +207,6 @@ KINDS = {
     'plugin': [
         'hashicorp', 'boru', 'awssecrets', 'awsparams', 'gcpsecrets',
         'azuresecrets', 'onepassword', 'doppler', 'infisical', 'secretspec',
+        'minivault',
     ],
 }

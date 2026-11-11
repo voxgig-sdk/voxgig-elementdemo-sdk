@@ -1,5 +1,6 @@
 package JAVAPACKAGE.feature;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,45 @@ public class TestFeature extends BaseFeature {
   // parameter — the rule makePoint uses to tell the entity's own route from a
   // cross-reference that also returns it.
   @SuppressWarnings("unchecked")
+  // The record the mock keeps: the request data without `$body`, which only the
+  // wire carries.
+  private static Map<String, Object> record(Map<String, Object> reqdata) {
+    if (reqdata == null) {
+      return null;
+    }
+    Map<String, Object> out = new LinkedHashMap<>(reqdata);
+    out.remove("$body");
+    return out;
+  }
+
+  // The entity's declared identity field (`entity.id.field`), where it names
+  // one other than the `id` every record already carries.
+  private static String declaredIdField(Object config, String entityName) {
+    Object field = Struct.getpath(config, List.of("entity", entityName == null ? "" : entityName, "id", "field"));
+    return field instanceof String && !"".equals(field) && !"id".equals(field) ? (String) field : null;
+  }
+
+  private static final java.util.regex.Pattern ITEM_ENVELOPE_RE =
+      java.util.regex.Pattern.compile("^`\\.([^.`$]+)`$");
+
+  // The key a list's response transform
+  // ["`$EACH`", "body", {"`$MERGE`": "`.<key>`"}] reads each item's record under.
+  private static String itemEnvelopeKey(Object restf) {
+    if (!(restf instanceof List) || 3 != ((List<?>) restf).size()) {
+      return null;
+    }
+    List<?> spec = (List<?>) restf;
+    if (!"`$EACH`".equals(spec.get(0)) || !"body".equals(spec.get(1)) || !(spec.get(2) instanceof Map)) {
+      return null;
+    }
+    Object merge = ((Map<?, ?>) spec.get(2)).get("`$MERGE`");
+    if (!(merge instanceof String)) {
+      return null;
+    }
+    java.util.regex.Matcher m = ITEM_ENVELOPE_RE.matcher((String) merge);
+    return m.matches() ? m.group(1) : null;
+  }
+
   private static int pointPartsLen(Object point) {
     Object parts = Struct.getprop(point, "parts");
     return parts instanceof List ? ((List<Object>) parts).size() : 0;
@@ -67,6 +107,10 @@ public class TestFeature extends BaseFeature {
     Struct.walk(entity, (key, val, parent, path) -> {
       if (path != null && path.size() == 2 && val instanceof Map && key != null) {
         ((Map<String, Object>) val).put("id", key);
+        String idField = declaredIdField(ctx.config, path.get(0));
+        if (idField != null) {
+          ((Map<String, Object>) val).put(idField, key);
+        }
       }
       return val;
     });
@@ -105,22 +149,37 @@ public class TestFeature extends BaseFeature {
     }
     Object tm = Struct.getprop(ctx.point, "transform");
     Object restf = Struct.getprop(tm, "res");
+    String key = itemEnvelopeKey(restf);
+    if (null != key && data instanceof List) {
+      List<Object> items = new ArrayList<>();
+      for (Object item : (List<?>) data) {
+        Map<String, Object> wrapped = new LinkedHashMap<>();
+        wrapped.put(key, item);
+        items.add(wrapped);
+      }
+      return items;
+    }
     if (!(restf instanceof String)) {
       return data;
     }
     String spec = (String) restf;
-    // Exactly `body.<key>`; a deeper path is not an envelope this mock can
-    // synthesise, so it is left alone rather than guessed at.
+    // Rebuild whatever nesting the transform unwraps. Multi-segment on purpose:
+    // GraphQL ops unwrap `body.data.<field>`, not just one envelope property.
     if (!spec.startsWith("`body.") || !spec.endsWith("`") || spec.length() < 8) {
       return data;
     }
     String inner = spec.substring(6, spec.length() - 1);
-    if (inner.isEmpty() || inner.contains(".")) {
+    if (inner.isEmpty()) {
       return data;
     }
-    Map<String, Object> wrapped = new LinkedHashMap<>();
-    wrapped.put(inner, data);
-    return wrapped;
+    String[] segs = inner.split("\\.", -1);
+    Object out = data;
+    for (int i = segs.length - 1; 0 <= i; i--) {
+      Map<String, Object> wrapped = new LinkedHashMap<>();
+      wrapped.put(segs[i], out);
+      out = wrapped;
+    }
+    return out;
   }
 
   private Map<String, Object> respond(Context ctx, int status, Object data, Map<String, Object> extra) {
@@ -174,7 +233,7 @@ public class TestFeature extends BaseFeature {
     if ("load".equals(op.name)) {
       Object args = buildArgs(ctx, op, resolveMatch(ctx, ctx.reqmatch));
       List<Object> found = Struct.select(entmap, args);
-      Object ent = Struct.getelem(found, 0);
+      Object ent = Struct.getelem(found, 0, null);
       if (ent == null) {
         return respond(ctx, 404, null, extra("statusText", "Not found"));
       }
@@ -194,7 +253,7 @@ public class TestFeature extends BaseFeature {
       Object out = Struct.clone(found);
       return respond(ctx, 200, out, null);
     }
-    else if ("update".equals(op.name)) {
+    else if ("update".equals(op.name) || "patch".equals(op.name)) {
       // Match the existing entity by id only (or its alias). Reqdata
       // also contains the new field values, which would otherwise
       // cause select to filter out the entity we want to update.
@@ -222,20 +281,13 @@ public class TestFeature extends BaseFeature {
       }
       Object args = buildArgs(ctx, op, updateMatch);
       List<Object> found = Struct.select(entmap, args);
-      Object ent = Struct.getelem(found, 0);
-      if (ent == null && entmap != null) {
-        for (Object e : entmap.values()) {
-          if (e instanceof Map) {
-            ent = e;
-            break;
-          }
-        }
-      }
+      Object ent = Struct.getelem(found, 0, null);
       if (ent == null) {
+        // update miss: 404, never another record
         return respond(ctx, 404, null, extra("statusText", "Not found"));
       }
       if (ent instanceof Map && ctx.reqdata != null) {
-        ((Map<String, Object>) ent).putAll(ctx.reqdata);
+        Struct.merge(Struct.jt(ent, record(ctx.reqdata)));
       }
       Struct.delprop(ent, "$KEY");
       Object out = Struct.clone(ent);
@@ -244,7 +296,7 @@ public class TestFeature extends BaseFeature {
     else if ("remove".equals(op.name)) {
       Object args = buildArgs(ctx, op, resolveMatch(ctx, ctx.reqmatch));
       List<Object> found = Struct.select(entmap, args);
-      Object ent = Struct.getelem(found, 0);
+      Object ent = Struct.getelem(found, 0, null);
       // Remove only the first matched entity. If nothing matches,
       // succeed as a no-op rather than erroring.
       if (ent instanceof Map) {
@@ -263,10 +315,14 @@ public class TestFeature extends BaseFeature {
             r.nextInt(0x10000), r.nextInt(0x10000));
       }
 
-      Object ent = Struct.clone(ctx.reqdata);
+      Object ent = Struct.clone(record(ctx.reqdata));
       if (ent instanceof Map) {
         Map<String, Object> entm = (Map<String, Object>) ent;
         entm.put("id", id);
+        String idField = declaredIdField(ctx.config, op.entity);
+        if (idField != null && entm.get(idField) == null) {
+          entm.put(idField, id);
+        }
         if (id instanceof String) {
           entmap.put((String) id, entm);
         }
@@ -369,10 +425,14 @@ public class TestFeature extends BaseFeature {
       }
     }
 
-    // Get required params.
-    Object paramsPath = Struct.getpath(point, List.of("args", "params"));
-    Object reqdParams = Struct.select(paramsPath, Struct.jm("reqd", true));
-    Object reqd = Struct.transform(reqdParams,
+    // Path AND query: a path-only read misses a query-addressed record
+    // (e.g. GET /result?trace_id=), which has no path param at all.
+    List<Object> reqdArgs = Struct.jt();
+    for (String kind : new String[] { "params", "query" }) {
+      Object argsPath = Struct.getpath(point, List.of("args", kind));
+      reqdArgs.addAll(Struct.select(argsPath, Struct.jm("reqd", true)));
+    }
+    Object reqd = Struct.transform(reqdArgs,
         Struct.jt("`$EACH`", "", "`$KEY.name`"));
 
     List<Object> qand = Struct.jt();

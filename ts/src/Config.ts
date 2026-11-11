@@ -1,6 +1,11 @@
 
 import { BaseFeature } from './feature/base/BaseFeature'
+import { DebugFeature } from './feature/debug/DebugFeature'
 import { ElementcardFeature } from './feature/elementcard/ElementcardFeature'
+import { IdempotencyFeature } from './feature/idempotency/IdempotencyFeature'
+import { MetricsFeature } from './feature/metrics/MetricsFeature'
+import { PagingFeature } from './feature/paging/PagingFeature'
+import { RatelimitFeature } from './feature/ratelimit/RatelimitFeature'
 import { RetryFeature } from './feature/retry/RetryFeature'
 import { SecretsFeature } from './feature/secrets/SecretsFeature'
 import { TestFeature } from './feature/test/TestFeature'
@@ -9,7 +14,12 @@ import { TimeoutFeature } from './feature/timeout/TimeoutFeature'
 
 
 const FEATURE_CLASS: Record<string, typeof BaseFeature> = {
-   elementcard: ElementcardFeature,
+   debug: DebugFeature,
+ elementcard: ElementcardFeature,
+ idempotency: IdempotencyFeature,
+ metrics: MetricsFeature,
+ paging: PagingFeature,
+ ratelimit: RatelimitFeature,
  retry: RetryFeature,
  secrets: SecretsFeature,
  test: TestFeature,
@@ -18,12 +28,6 @@ const FEATURE_CLASS: Record<string, typeof BaseFeature> = {
 }
 
 
-// Per-feature plugin DEFINITIONS (voxgig/plugin `Definition` values), from
-// the model's active plugin groups. A feature that takes a `plugins` option
-// (secrets over sekreto) reads its own entry; a feature with no plugins has
-// none. Named imports above make each definition statically reachable, so
-// an SDK carries exactly the plugin modules its model selects — the same
-// leanness the old side-effect registry imports bought, without a registry.
 const FEATURE_PLUGINS: Record<string, any[]> = {
   
 }
@@ -34,7 +38,6 @@ class Config {
   makeFeature(this: any, fn: string) {
     const fc = FEATURE_CLASS[fn]
     const fi = new fc()
-    // TODO: errors etc
     return fi
   }
 
@@ -56,12 +59,97 @@ class Config {
 
 
   feature = {
-     elementcard:     {
+     debug:     {
+      "options": {
+        "active": false,
+        "max": 100,
+        "redact": [
+          "authorization",
+          "cookie",
+          "set-cookie",
+          "api-key",
+          "apikey",
+          "x-api-key",
+          "idempotency-key"
+        ]
+      },
+      "optspec": {
+        "now": "`$FUNCTION`",
+        "onEntry": "`$FUNCTION`"
+      },
+      "strict": false,
+      "transport": "none"
+    },
+ elementcard:     {
       "options": {
         "active": false,
         "print": false
       },
+      "optspec": {},
+      "strict": false,
       "transport": "none"
+    },
+ idempotency:     {
+      "options": {
+        "active": false,
+        "header": "Idempotency-Key",
+        "methods": [
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "ops": [
+          "create",
+          "update",
+          "remove"
+        ]
+      },
+      "optspec": {
+        "keygen": "`$FUNCTION`"
+      },
+      "strict": false,
+      "transport": "none"
+    },
+ metrics:     {
+      "options": {
+        "active": false
+      },
+      "optspec": {
+        "now": "`$FUNCTION`"
+      },
+      "strict": false,
+      "transport": "none"
+    },
+ paging:     {
+      "options": {
+        "active": false,
+        "afterVar": "after",
+        "cursorParam": "cursor",
+        "firstVar": "first",
+        "limitParam": "limit",
+        "pageParam": "page",
+        "startPage": 1
+      },
+      "optspec": {
+        "limit": "`$NUMBER`",
+        "ops": "`$LIST`"
+      },
+      "strict": false,
+      "transport": "none"
+    },
+ ratelimit:     {
+      "options": {
+        "active": false,
+        "burst": 5,
+        "rate": 5
+      },
+      "optspec": {
+        "now": "`$FUNCTION`",
+        "sleep": "`$FUNCTION`"
+      },
+      "strict": false,
+      "transport": "wrap"
     },
  retry:     {
       "options": {
@@ -80,6 +168,11 @@ class Config {
           504
         ]
       },
+      "optspec": {
+        "jitter": "`$BOOLEAN`",
+        "sleep": "`$FUNCTION`"
+      },
+      "strict": false,
       "transport": "wrap"
     },
  secrets:     {
@@ -101,12 +194,19 @@ class Config {
         "name": "apikey",
         "providers": []
       },
+      "optspec": {},
+      "strict": false,
       "transport": "wrap"
     },
  test:     {
       "options": {
         "active": false
       },
+      "optspec": {
+        "entity": "`$MAP`",
+        "net": "`$MAP`"
+      },
+      "strict": false,
       "transport": "base"
     },
  timeout:     {
@@ -114,6 +214,12 @@ class Config {
         "active": false,
         "ms": 30000
       },
+      "optspec": {
+        "clearTimer": "`$FUNCTION`",
+        "now": "`$FUNCTION`",
+        "setTimer": "`$FUNCTION`"
+      },
+      "strict": false,
       "transport": "wrap"
     },
 
@@ -137,18 +243,18 @@ class Config {
 
     entity: {
       
-      element: {
-      },
-
-      group: {
-      },
-
-      isotope: {
-      },
-
-      series: {
-      },
-
+        element: {
+        },
+  
+        group: {
+        },
+  
+        isotope: {
+        },
+  
+        series: {
+        },
+  
     }
   }
 
@@ -158,80 +264,84 @@ class Config {
       "fields": [
         {
           "name": "block",
+          "title": "Block",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Orbital block, one of s, p, d, f.",
-          "type": "`$STRING`"
-        },
-        {
-          "name": "charge",
-          "type": "`$INTEGER`"
+          "short": "Orbital block, one of s, p, d, f."
         },
         {
           "name": "discovered",
-          "short": "Year of discovery, absent for elements known since antiquity.",
-          "type": "`$INTEGER`"
+          "title": "Discovered",
+          "type": "`$INTEGER`",
+          "short": "Year of discovery, absent for elements known since antiquity."
         },
         {
           "name": "group",
-          "short": "Periodic table column, 1 to 18, absent for the f-block.",
-          "type": "`$INTEGER`"
+          "title": "Group",
+          "type": "`$INTEGER`",
+          "short": "Periodic table column, 1 to 18, absent for the f-block."
         },
         {
           "name": "id",
+          "title": "Id",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Element identifier, the lowercase symbol.",
-          "type": "`$STRING`"
-        },
-        {
-          "name": "ion",
-          "type": "`$STRING`"
+          "short": "Element identifier, the lowercase symbol."
         },
         {
           "name": "mass",
+          "title": "Mass",
+          "type": "`$NUMBER`",
           "req": true,
           "short": "Standard atomic weight in daltons.",
-          "type": "`$NUMBER`"
+          "format": "float"
         },
         {
           "name": "name",
+          "title": "Name",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Element name.",
-          "type": "`$STRING`"
+          "short": "Element name."
         },
         {
           "name": "number",
+          "title": "Number",
+          "type": "`$INTEGER`",
           "req": true,
-          "short": "Atomic number.",
-          "type": "`$INTEGER`"
-        },
-        {
-          "name": "ok",
-          "type": "`$BOOLEAN`"
+          "short": "Atomic number."
         },
         {
           "name": "period",
+          "title": "Period",
+          "type": "`$INTEGER`",
           "req": true,
-          "short": "Periodic table row, 1 to 7.",
-          "type": "`$INTEGER`"
+          "short": "Periodic table row, 1 to 7."
         },
         {
           "name": "phase",
-          "short": "Phase at standard temperature and pressure.",
-          "type": "`$STRING`"
+          "title": "Phase",
+          "type": "`$STRING`",
+          "short": "Phase at standard temperature and pressure."
         },
         {
           "name": "series_id",
+          "title": "Series Id",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Chemical series this element belongs to.",
-          "type": "`$STRING`"
+          "short": "Chemical series this element belongs to."
         },
         {
           "name": "symbol",
+          "title": "Symbol",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Chemical symbol.",
-          "type": "`$STRING`"
+          "short": "Chemical symbol."
         }
       ],
+      "id": {
+        "field": "id",
+        "name": "id"
+      },
       "name": "element",
       "op": {
         "create": {
@@ -239,30 +349,9 @@ class Config {
           "name": "create",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "POST",
               "orig": "/element/{element_id}/ionize",
-              "parts": [
-                "element",
-                "{id}",
-                "ionize"
-              ],
-              "rename": {
-                "param": {
-                  "element_id": "id"
-                }
-              },
               "segments": [
                 {
                   "lit": "element"
@@ -274,34 +363,64 @@ class Config {
                   "lit": "ionize"
                 }
               ],
+              "parts": [
+                "element",
+                "{id}",
+                "ionize"
+              ],
+              "rename": {
+                "param": {
+                  "element_id": "id"
+                }
+              },
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "$action": "ionize",
                 "exist": [
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             },
             {
-              "args": {},
               "kind": "http",
               "method": "POST",
               "orig": "/element",
-              "parts": [
-                "element"
-              ],
               "segments": [
                 {
                   "lit": "element"
                 }
               ],
-              "select": {},
+              "parts": [
+                "element"
+              ],
+              "rename": {},
               "transform": {
                 "req": "`reqdata`",
                 "res": "`body`"
+              },
+              "args": {},
+              "select": {},
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -311,22 +430,27 @@ class Config {
           "name": "list",
           "points": [
             {
-              "args": {},
               "kind": "http",
               "method": "GET",
               "orig": "/element",
-              "parts": [
-                "element"
-              ],
               "segments": [
                 {
                   "lit": "element"
                 }
               ],
-              "select": {},
+              "parts": [
+                "element"
+              ],
+              "rename": {},
               "transform": {
                 "req": "`reqdata`",
                 "res": "`body`"
+              },
+              "args": {},
+              "select": {},
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -336,20 +460,17 @@ class Config {
           "name": "load",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "GET",
               "orig": "/element/{element_id}",
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "parts": [
                 "element",
                 "{id}"
@@ -359,22 +480,29 @@ class Config {
                   "element_id": "id"
                 }
               },
-              "segments": [
-                {
-                  "lit": "element"
-                },
-                {
-                  "var": "id"
-                }
-              ],
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -384,20 +512,17 @@ class Config {
           "name": "remove",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "DELETE",
               "orig": "/element/{element_id}",
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "parts": [
                 "element",
                 "{id}"
@@ -407,22 +532,25 @@ class Config {
                   "element_id": "id"
                 }
               },
-              "segments": [
-                {
-                  "lit": "element"
-                },
-                {
-                  "var": "id"
-                }
-              ],
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "id"
                 ]
-              },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
               }
             }
           ]
@@ -432,20 +560,17 @@ class Config {
           "name": "update",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "PUT",
               "orig": "/element/{element_id}",
+              "segments": [
+                {
+                  "lit": "element"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "parts": [
                 "element",
                 "{id}"
@@ -455,22 +580,29 @@ class Config {
                   "element_id": "id"
                 }
               },
-              "segments": [
-                {
-                  "lit": "element"
-                },
-                {
-                  "var": "id"
-                }
-              ],
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -484,28 +616,36 @@ class Config {
       "fields": [
         {
           "name": "cas",
+          "title": "Cas",
+          "type": "`$STRING`",
           "req": true,
-          "short": "CAS group designation.",
-          "type": "`$STRING`"
+          "short": "CAS group designation."
         },
         {
           "name": "id",
+          "title": "Id",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Group identifier, g1 to g18.",
-          "type": "`$STRING`"
+          "short": "Group identifier, g1 to g18."
         },
         {
           "name": "name",
-          "short": "Trivial name, where one exists.",
-          "type": "`$STRING`"
+          "title": "Name",
+          "type": "`$STRING`",
+          "short": "Trivial name, where one exists."
         },
         {
           "name": "number",
+          "title": "Number",
+          "type": "`$INTEGER`",
           "req": true,
-          "short": "Group number, 1 to 18.",
-          "type": "`$INTEGER`"
+          "short": "Group number, 1 to 18."
         }
       ],
+      "id": {
+        "field": "id",
+        "name": "id"
+      },
       "name": "group",
       "op": {
         "list": {
@@ -513,22 +653,27 @@ class Config {
           "name": "list",
           "points": [
             {
-              "args": {},
               "kind": "http",
               "method": "GET",
               "orig": "/group",
-              "parts": [
-                "group"
-              ],
               "segments": [
                 {
                   "lit": "group"
                 }
               ],
-              "select": {},
+              "parts": [
+                "group"
+              ],
+              "rename": {},
               "transform": {
                 "req": "`reqdata`",
                 "res": "`body`"
+              },
+              "args": {},
+              "select": {},
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -538,20 +683,17 @@ class Config {
           "name": "load",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "group_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "GET",
               "orig": "/group/{group_id}",
+              "segments": [
+                {
+                  "lit": "group"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "parts": [
                 "group",
                 "{id}"
@@ -561,22 +703,29 @@ class Config {
                   "group_id": "id"
                 }
               },
-              "segments": [
-                {
-                  "lit": "group"
-                },
-                {
-                  "var": "id"
-                }
-              ],
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "id",
+                    "orig": "group_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -590,69 +739,77 @@ class Config {
       "fields": [
         {
           "name": "abundance",
+          "title": "Abundance",
+          "type": "`$NUMBER`",
           "short": "Natural abundance as a fraction, absent for synthetic isotopes.",
-          "type": "`$NUMBER`"
+          "format": "float"
         },
         {
           "name": "element_id",
+          "title": "Element Id",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Parent element identifier.",
-          "type": "`$STRING`"
+          "short": "Parent element identifier."
         },
         {
           "name": "halflife",
-          "short": "Half-life, absent for stable isotopes.",
-          "type": "`$STRING`"
+          "title": "Halflife",
+          "type": "`$STRING`",
+          "short": "Half-life, absent for stable isotopes."
         },
         {
           "name": "id",
+          "title": "Id",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Isotope identifier, symbol dash mass number.",
-          "type": "`$STRING`"
+          "short": "Isotope identifier, symbol dash mass number."
         },
         {
           "name": "mass",
+          "title": "Mass",
+          "type": "`$NUMBER`",
           "req": true,
           "short": "Isotopic mass in daltons.",
-          "type": "`$NUMBER`"
+          "format": "float"
         },
         {
           "name": "mass_number",
+          "title": "Mass Number",
+          "type": "`$INTEGER`",
           "req": true,
-          "short": "Total protons and neutrons.",
-          "type": "`$INTEGER`"
+          "short": "Total protons and neutrons."
         },
         {
           "name": "mode",
-          "short": "Primary decay mode, absent for stable isotopes.",
-          "type": "`$STRING`"
+          "title": "Mode",
+          "type": "`$STRING`",
+          "short": "Primary decay mode, absent for stable isotopes."
         },
         {
           "name": "name",
+          "title": "Name",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Isotope name.",
-          "type": "`$STRING`"
-        },
-        {
-          "name": "ok",
-          "type": "`$BOOLEAN`"
+          "short": "Isotope name."
         },
         {
           "name": "product",
-          "short": "Primary decay product isotope, absent for stable isotopes.",
-          "type": "`$STRING`"
+          "title": "Product",
+          "type": "`$STRING`",
+          "short": "Primary decay product isotope, absent for stable isotopes."
         },
         {
           "name": "stable",
+          "title": "Stable",
+          "type": "`$BOOLEAN`",
           "req": true,
-          "short": "True if the isotope is stable.",
-          "type": "`$BOOLEAN`"
-        },
-        {
-          "name": "steps",
-          "type": "`$INTEGER`"
+          "short": "True if the isotope is stable."
         }
       ],
+      "id": {
+        "field": "id",
+        "name": "id"
+      },
       "name": "isotope",
       "op": {
         "create": {
@@ -660,39 +817,9 @@ class Config {
           "name": "create",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "element_id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  },
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "isotope_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "POST",
               "orig": "/element/{element_id}/isotope/{isotope_id}/decay",
-              "parts": [
-                "element",
-                "{element_id}",
-                "isotope",
-                "{id}",
-                "decay"
-              ],
-              "rename": {
-                "param": {
-                  "isotope_id": "id"
-                }
-              },
               "segments": [
                 {
                   "lit": "element"
@@ -710,6 +837,40 @@ class Config {
                   "lit": "decay"
                 }
               ],
+              "parts": [
+                "element",
+                "{element_id}",
+                "isotope",
+                "{id}",
+                "decay"
+              ],
+              "rename": {
+                "param": {
+                  "isotope_id": "id"
+                }
+              },
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "element_id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  },
+                  {
+                    "name": "id",
+                    "orig": "isotope_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "$action": "decay",
                 "exist": [
@@ -717,31 +878,15 @@ class Config {
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             },
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "element_id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "POST",
               "orig": "/element/{element_id}/isotope",
-              "parts": [
-                "element",
-                "{element_id}",
-                "isotope"
-              ],
               "segments": [
                 {
                   "lit": "element"
@@ -753,14 +898,35 @@ class Config {
                   "lit": "isotope"
                 }
               ],
+              "parts": [
+                "element",
+                "{element_id}",
+                "isotope"
+              ],
+              "rename": {},
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "element_id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "element_id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -770,25 +936,9 @@ class Config {
           "name": "list",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "element_id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "GET",
               "orig": "/element/{element_id}/isotope",
-              "parts": [
-                "element",
-                "{element_id}",
-                "isotope"
-              ],
               "segments": [
                 {
                   "lit": "element"
@@ -800,14 +950,35 @@ class Config {
                   "lit": "isotope"
                 }
               ],
+              "parts": [
+                "element",
+                "{element_id}",
+                "isotope"
+              ],
+              "rename": {},
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "element_id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "element_id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -817,38 +988,9 @@ class Config {
           "name": "load",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "element_id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  },
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "isotope_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "GET",
               "orig": "/element/{element_id}/isotope/{isotope_id}",
-              "parts": [
-                "element",
-                "{element_id}",
-                "isotope",
-                "{id}"
-              ],
-              "rename": {
-                "param": {
-                  "isotope_id": "id"
-                }
-              },
               "segments": [
                 {
                   "lit": "element"
@@ -863,15 +1005,48 @@ class Config {
                   "var": "id"
                 }
               ],
+              "parts": [
+                "element",
+                "{element_id}",
+                "isotope",
+                "{id}"
+              ],
+              "rename": {
+                "param": {
+                  "isotope_id": "id"
+                }
+              },
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "element_id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  },
+                  {
+                    "name": "id",
+                    "orig": "isotope_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "element_id",
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -881,38 +1056,9 @@ class Config {
           "name": "remove",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "element_id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  },
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "isotope_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "DELETE",
               "orig": "/element/{element_id}/isotope/{isotope_id}",
-              "parts": [
-                "element",
-                "{element_id}",
-                "isotope",
-                "{id}"
-              ],
-              "rename": {
-                "param": {
-                  "isotope_id": "id"
-                }
-              },
               "segments": [
                 {
                   "lit": "element"
@@ -927,15 +1073,44 @@ class Config {
                   "var": "id"
                 }
               ],
+              "parts": [
+                "element",
+                "{element_id}",
+                "isotope",
+                "{id}"
+              ],
+              "rename": {
+                "param": {
+                  "isotope_id": "id"
+                }
+              },
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "element_id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  },
+                  {
+                    "name": "id",
+                    "orig": "isotope_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "element_id",
                   "id"
                 ]
-              },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
               }
             }
           ]
@@ -945,38 +1120,9 @@ class Config {
           "name": "update",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "element_id",
-                    "orig": "element_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  },
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "isotope_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "PUT",
               "orig": "/element/{element_id}/isotope/{isotope_id}",
-              "parts": [
-                "element",
-                "{element_id}",
-                "isotope",
-                "{id}"
-              ],
-              "rename": {
-                "param": {
-                  "isotope_id": "id"
-                }
-              },
               "segments": [
                 {
                   "lit": "element"
@@ -991,15 +1137,48 @@ class Config {
                   "var": "id"
                 }
               ],
+              "parts": [
+                "element",
+                "{element_id}",
+                "isotope",
+                "{id}"
+              ],
+              "rename": {
+                "param": {
+                  "isotope_id": "id"
+                }
+              },
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "element_id",
+                    "orig": "element_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  },
+                  {
+                    "name": "id",
+                    "orig": "isotope_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "element_id",
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -1008,7 +1187,7 @@ class Config {
       "relations": {
         "ancestors": [
           [
-            "element"
+            "$.main.kit.entity.element"
           ]
         ]
       }
@@ -1017,29 +1196,37 @@ class Config {
       "fields": [
         {
           "name": "color",
+          "title": "Color",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Display color used by the element card renderer.",
-          "type": "`$STRING`"
+          "short": "Display color used by the element card renderer."
         },
         {
           "name": "description",
+          "title": "Description",
+          "type": "`$STRING`",
           "req": true,
-          "short": "One-line description of the series.",
-          "type": "`$STRING`"
+          "short": "One-line description of the series."
         },
         {
           "name": "id",
+          "title": "Id",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Series identifier.",
-          "type": "`$STRING`"
+          "short": "Series identifier."
         },
         {
           "name": "name",
+          "title": "Name",
+          "type": "`$STRING`",
           "req": true,
-          "short": "Series name.",
-          "type": "`$STRING`"
+          "short": "Series name."
         }
       ],
+      "id": {
+        "field": "id",
+        "name": "id"
+      },
       "name": "series",
       "op": {
         "list": {
@@ -1047,22 +1234,27 @@ class Config {
           "name": "list",
           "points": [
             {
-              "args": {},
               "kind": "http",
               "method": "GET",
               "orig": "/series",
-              "parts": [
-                "series"
-              ],
               "segments": [
                 {
                   "lit": "series"
                 }
               ],
-              "select": {},
+              "parts": [
+                "series"
+              ],
+              "rename": {},
               "transform": {
                 "req": "`reqdata`",
                 "res": "`body`"
+              },
+              "args": {},
+              "select": {},
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]
@@ -1072,20 +1264,17 @@ class Config {
           "name": "load",
           "points": [
             {
-              "args": {
-                "params": [
-                  {
-                    "kind": "param",
-                    "name": "id",
-                    "orig": "series_id",
-                    "reqd": true,
-                    "type": "`$STRING`"
-                  }
-                ]
-              },
               "kind": "http",
               "method": "GET",
               "orig": "/series/{series_id}",
+              "segments": [
+                {
+                  "lit": "series"
+                },
+                {
+                  "var": "id"
+                }
+              ],
               "parts": [
                 "series",
                 "{id}"
@@ -1095,22 +1284,29 @@ class Config {
                   "series_id": "id"
                 }
               },
-              "segments": [
-                {
-                  "lit": "series"
-                },
-                {
-                  "var": "id"
-                }
-              ],
+              "transform": {
+                "req": "`reqdata`",
+                "res": "`body`"
+              },
+              "args": {
+                "params": [
+                  {
+                    "name": "id",
+                    "orig": "series_id",
+                    "type": "`$STRING`",
+                    "kind": "param",
+                    "reqd": true
+                  }
+                ]
+              },
               "select": {
                 "exist": [
                   "id"
                 ]
               },
-              "transform": {
-                "req": "`reqdata`",
-                "res": "`body`"
+              "response": {
+                "kind": "json",
+                "media": "application/json"
               }
             }
           ]

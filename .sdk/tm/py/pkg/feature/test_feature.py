@@ -13,6 +13,43 @@ from projectname_sdk.feature.base_feature import ElementdemoBaseFeature
 # payload in <key> so the transform can unwrap it again.
 ENVELOPE_RES_RE = re.compile(r"^`body\.(.+)`$")
 
+# The key a list's response transform
+# ["`$EACH`", "body", {"`$MERGE`": "`.<key>`"}] reads each item's record under.
+ITEM_ENVELOPE_RE = re.compile(r"^`\.([^.`$]+)`$")
+
+
+def item_envelope_key(restf):
+    if not isinstance(restf, list) or 3 != len(restf) or \
+            "`$EACH`" != restf[0] or "body" != restf[1]:
+        return None
+    merge = restf[2].get("`$MERGE`") if isinstance(restf[2], dict) else None
+    m = ITEM_ENVELOPE_RE.match(merge) if isinstance(merge, str) else None
+    return None if m is None else m.group(1)
+
+
+# The entity's declared identity field (`entity.id.field`), where it names
+# one other than the `id` every record already carries.
+def _declared_id_field(config, entity_name):
+    field = vs.getpath(config, ["entity", entity_name, "id", "field"])
+    return field if isinstance(field, str) and field not in ("", "id") else None
+
+
+def _seed_id(config, key, val, path):
+    if len(path) == 2 and isinstance(val, dict) and key is not None:
+        val["id"] = key
+        id_field = _declared_id_field(config, path[0])
+        if id_field is not None:
+            val[id_field] = key
+    return val
+
+
+# The record the mock keeps: the request data without `$body`, which only the
+# wire carries.
+def _record(reqdata):
+    if not isinstance(reqdata, dict):
+        return reqdata
+    return {k: v for k, v in reqdata.items() if k != "$body"}
+
 
 class ElementdemoTestFeature(ElementdemoBaseFeature):
     def __init__(self):
@@ -34,10 +71,7 @@ class ElementdemoTestFeature(ElementdemoBaseFeature):
         self.client.mode = "test"
 
         # Ensure entity ids are correct.
-        vs.walk(entity, lambda key, val, parent, path: (
-            val.__setitem__("id", key) if len(path) == 2 and isinstance(val, dict) and key is not None else None,
-            val
-        )[-1])
+        vs.walk(entity, lambda key, val, parent, path: _seed_id(ctx.config, key, val, path))
 
         test_self = self
 
@@ -57,6 +91,9 @@ class ElementdemoTestFeature(ElementdemoBaseFeature):
                 if not isinstance(transform, dict):
                     return data
                 restf = transform.get("res")
+                key = item_envelope_key(restf)
+                if key is not None and isinstance(data, list):
+                    return [{key: item} for item in data]
                 if not isinstance(restf, str):
                     return data
                 m = ENVELOPE_RES_RE.match(restf)
@@ -121,7 +158,7 @@ class ElementdemoTestFeature(ElementdemoBaseFeature):
                 out = vs.clone(found)
                 return respond(200, out)
 
-            elif op.name == "update":
+            elif op.name == "update" or op.name == "patch":
                 # Match the existing entity by id only (or its alias). reqdata
                 # also contains the new field values, which would otherwise
                 # cause select to filter out the entity we want to update.
@@ -143,18 +180,11 @@ class ElementdemoTestFeature(ElementdemoBaseFeature):
                 args = test_self.build_args(fctx, op, update_match)
                 found = vs.select(entmap, args)
                 ent = vs.getelem(found, 0)
-                if ent is None and isinstance(entmap, dict):
-                    for e in entmap.values():
-                        if isinstance(e, dict):
-                            ent = e
-                            break
                 if ent is None:
+                    # update miss: 404, never another record
                     return respond(404, None, {"statusText": "Not found"})
-                if isinstance(ent, dict):
-                    reqdata = fctx.reqdata
-                    if reqdata is not None:
-                        for k, v in reqdata.items():
-                            ent[k] = v
+                if isinstance(ent, dict) and isinstance(fctx.reqdata, dict):
+                    vs.merge([ent, _record(fctx.reqdata)])
                 vs.delprop(ent, "$KEY")
                 out = vs.clone(ent)
                 return respond(200, out)
@@ -178,9 +208,12 @@ class ElementdemoTestFeature(ElementdemoBaseFeature):
                         random.randint(0, 0xFFFF), random.randint(0, 0xFFFF),
                         random.randint(0, 0xFFFF), random.randint(0, 0xFFFF))
 
-                ent = vs.clone(fctx.reqdata)
+                ent = vs.clone(_record(fctx.reqdata))
                 if isinstance(ent, dict):
                     ent["id"] = eid
+                    id_field = _declared_id_field(fctx.config, op.entity)
+                    if id_field is not None and ent.get(id_field) is None:
+                        ent[id_field] = eid
                     if isinstance(eid, str):
                         entmap[eid] = ent
                     vs.delprop(ent, "$KEY")
@@ -260,12 +293,36 @@ class ElementdemoTestFeature(ElementdemoBaseFeature):
 
         return netsim_fetcher
 
+    # The entity's own endpoint: a terminal `{param}` marks a record route,
+    # and among equals the shallower path wins (the same rule as make_point).
+    @staticmethod
+    def pick_point(points):
+        if not isinstance(points, list) or len(points) == 0:
+            return None
+
+        def terminal(p):
+            parts = vs.getprop(p, "parts")
+            return isinstance(parts, list) and len(parts) > 0 and \
+                isinstance(parts[-1], str) and parts[-1].startswith("{")
+
+        def depth(p):
+            parts = vs.getprop(p, "parts")
+            return len(parts) if isinstance(parts, list) else 0
+
+        point = points[0]
+        for cand in points[1:]:
+            if terminal(cand) != terminal(point):
+                if terminal(cand):
+                    point = cand
+            elif depth(cand) < depth(point):
+                point = cand
+        return point
+
     def build_args(self, ctx, op, args):
         opname = op.name
 
-        # Get last point from config.
         points = vs.getpath(ctx.config, "entity." + ctx.entity.get_name() + ".op." + opname + ".points")
-        point = vs.getelem(points, -1)
+        point = self.pick_point(points)
 
         # Path AND query: a path-only read misses a query-addressed record
         # (e.g. GET /result?trace_id=), which has no path param at all.

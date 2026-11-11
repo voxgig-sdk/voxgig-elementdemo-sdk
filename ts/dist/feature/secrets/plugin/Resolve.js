@@ -1,16 +1,7 @@
 "use strict";
-// VENDORED: @voxgig/plugin 0.1.6 (typescript/src/Resolve.ts)
-// Source: https://github.com/voxgig/plugin @ 8d8968afc0a2008fbd795b41ab166307d989f02a  [tag: sdk-20260904-1610-0]
+// VENDORED: @voxgig/plugin 0.2.0 (typescript/src/Resolve.ts)
+// Source: https://github.com/voxgig/plugin @ caa404b2dfa206d77db6c2869e5b31c2a3202b2d  [tag: sdk-20261016-0845-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
-/* Dynamic resolution (§10.2) — name to candidate module ids.
- *
- * PURE. It returns the ids a host WOULD try, in order; it does not load
- * anything. That separation is what lets the corpus pin resolution in
- * every language including those with no dynamic loading at all, and it
- * is why §15.4 puts real module loading in per-port integration tests
- * rather than here.
- *
- * The corpus `resolve` section arrives with P2. */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolvecandidates = resolvecandidates;
 exports.resolvefrom = resolvefrom;
@@ -42,16 +33,6 @@ function resolvecandidates(name, sources) {
 const DEFAULT_SOURCES = [
     { kind: 'module', prefix: ['@voxgig/plugin-', 'voxgig-plugin-', 'plugin-', ''] },
 ];
-/** A MODULE PATH IS NOT A NAME (§10.2). The ref grammar starts a name
- * with a letter or `@`, so `./local/thing` is not a ref and never
- * reaches candidate generation — seneca allows a path where a plugin
- * name goes, and this design deliberately does not, because a ref is an
- * ADDRESS WITHIN A HOST and a path is a LOCATION ON A DISK.
- *
- * Loading from an explicit location is a separate field that bypasses
- * candidate generation entirely: `from` is passed to the resolver
- * verbatim, and a resolver that cannot honour a location raises
- * plugin_resolve_failed. */
 function resolvefrom(from) {
     return [from];
 }

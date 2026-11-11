@@ -1,5 +1,5 @@
 
-import { cmp, each, Content, canonToType, canonKey, canonScalarKey, File, isAuthActive, entityIdField, opRequestShape } from '@voxgig/sdkgen'
+import { cmp, each, Content, canonToType, canonKey, File, isAuthActive, entityIdField , targetFeatures, opNeedsAction, bodyNote, javaMap, javaMapOf, matchExampleItems, javaMapItems, requestExampleItems } from '@voxgig/sdkgen'
 import { ReadmeRefFeatures } from '@voxgig/sdkgen'
 
 import {
@@ -7,48 +7,41 @@ import {
   getModelPath,
 } from '@voxgig/apidef'
 
-import { javaVarName } from './utility_java'
+import { javaVarName, javaListMatch, javaLit } from './utility_java'
 
 
 // Type names come from the shared canonToType 'java' column (single source of truth).
 
-// A type-correct Java literal for a field's canonical type.
-function javaLit(type: any, placeholder: string = 'example'): string {
-  const k = canonScalarKey(type)
-  if ('INTEGER' === k) return '1L'
-  if ('NUMBER' === k) return '1.0'
-  if ('BOOLEAN' === k) return 'true'
-  if ('ARRAY' === k) return 'List.of()'
-  if ('OBJECT' === k) return 'Map.of()'
-  return `"${placeholder}"`
-}
-
-
 const OP_SIGNATURES: Record<string, { sig: string, returns: string, desc: string }> = {
   load: {
     sig: 'load(reqmatch, ctrl) -> Object',
-    returns: 'the entity data',
-    desc: 'Load a single entity matching the given criteria. Returns the entity data and raises on error.',
+    returns: 'the entity',
+    desc: 'Load a single entity matching the given criteria. Returns the entity, whose record `data()` reads, and raises on error.',
   },
   list: {
     sig: 'list(reqmatch, ctrl) -> Object',
-    returns: 'an aggregate list of entities',
-    desc: 'List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns an aggregate list and raises on error.',
+    returns: 'a list of entities, one per record',
+    desc: 'List entities matching the given criteria. The match is optional — call `list(null, null)` to list all records. Returns a list of entities, one per record, and raises on error.',
   },
   create: {
     sig: 'create(reqdata, ctrl) -> Object',
-    returns: 'the created entity data',
-    desc: 'Create a new entity with the given data. Returns the created entity data and raises on error.',
+    returns: 'the created entity',
+    desc: 'Create a new entity with the given data. Returns the created entity and raises on error.',
   },
   update: {
     sig: 'update(reqdata, ctrl) -> Object',
-    returns: 'the updated entity data',
-    desc: 'Update an existing entity. The data must include the entity `id`. Returns the updated entity data and raises on error.',
+    returns: 'the updated entity',
+    desc: 'Update an existing entity. The data must include the entity `id`. Returns the updated entity and raises on error.',
+  },
+  patch: {
+    sig: 'patch(reqdata, ctrl) -> Object',
+    returns: 'the patched entity',
+    desc: 'Change part of an existing entity: only the fields given are sent. The data must include the entity `id`. Returns the patched entity and raises on error.',
   },
   remove: {
     sig: 'remove(reqmatch, ctrl) -> Object',
-    returns: 'the removed entity data',
-    desc: 'Remove the entity matching the given criteria. Raises on error.',
+    returns: 'the removed entity',
+    desc: 'Remove the entity matching the given criteria. Returns the entity, marked as deleted, and raises on error.',
   },
 }
 
@@ -60,7 +53,7 @@ const ReadmeRef = cmp(function ReadmeRef(props: any) {
   const SDK = model.const.Name + 'SDK'
 
   const entity = getModelPath(model, `main.${KIT}.entity`)
-  const feature = getModelPath(model, `main.${KIT}.feature`)
+  const feature = targetFeatures(model, target)
 
   const publishedEntities = each(entity).filter((e: any) => e.active !== false)
 
@@ -170,7 +163,7 @@ Prepare a fetch definition without sending. Returns the \`fetchdef\` and raises 
     // Entity reference sections
     publishedEntities.map((ent: any) => {
       const opnames = Object.keys(ent.op || {})
-      const fields = ent.fields || []
+      const fields = Object.values(ent.fields || {})
       // Model-driven id key: null when this entity has no id-like field.
       const idF = entityIdField(ent)
       // Sanitise the local variable name — javaVarName guards Java keywords.
@@ -205,9 +198,9 @@ SdkEntity ${eVar} = client.${accessor}(null);
 | --- | --- | --- | --- |
 `)
         each(fields, (field: any) => {
-          const req = field.req ? 'Yes' : 'No'
-          const desc = field.short || ''
-          Content(`| \`${field.name}\` | \`${canonToType(field.type, target.name)}\` | ${req} | ${desc} |
+          const req = field.r ? 'Yes' : 'No'
+          const desc = field.sh || ''
+          Content(`| \`${field.n}\` | \`${canonToType(field.t, target.name)}\` | ${req} | ${desc} |
 `)
         })
 
@@ -217,7 +210,7 @@ SdkEntity ${eVar} = client.${accessor}(null);
         // Field operations breakdown
         const hasFieldOps = fields.some((f: any) => f.op && Object.keys(f.op).length > 0)
         if (hasFieldOps) {
-          const opcols = ['load', 'list', 'create', 'update', 'remove']
+          const opcols = ['load', 'list', 'create', 'update', 'patch', 'remove']
             .filter((op: string) => opnames.includes(op) && ent.op[op]?.active !== false)
           Content(`### Field Usage by Operation
 
@@ -232,7 +225,7 @@ SdkEntity ${eVar} = client.${accessor}(null);
               if (fop.active === false) return '-'
               return 'Yes'
             })
-            Content(`| \`${field.name}\` | ${cols.join(' | ')} |
+            Content(`| \`${field.n}\` | ${cols.join(' | ')} |
 `)
           })
 
@@ -258,15 +251,18 @@ ${info.desc}
 
 `)
 
+          if (opNeedsAction(ent.op[opname])) {
+            return
+          }
+
           if ('load' === opname || 'remove' === opname) {
-            const matchItems = opRequestShape(ent, opname).items
-              .filter((it: any) => !it.optional || it.name === idF)
+            const matchItems = javaMapItems(matchExampleItems(ent, opname, idF))
               .sort((a: any, b: any) =>
                 (a.name === idF ? 0 : 1) - (b.name === idF ? 0 : 1))
             const arg = 0 < matchItems.length
-              ? `Map.of(${matchItems.map((it: any) =>
-                `"${it.name}", ${javaLit(it.type,
-                  it.name === idF ? ent.name + '_id' : it.name)}`).join(', ')})`
+              ? javaMapOf(matchItems.map((it: any) =>
+                `${JSON.stringify(it.name)}, ${javaLit(it.type,
+                  it.name === idF ? ent.name + '_id' : it.name)}`))
               : 'null'
             Content(`\`\`\`java
 Object result = client.${accessor}(null).${opname}(${arg}, null);
@@ -276,21 +272,24 @@ Object result = client.${accessor}(null).${opname}(${arg}, null);
           }
           else if ('list' === opname) {
             Content(`\`\`\`java
-Object results = client.${accessor}(null).list(null, null);
-System.out.println(results);
+List<?> results = (List<?>) client.${accessor}(null).list(${javaListMatch(ent)}, null);
+for (Object item : results) {
+    System.out.println(((SdkEntity) item).data());
+}
 \`\`\`
 
 `)
           }
           else if ('create' === opname) {
-            const createItems = opRequestShape(ent, 'create').items
+            const createItems = javaMapItems(requestExampleItems(ent, 'create'))
               .filter((it: any) => !it.optional)
+            const createMap = javaMap(createItems.length)
             Content(`\`\`\`java
-Object result = client.${accessor}(null).create(Map.of(
+Object result = client.${accessor}(null).create(${createMap.open}
 `)
             createItems.map((it: any, i: number) => {
               const comma = i < createItems.length - 1 ? ',' : ''
-              Content(`    "${it.name}", ${javaLit(it.type, 'example_' + it.name)}${comma}  // ${canonToType(it.type, target.name)}
+              Content(`    ${createMap.pair(`${JSON.stringify(it.name)}, ${javaLit(it.type, 'example_' + it.name)}`)}${comma}  // ${canonToType(it.type, target.name)}
 `)
             })
             Content(`), null);
@@ -298,22 +297,31 @@ Object result = client.${accessor}(null).create(Map.of(
 
 `)
           }
-          else if ('update' === opname) {
-            const updateItems = opRequestShape(ent, 'update').items
+          else if ('update' === opname || 'patch' === opname) {
+            const updateItems = javaMapItems(requestExampleItems(ent, opname))
               .filter((it: any) => !it.optional || it.name === idF)
               .sort((a: any, b: any) =>
                 (a.name === idF ? 0 : 1) - (b.name === idF ? 0 : 1))
+            const updateMap = javaMap(updateItems.length)
             const updateLines = updateItems.map((it: any, i: number) => {
               const comma = i < updateItems.length - 1 ? ',' : ''
-              return `    "${it.name}", ${javaLit(it.type,
-                it.name === idF ? ent.name + '_id' : it.name)}${comma}\n`
+              return `    ${updateMap.pair(`${JSON.stringify(it.name)}, ${javaLit(it.type,
+                it.name === idF ? ent.name + '_id' : it.name)}`)}${comma}\n`
             }).join('')
             Content(`\`\`\`java
-Object result = client.${accessor}(null).update(Map.of(
+Object result = client.${accessor}(null).${opname}(${updateMap.open}
 ${updateLines}), null);
 \`\`\`
 
 `)
+          }
+
+          if ('create' === opname || 'update' === opname || 'patch' === opname) {
+            const note = bodyNote(ent.op[opname], {
+              values: 'a `byte[]`, a `String` or an `InputStream`',
+              once: 'an `InputStream`',
+            })
+            if ('' !== note) Content(note)
           }
         })
       }
@@ -378,9 +386,6 @@ ${SDK} client = new ${SDK}(options);
 \`\`\`
 
 `)
-      // The shared feature reference: options, defaults, usage and the
-      // considerations. Model facts, identical in every target, so they are
-      // written once in cmp/ReadmeRefFeatures.ts rather than here.
       ReadmeRefFeatures({ target })
     }
 

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -9,23 +11,18 @@ import (
 )
 
 type Context struct {
-	Id      string
-	Out     map[string]any
-	Ctrl    *Control
-	Meta    map[string]any
-	Client  *ElementdemoSDK
-	Utility *Utility
-	Op      *Operation
-	Point   map[string]any
-	Config  map[string]any
-	Entopts map[string]any
-	Options map[string]any
-	Opmap   map[string]*Operation
-	// Opmu guards Opmap. The map is a CACHE shared by inheritance across
-	// every context derived from the same root (see the Opmap block in
-	// NewContext), so two entity operations running on separate
-	// goroutines otherwise race resolveOp's read-then-write - the mutex
-	// travels WITH the map, inherited from the same base context.
+	Id       string
+	Out      map[string]any
+	Ctrl     *Control
+	Meta     map[string]any
+	Client   *ElementdemoSDK
+	Utility  *Utility
+	Op       *Operation
+	Point    map[string]any
+	Config   map[string]any
+	Entopts  map[string]any
+	Options  map[string]any
+	Opmap    map[string]*Operation
 	Opmu     *sync.Mutex
 	Response *Response
 	Result   *Result
@@ -91,7 +88,7 @@ func NewContext(ctxmap map[string]any, basectx *Context) *Context {
 		} else if ctrl, ok := c.(*Control); ok {
 			ctx.Ctrl = ctrl
 		}
-	} else if basectx != nil && basectx.Ctrl != nil {
+	} else if basectx != nil && basectx.Ctrl != nil && getCtxProp(ctxmap, "opname") == nil {
 		ctx.Ctrl = basectx.Ctrl
 	}
 
@@ -238,10 +235,6 @@ func NewContext(ctxmap map[string]any, basectx *Context) *Context {
 }
 
 func (ctx *Context) resolveOp(opname string) *Operation {
-	// Cache key is `<entity>:<opname>` so two entities with the same op
-	// (e.g. both have a "list") get distinct cached Operations. Keying on
-	// opname alone caused the first-resolved entity's points to be served
-	// to every subsequent entity's call.
 	entname := ""
 	if ctx.Entity != nil {
 		entname = ctx.Entity.GetName()
@@ -262,7 +255,7 @@ func (ctx *Context) resolveOp(opname string) *Operation {
 	opcfg := vs.GetPath(ctx.Config, []any{"entity", entname, "op", opname})
 
 	input := "match"
-	if opname == "update" || opname == "create" {
+	if opname == "update" || opname == "create" || opname == "patch" {
 		input = "data"
 	}
 
@@ -287,12 +280,56 @@ func (ctx *Context) resolveOp(opname string) *Operation {
 		"points": targets,
 	})
 
+	// Every request racing to build this Operation gets the one stored first.
 	ctx.Opmu.Lock()
+	defer ctx.Opmu.Unlock()
+	if stored, ok := ctx.Opmap[cacheKey]; ok && stored != nil {
+		return stored
+	}
 	ctx.Opmap[cacheKey] = op
-	ctx.Opmu.Unlock()
 	return op
 }
 
 func (ctx *Context) MakeError(code string, msg string) *ElementdemoError {
 	return NewElementdemoError(code, msg, ctx)
+}
+
+// The record a context serialises as; the options and the client stay out.
+func (ctx *Context) Record() map[string]any {
+	return map[string]any{
+		"id":       ctx.Id,
+		"op":       ctx.Op,
+		"spec":     ctx.Spec,
+		"entity":   ctx.Entity,
+		"result":   ctx.Result,
+		"response": ctx.Response,
+		"meta":     ctx.Meta,
+	}
+}
+
+// The serialised context leaves the pipeline (a logger, an error dump), so
+// it is cleaned; the live fields stay raw for the pipeline's own use. Value
+// receivers, so a dereferenced context prints the same way.
+func (ctx Context) cleaned() any {
+	record := ctx.Record()
+	if ctx.Utility != nil && ctx.Utility.Clean != nil {
+		return ctx.Utility.Clean(&ctx, record)
+	}
+	return record
+}
+
+func (ctx Context) MarshalJSON() ([]byte, error) {
+	return json.Marshal(ctx.cleaned())
+}
+
+func (ctx Context) String() string {
+	cleaned := ctx.cleaned()
+	if raw, err := json.Marshal(cleaned); err == nil {
+		return "Context " + string(raw)
+	}
+	return "Context " + fmt.Sprintf("%v", cleaned)
+}
+
+func (ctx Context) GoString() string {
+	return ctx.String()
 }

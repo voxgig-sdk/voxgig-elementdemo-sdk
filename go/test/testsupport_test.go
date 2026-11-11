@@ -1,22 +1,18 @@
-// SDK test SUPPORT: the helpers the generated entity/direct tests and the
-// corpus call sites share - env loading, the sdk-test-control.json skip and
-// pacing machinery, corpus access, and entity-data conversion.
-//
-// Split out of the retired runner_test.go (vendor-tag rollout: the corpus
-// ENGINE half of that file is superseded by the vendored omni runner driven
-// through the resolver in omniresolver_test.go; this support half is
-// retained). Same package, same names - the emitted call sites did not move.
 
 package sdktest
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	sdk "github.com/voxgig-sdk/voxgig-elementdemo-sdk/go"
 )
@@ -159,23 +155,6 @@ func isControlSkipped(kind, name, mode string) (bool, string) {
 	return false, ""
 }
 
-// liveDelayMs returns the configured per-test live delay in ms; default 500.
-// liveClientOptions returns the extra SDK options every LIVE client is
-// constructed with, from sdk-test-control.json `test.client.options`.
-//
-// The generated live client knows two things: the base URL (from the spec)
-// and the credential (from the environment). Everything else about how a
-// particular API wants to be talked to - which features to switch on, and
-// with what settings - is a property of THAT API, known to the project and
-// to nothing in the toolchain.
-//
-// Merged UNDER the generated fields, so the suite's own base/apikey/server
-// values win: this ADDS to the live client, it does not redirect it.
-//
-// That contract is enforced HERE rather than left to each merge site: the
-// generated map only names a field when the model calls for one, so a
-// "base" in this block would face no competing value and would silently
-// redirect the whole suite - credential included - to another host.
 var liveReserved = map[string]bool{
 	"base": true, "prefix": true, "suffix": true,
 	"server": true, "apikey": true, "secret": true,
@@ -291,4 +270,147 @@ func entityListToData(list []any) []any {
 		out = []any{}
 	}
 	return out
+}
+
+
+// liveMiss settles a live check that did not pass, as
+// main.kit.test.live.strict decides: strict fails, lenient skips.
+func liveMiss(t testing.TB, strict bool, format string, args ...any) {
+	t.Helper()
+	if strict {
+		t.Fatalf(format, args...)
+	}
+	t.Skipf(format, args...)
+}
+
+// liveEmpty skips a live test whose account holds no record for it to read.
+func liveEmpty(t testing.TB, format string, args ...any) {
+	t.Helper()
+	t.Skipf(format, args...)
+}
+
+// liveList is a live list response's records: the body, or the first list
+// an envelope object holds.
+func liveList(data any) ([]any, bool) {
+	if list, ok := data.([]any); ok {
+		return list, true
+	}
+	if m, ok := data.(map[string]any); ok {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if list, ok := m[k].([]any); ok {
+				return list, true
+			}
+		}
+	}
+	return nil, false
+}
+
+// liveDescribe is a live response for a message: its status, content type
+// and any SDK error, never its body.
+func liveDescribe(result map[string]any) string {
+	out := "HTTP " + fmt.Sprint(result["status"])
+	if headers, ok := result["headers"].(map[string]any); ok {
+		if ctype, ok := headers["content-type"].(string); ok && ctype != "" {
+			out += " " + strings.TrimSpace(strings.Split(ctype, ";")[0])
+		}
+	}
+	if err, ok := result["err"].(error); ok && err != nil {
+		out += ": " + err.Error()
+	}
+	return out
+}
+
+// liveObserver makes a lenient live run's failures skips, so a flow's own
+// checks observe the live API rather than fail on it.
+type liveObserver struct{ testing.TB }
+
+func (o liveObserver) Fatalf(format string, args ...any) {
+	o.TB.Helper()
+	o.TB.Skipf("live run, main.kit.test.live.strict is false: "+format, args...)
+}
+
+func (o liveObserver) Fatal(args ...any) {
+	o.TB.Helper()
+	o.TB.Skip(append([]any{"live run, main.kit.test.live.strict is false:"}, args...)...)
+}
+
+func (o liveObserver) Errorf(format string, args ...any) {
+	o.TB.Helper()
+	o.Fatalf(format, args...)
+}
+
+func (o liveObserver) Error(args ...any) {
+	o.TB.Helper()
+	o.Fatal(args...)
+}
+
+// liveExisting finds the record a create-less flow reads live: the first its
+// list returns, put where the flow reads the fixture's existing records. A
+// record with no value in the identity field takes the fallback identity.
+func liveExisting(t testing.TB, strict bool, data map[string]any, name string,
+	field string, fallback any, list func() (any, error)) {
+	t.Helper()
+	found, err := list()
+	if err != nil {
+		liveMiss(t, strict, "Live list discovery failed: %v", err)
+		return
+	}
+	items, ok := found.([]any)
+	if !ok {
+		liveMiss(t, strict, "Live list discovery returned no list")
+		return
+	}
+	if 0 == len(items) {
+		liveEmpty(t, "The account has no %s record to load", name)
+		return
+	}
+	record := entityData(items[0])
+	if fields, _ := record.(map[string]any); fields == nil || fields[field] == nil {
+		if fallback == nil {
+			liveMiss(t, strict, "Live entity test blocked: the listed %s record has no %s, "+
+				"and neither *_ENTID nor the load route's example gives one", name, field)
+			return
+		}
+		filled := map[string]any{}
+		for k, v := range fields {
+			filled[k] = v
+		}
+		filled[field] = fallback
+		record = filled
+	}
+	existing, ok := data["existing"].(map[string]any)
+	if !ok {
+		existing = map[string]any{}
+		data["existing"] = existing
+	}
+	existing[name] = map[string]any{"live01": record}
+}
+
+// liveSameId compares identities by their string forms: a route
+// parameter's value is a string where the record may hold a number.
+func liveSameId(a, b any) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return liveIdString(a) == liveIdString(b)
+}
+
+func liveIdString(v any) string {
+	switch n := v.(type) {
+	case float64:
+		return strconv.FormatFloat(n, 'f', -1, 64)
+	case float32:
+		return strconv.FormatFloat(float64(n), 'f', -1, 32)
+	}
+	return fmt.Sprint(v)
+}
+
+// livePace sleeps test.live.delayMs before a live request.
+func livePace() {
+	time.Sleep(time.Duration(liveDelayMs()) * time.Millisecond)
 }

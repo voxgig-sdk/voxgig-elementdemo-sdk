@@ -3,6 +3,7 @@ package voxgig.elementdemosdk.sdktest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -16,14 +17,24 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import voxgig.elementdemosdk.core.Config;
+import voxgig.elementdemosdk.core.Context;
 import voxgig.elementdemosdk.core.Helpers;
 import voxgig.elementdemosdk.core.SdkEntity;
+import voxgig.elementdemosdk.core.SdkError;
 import voxgig.elementdemosdk.core.ElementdemoSDK;
+import voxgig.elementdemosdk.feature.BaseFeature;
 import voxgig.elementdemosdk.utility.Json;
 import voxgig.elementdemosdk.utility.struct.Struct;
 
 @SuppressWarnings({"unchecked", "unused"})
 public class SeriesEntityTest {
+
+  // main.kit.test.live.strict is true (the default is true): a live
+  // request that fails, or a live test missing an input it needs,
+  // fails the test.
+  // An account with no record for a test to read skips it either way.
+  static final boolean LIVE_STRICT = true;
 
   @Test
   public void instance() {
@@ -44,11 +55,16 @@ public class SeriesEntityTest {
           reason == null || "".equals(reason)
               ? "skipped via sdk-test-control.json" : reason);
     }
-    // The basic flow consumes synthetic IDs from the fixture. In live mode
-    // without an *_ENTID env override, those IDs hit the live API and 4xx.
-    Assumptions.assumeFalse(setup.syntheticOnly,
-        "live entity test uses synthetic IDs from fixture — set ELEMENTDEMO_TEST_SERIES_ENTID JSON to run live");
     ElementdemoSDK client = setup.client;
+    if (setup.live) {
+      Object liveId = setup.syntheticOnly ? null : setup.idmap.get("series01");
+      RunnerSupport.livePace();
+      RunnerSupport.liveExisting(setup.data, LIVE_STRICT, "series",
+          "id", liveId, () -> {
+        Map<String, Object> match = new LinkedHashMap<>();
+        return client.series(null).list(match, null);
+      });
+    }
 
     // Bootstrap entity data from existing test data (no create step in flow).
     List<List<Object>> seriesRef01DataRaw = Struct.items(Helpers.toMapAny(
@@ -56,6 +72,9 @@ public class SeriesEntityTest {
     Map<String, Object> seriesRef01Data = seriesRef01DataRaw.isEmpty()
         ? null : Helpers.toMapAny(seriesRef01DataRaw.get(0).get(1));
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // LIST
     SdkEntity seriesRef01Ent = client.series(null);
     Map<String, Object> seriesRef01Match = new LinkedHashMap<>();
@@ -64,14 +83,16 @@ public class SeriesEntityTest {
     assertTrue(seriesRef01ListResult instanceof List,
         "expected list result to be an array, got " + seriesRef01ListResult);
 
+    if (setup.live) {
+      RunnerSupport.livePace();
+    }
     // LOAD
     Map<String, Object> seriesRef01MatchDt0 = new LinkedHashMap<>();
     seriesRef01MatchDt0.put("id", seriesRef01Data.get("id"));
     Object seriesRef01DataDt0Loaded = seriesRef01Ent.load(seriesRef01MatchDt0, null);
     Map<String, Object> seriesRef01DataDt0LoadResult = Helpers.toMapAny(seriesRef01DataDt0Loaded instanceof SdkEntity ? ((SdkEntity) seriesRef01DataDt0Loaded).data() : seriesRef01DataDt0Loaded);
     assertNotNull(seriesRef01DataDt0LoadResult, "expected load result to be a map");
-    assertEquals(seriesRef01Data.get("id"), seriesRef01DataDt0LoadResult.get("id"),
-        "expected load result id to match");
+    assertTrue(RunnerSupport.liveSameId(seriesRef01DataDt0LoadResult.get("id"), seriesRef01Data.get("id")), "expected load result id to match");
 
   }
 
@@ -113,6 +134,88 @@ public class SeriesEntityTest {
         "expected fallback stream to yield the materialised items");
   }
 
+  static boolean hasFeature(String name) {
+    Map<String, Object> fm = Helpers.toMapAny(Config.makeConfig().get("feature"));
+    return fm != null && fm.get(name) != null;
+  }
+
+  public static final class FailHook extends BaseFeature {
+    int unexpected = 0;
+
+    FailHook() {
+      super("failhook", "0.0.1", true);
+    }
+
+    @Override
+    public void preSpec(Context ctx) {
+      throw new RuntimeException("series hook failed");
+    }
+
+    @Override
+    public void preUnexpected(Context ctx) {
+      this.unexpected++;
+    }
+  }
+
+  @Test
+  public void streamError() {
+    Map<String, Object> offline = Struct.jm("net", Struct.jm("offline", true));
+    RuntimeException err = assertThrows(RuntimeException.class, () ->
+        ElementdemoSDK.testSDK(offline, null).series(null).stream("list", null, null)
+            .collect(Collectors.toList()));
+    assertTrue(err.getMessage().contains("offline"), err.getMessage());
+
+    ElementdemoSDK.testSDK(offline, null).series(null)
+        .stream("list", null, Struct.jm("ctrl", Struct.jm("throw", false)))
+        .collect(Collectors.toList());
+
+    if (hasFeature("rbac")) {
+      ElementdemoSDK denied = ElementdemoSDK.testSDK(null,
+          Struct.jm("feature", Struct.jm("rbac", Struct.jm("active", true, "deny", true))));
+      SdkError denyerr = assertThrows(SdkError.class, () ->
+          denied.series(null).stream("list", null, null).collect(Collectors.toList()));
+      assertEquals("rbac_denied", denyerr.code);
+    }
+  }
+
+  @Test
+  public void streamCtrl() {
+    Map<String, Object> explain = new LinkedHashMap<>();
+    Map<String, Object> ctrl = new LinkedHashMap<>();
+    ctrl.put("explain", explain);
+    ElementdemoSDK.testSDK().series(null).stream("list", null, Struct.jm("ctrl", ctrl))
+        .collect(Collectors.toList());
+    assertEquals(List.of("explain"), new ArrayList<>(ctrl.keySet()));
+    assertTrue(explain == ctrl.get("explain") && !explain.isEmpty());
+  }
+
+  @Test
+  public void unexpected() {
+    FailHook hook = new FailHook();
+    ElementdemoSDK client = new ElementdemoSDK(Struct.jm(
+        "feature", Struct.jm("test", Struct.jm("active", true)),
+        "extend", Struct.jt(hook)));
+
+    RuntimeException err = assertThrows(RuntimeException.class, () ->
+        client.series(null).list(null, null));
+    assertTrue(err.getMessage().contains("hook failed"), err.getMessage());
+    assertTrue(0 < hook.unexpected);
+
+    int fired = hook.unexpected;
+    client.series(null).list(null, Struct.jm("throw", false));
+    assertTrue(fired < hook.unexpected);
+  }
+
+  @Test
+  public void validate() {
+    Assumptions.assumeTrue(hasFeature("validate"), "feature not present in this SDK: validate");
+    ElementdemoSDK client = ElementdemoSDK.testSDK(null,
+        Struct.jm("feature", Struct.jm("validate", Struct.jm("active", true))));
+    SdkError err = assertThrows(SdkError.class, () ->
+        client.series(null).list(Struct.jm("color", 1), null));
+    assertEquals("validate_failed", err.code);
+  }
+
   static RunnerSupport.EntityTestSetup seriesBasicSetup(Map<String, Object> extra) {
     RunnerSupport.loadEnvLocal();
 
@@ -142,10 +245,8 @@ public class SeriesEntityTest {
         + "\"`$VAL`\": [\"`$FORMAT`\", \"upper\", \"`$COPY`\"]"
         + "}]}"));
 
-    // Detect ENTID env override before envOverride consumes it. When live
-    // mode is on without a real override, the basic test runs against
-    // synthetic IDs from the fixture and 4xx's. Surface this so the test
-    // can skip.
+    // Whether *_ENTID supplied the idmap, read before envOverride consumes
+    // it: without it, the ids a live flow binds are the fixture's synthetic ones.
     String entidEnvRaw = RunnerSupport.getenv("ELEMENTDEMO_TEST_SERIES_ENTID");
     boolean idmapOverridden = entidEnvRaw != null
         && entidEnvRaw.trim().startsWith("{");

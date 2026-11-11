@@ -101,15 +101,12 @@ element = client.Element()
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `block` | `str` | Yes | Orbital block, one of s, p, d, f. |
-| `charge` | `int` | No |  |
 | `discovered` | `int` | No | Year of discovery, absent for elements known since antiquity. |
 | `group` | `int` | No | Periodic table column, 1 to 18, absent for the f-block. |
 | `id` | `str` | Yes | Element identifier, the lowercase symbol. |
-| `ion` | `str` | No |  |
 | `mass` | `float` | Yes | Standard atomic weight in daltons. |
 | `name` | `str` | Yes | Element name. |
 | `number` | `int` | Yes | Atomic number. |
-| `ok` | `bool` | No |  |
 | `period` | `int` | Yes | Periodic table row, 1 to 7. |
 | `phase` | `str` | No | Phase at standard temperature and pressure. |
 | `series_id` | `str` | Yes | Chemical series this element belongs to. |
@@ -117,9 +114,9 @@ element = client.Element()
 
 ### Operations
 
-#### `create(reqdata, ctrl=None) -> dict`
+#### `create(reqdata, ctrl=None) -> ElementEntity`
 
-Create a new entity with the given data. Returns the created entity data and raises on error.
+Create a new entity with the given data. Returns the created entity and raises on error.
 
 ```python
 result = client.Element().create({
@@ -134,35 +131,35 @@ result = client.Element().create({
 })
 ```
 
-#### `list(reqmatch=None, ctrl=None) -> list`
+#### `list(reqmatch=None, ctrl=None) -> list[ElementEntity]`
 
-List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list and raises on error.
+List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```python
 results = client.Element().list()
 for element in results:
-    print(element)
+    print(element.data_get())
 ```
 
-#### `load(reqmatch, ctrl=None) -> dict`
+#### `load(reqmatch, ctrl=None) -> ElementEntity`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data_get()` reads, and raises on error.
 
 ```python
 result = client.Element().load({"id": "element_id"})
 ```
 
-#### `remove(reqmatch, ctrl=None) -> dict`
+#### `remove(reqmatch, ctrl=None) -> ElementEntity`
 
-Remove the entity matching the given criteria. Raises on error.
+Remove the entity matching the given criteria. Returns the entity, marked as deleted, and raises on error.
 
 ```python
 result = client.Element().remove({"id": "element_id"})
 ```
 
-#### `update(reqdata, ctrl=None) -> dict`
+#### `update(reqdata, ctrl=None) -> ElementEntity`
 
-Update an existing entity. The data must include the entity `id`. Returns the updated entity data and raises on error.
+Update an existing entity. The data must include the entity `id`. Returns the updated entity and raises on error.
 
 ```python
 result = client.Element().update({
@@ -217,19 +214,19 @@ group = client.Group()
 
 ### Operations
 
-#### `list(reqmatch=None, ctrl=None) -> list`
+#### `list(reqmatch=None, ctrl=None) -> list[GroupEntity]`
 
-List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list and raises on error.
+List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```python
 results = client.Group().list()
 for group in results:
-    print(group)
+    print(group.data_get())
 ```
 
-#### `load(reqmatch, ctrl=None) -> dict`
+#### `load(reqmatch, ctrl=None) -> GroupEntity`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data_get()` reads, and raises on error.
 
 ```python
 result = client.Group().load({"id": "group_id"})
@@ -282,16 +279,14 @@ isotope = client.Isotope()
 | `mass_number` | `int` | Yes | Total protons and neutrons. |
 | `mode` | `str` | No | Primary decay mode, absent for stable isotopes. |
 | `name` | `str` | Yes | Isotope name. |
-| `ok` | `bool` | No |  |
 | `product` | `str` | No | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | `bool` | Yes | True if the isotope is stable. |
-| `steps` | `int` | No |  |
 
 ### Operations
 
-#### `create(reqdata, ctrl=None) -> dict`
+#### `create(reqdata, ctrl=None) -> IsotopeEntity`
 
-Create a new entity with the given data. Returns the created entity data and raises on error.
+Create a new entity with the given data. Returns the created entity and raises on error.
 
 ```python
 result = client.Isotope().create({
@@ -304,35 +299,35 @@ result = client.Isotope().create({
 })
 ```
 
-#### `list(reqmatch=None, ctrl=None) -> list`
+#### `list(reqmatch=None, ctrl=None) -> list[IsotopeEntity]`
 
-List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list and raises on error.
+List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```python
 results = client.Isotope().list({"element_id": "example"})
 for isotope in results:
-    print(isotope)
+    print(isotope.data_get())
 ```
 
-#### `load(reqmatch, ctrl=None) -> dict`
+#### `load(reqmatch, ctrl=None) -> IsotopeEntity`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data_get()` reads, and raises on error.
 
 ```python
 result = client.Isotope().load({"id": "isotope_id", "element_id": "element_id"})
 ```
 
-#### `remove(reqmatch, ctrl=None) -> dict`
+#### `remove(reqmatch, ctrl=None) -> IsotopeEntity`
 
-Remove the entity matching the given criteria. Raises on error.
+Remove the entity matching the given criteria. Returns the entity, marked as deleted, and raises on error.
 
 ```python
 result = client.Isotope().remove({"id": "isotope_id", "element_id": "element_id"})
 ```
 
-#### `update(reqdata, ctrl=None) -> dict`
+#### `update(reqdata, ctrl=None) -> IsotopeEntity`
 
-Update an existing entity. The data must include the entity `id`. Returns the updated entity data and raises on error.
+Update an existing entity. The data must include the entity `id`. Returns the updated entity and raises on error.
 
 ```python
 result = client.Isotope().update({
@@ -388,19 +383,19 @@ series = client.Series()
 
 ### Operations
 
-#### `list(reqmatch=None, ctrl=None) -> list`
+#### `list(reqmatch=None, ctrl=None) -> list[SeriesEntity]`
 
-List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list and raises on error.
+List entities matching the given criteria. The match is optional — call `list()` with no argument to list all records. Returns a list of entities, one per record, and raises on error.
 
 ```python
 results = client.Series().list()
 for series in results:
-    print(series)
+    print(series.data_get())
 ```
 
-#### `load(reqmatch, ctrl=None) -> dict`
+#### `load(reqmatch, ctrl=None) -> SeriesEntity`
 
-Load a single entity matching the given criteria. Returns the entity data and raises on error.
+Load a single entity matching the given criteria. Returns the entity, whose record `data_get()` reads, and raises on error.
 
 ```python
 result = client.Series().load({"id": "series_id"})
@@ -439,11 +434,16 @@ Return the entity name.
 
 | Feature | Version | Description |
 | --- | --- | --- |
+| `debug` | 0.0.1 | Debug capture |
 | `elementcard` | 0.1.0 | ASCII periodic-table tile for element-shaped results |
-| `retry` | 0.0.1 | Automatic retry of transient failures with exponential backoff |
-| `secrets` | 0.1.0 | Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens |
-| `test` | 0.0.1 | In-memory mock transport for testing without a live server |
-| `timeout` | 0.0.1 | Per-request timeout with transport abort |
+| `idempotency` | 0.0.1 | Idempotency |
+| `metrics` | 0.0.1 | Metrics |
+| `paging` | 0.0.1 | Paging |
+| `ratelimit` | 0.0.1 | Rate limiting |
+| `retry` | 0.0.1 | Retry |
+| `secrets` | 0.1.0 | Secrets |
+| `test` | 0.0.1 | Test transport |
+| `timeout` | 0.0.1 | Timeout |
 
 
 Features are activated via the `feature` option:
@@ -451,7 +451,12 @@ Features are activated via the `feature` option:
 ```python
 client = ElementdemoSDK({
     "feature": {
+        "debug": {"active": True},
         "elementcard": {"active": True},
+        "idempotency": {"active": True},
+        "metrics": {"active": True},
+        "paging": {"active": True},
+        "ratelimit": {"active": True},
         "retry": {"active": True},
         "secrets": {"active": True},
         "test": {"active": True},
@@ -472,7 +477,7 @@ transport, and the order you list them in is the order they nest.
 
 #### Ordering
 
-`retry`, `secrets`, `timeout` wrap the transport. Each
+`ratelimit`, `retry`, `secrets`, `timeout` wrap the transport. Each
 wraps whatever is already installed, so **activation order is nesting order**:
 a feature activated later sits OUTSIDE one activated earlier, and sees the call
 first.
@@ -481,8 +486,39 @@ That decides behaviour, not just sequence: a feature that short-circuits the
 call, such as a cache serving a hit, stops every feature nested inside it from
 ever seeing that call.
 
-`elementcard`, `test` attach to pipeline hooks
+`debug`, `elementcard`, `idempotency`, `metrics`, `paging`, `test` attach to pipeline hooks
 rather than the transport, so their order does not affect what they observe.
+
+#### `debug`
+
+Debug capture.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `max` | `100` |
+| `redact` | `['authorization', 'cookie', 'set-cookie', 'api-key', 'apikey', 'x-api-key', 'idempotency-key']` |
+
+| Option | Type |
+|---|---|
+| `now` | function |
+| `onEntry` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.debug.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
 
 #### `elementcard`
 
@@ -495,11 +531,6 @@ ASCII periodic-table tile for element-shaped results.
 | `active` | `false` |
 | `print` | `false` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
-
 **Usage**
 
 Set `feature.elementcard.active` to true in the client options, and override any option above in the same entry. Every option keeps
@@ -511,9 +542,134 @@ its default unless you name it.
   not change what it observes.
 - Inactive by default: leaving it out costs nothing at runtime.
 
+#### `idempotency`
+
+Idempotency.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `header` | `'Idempotency-Key'` |
+| `methods` | `['POST', 'PUT', 'PATCH', 'DELETE']` |
+| `ops` | `['create', 'update', 'remove']` |
+
+| Option | Type |
+|---|---|
+| `keygen` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.idempotency.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
+
+#### `metrics`
+
+Metrics.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+
+| Option | Type |
+|---|---|
+| `now` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.metrics.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
+
+#### `paging`
+
+Paging.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `afterVar` | `'after'` |
+| `cursorParam` | `'cursor'` |
+| `firstVar` | `'first'` |
+| `limitParam` | `'limit'` |
+| `pageParam` | `'page'` |
+| `startPage` | `1` |
+
+| Option | Type |
+|---|---|
+| `limit` | number |
+| `ops` | list |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.paging.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Attaches to pipeline hooks, not the transport, so activation order does
+  not change what it observes.
+- Inactive by default: leaving it out costs nothing at runtime.
+
+#### `ratelimit`
+
+Rate limiting.
+
+**Configuration**
+
+| Option | Default |
+|---|---|
+| `active` | `false` |
+| `burst` | `5` |
+| `rate` | `5` |
+
+| Option | Type |
+|---|---|
+| `now` | function |
+| `sleep` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
+
+**Usage**
+
+Set `feature.ratelimit.active` to true in the client options, and override any option above in the same entry. Every option keeps
+its default unless you name it.
+
+**Considerations**
+
+- Wraps the transport: its place in the activation order decides what it
+  sees. See [Ordering](#ordering) above.
+- Inactive by default: leaving it out costs nothing at runtime.
+
 #### `retry`
 
-Automatic retry of transient failures with exponential backoff.
+Retry.
 
 **Configuration**
 
@@ -526,10 +682,13 @@ Automatic retry of transient failures with exponential backoff.
 | `retries` | `2` |
 | `statuses` | `[408, 425, 429, 500, 502, 503, 504]` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
+| Option | Type |
+|---|---|
+| `jitter` | boolean |
+| `sleep` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
 
 **Usage**
 
@@ -544,7 +703,7 @@ its default unless you name it.
 
 #### `secrets`
 
-Secret access: resolve the API credential through a provider chain, and exchange a refresh token for short-lived access tokens.
+Secrets.
 
 **Configuration**
 
@@ -555,11 +714,6 @@ Secret access: resolve the API credential through a provider chain, and exchange
 | `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
 | `name` | `'apikey'` |
 | `providers` | `[]` |
-
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
 
 **Usage**
 
@@ -574,7 +728,7 @@ its default unless you name it.
 
 #### `test`
 
-In-memory mock transport for testing without a live server.
+Test transport.
 
 **Configuration**
 
@@ -582,10 +736,13 @@ In-memory mock transport for testing without a live server.
 |---|---|
 | `active` | `false` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
+| Option | Type |
+|---|---|
+| `entity` | map |
+| `net` | map |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
 
 **Usage**
 
@@ -602,7 +759,7 @@ its default unless you name it.
 
 #### `timeout`
 
-Per-request timeout with transport abort.
+Timeout.
 
 **Configuration**
 
@@ -611,10 +768,14 @@ Per-request timeout with transport abort.
 | `active` | `false` |
 | `ms` | `30000` |
 
-Options above are those the model carries a default for. A feature may
-also accept callback options — a `sink` to receive each record, for
-instance — which have no default and are covered in the full feature
-reference.
+| Option | Type |
+|---|---|
+| `clearTimer` | function |
+| `now` | function |
+| `setTimer` | function |
+
+These take no default: the feature behaves one way when you supply them and
+another when you do not.
 
 **Usage**
 

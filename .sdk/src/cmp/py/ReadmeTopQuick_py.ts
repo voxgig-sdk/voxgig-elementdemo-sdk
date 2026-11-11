@@ -1,5 +1,5 @@
 
-import { cmp, Content, isAuthActive, envName, canonKey, canonScalarKey, entityIdField, opRequestShape, safeVarName, exampleVarName, matchArg, idLiteral , serverVariables} from '@voxgig/sdkgen'
+import { cmp, Content, isAuthActive, envName, canonKey, canonScalarKey, entityIdField, opRequestShape, safeVarName, exampleVarName, serverVariables, listMatchArg, matchExampleItems, litString, entityOps } from '@voxgig/sdkgen'
 
 import {
   KIT,
@@ -14,22 +14,12 @@ import {
 // would break it).
 function pyLit(type: any, placeholder: string = 'example'): string {
   const k = canonScalarKey(type)
+  if ('NULL' === k) return 'None'
   if ('INTEGER' === k || 'NUMBER' === k) return '1'
   if ('BOOLEAN' === k) return 'True'
   if ('ARRAY' === k) return '[]'
   if ('OBJECT' === k) return '{}'
-  return `"${placeholder}"`
-}
-
-
-// A `list()` on a NESTED entity needs its parent path params. The
-// quickstart used to emit `client.Moon().list()` for an entity at
-// `/planet/{planet_id}/moon`, which 404s against a live server from a
-// half-built URL — indistinguishable from "no such record". The model
-// already marks those params `reqd: true`; matchArg renders exactly them.
-function listMatchArg(ent: any): string {
-  const idF = entityIdField(ent)
-  return matchArg('py', ent, 'list', idF, idLiteral(ent, 'list', idF))
+  return litString('py', placeholder)
 }
 
 
@@ -42,10 +32,6 @@ const ReadmeTopQuick = cmp(function ReadmeTopQuick(props: any) {
 
   const authActive = isAuthActive(model)
 
-  // Server variables (a templated server URL) are REQUIRED at construction
-  // - the SDK refuses rather than request a URL with a literal
-  // {account_id} in it - so a quickstart that omits them is a quickstart
-  // that fails on its first line.
   const svars = serverVariables(model)
   const pyServerField = 0 === svars.length ? '' :
     `\n    "server": {` +
@@ -71,39 +57,33 @@ client = ${ctor}
     // Sanitise the local variable name — an entity whose lowercased name is a
     // Python keyword (e.g. `class`) would otherwise emit uncompilable code.
     const eVar = exampleVarName(eName.toLowerCase(), 'py')
-    const opnames = Object.keys(exampleEntity.op || {})
-    // Model-driven id key: null when the entity has no id-like field, in which
-    // case the load example takes no match argument.
+    const opnames = entityOps(exampleEntity)
     const idF = entityIdField(exampleEntity)
 
     let hasCall = false
 
     if (opnames.includes('list')) {
-      Content(`# List all ${eName.toLowerCase()}s (returns a list, raises on error)
-${eVar}s = client.${eName}().list(${listMatchArg(exampleEntity)})
+      Content(`# List all ${eName.toLowerCase()}s (a list of entities, one per record; raises on error)
+${eVar}s = client.${eName}().list(${listMatchArg('py', exampleEntity)})
 for ${eVar} in ${eVar}s:
-    print(${eVar})
+    print(${eVar}.data_get())
 `)
       hasCall = true
     }
 
     if (opnames.includes('load')) {
-      // Every REQUIRED load-match key (id first, then parent path params like
-      // page_id) — the same shape the runtime resolves path params from, so
-      // the example always works.
-      const loadItems = opRequestShape(exampleEntity, 'load').items
-        .filter((it: any) => !it.optional || it.name === idF)
+      const loadItems = matchExampleItems(exampleEntity, 'load', idF)
         .sort((a: any, b: any) =>
           (a.name === idF ? 0 : 1) - (b.name === idF ? 0 : 1))
       const loadArg = 0 < loadItems.length
         ? `{${loadItems.map((it: any) =>
-          `"${it.name}": ${pyLit(it.type,
+          `${litString('py', it.name)}: ${pyLit(it.type,
             it.name === idF ? 'example_id' : 'example_' + it.name)}`).join(', ')}}`
         : ''
       Content(`
-# Load a specific ${eName.toLowerCase()} (returns the record, raises on error)
+# Load a specific ${eName.toLowerCase()} (returns the entity, raises on error)
 ${eVar} = client.${eName}().load(${loadArg})
-print(${eVar})
+print(${eVar}.data_get())
 `)
       hasCall = true
     }

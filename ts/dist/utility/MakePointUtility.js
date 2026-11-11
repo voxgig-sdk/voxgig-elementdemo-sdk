@@ -1,28 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.makePoint = makePoint;
-// The entity's OWN route among an op's points, as opposed to a
-// CROSS-REFERENCE: another resource's route that happens to return this
-// entity (`/notifications/{id}/board` for a board). Both are plain GETs
-// with no `$action`, so the path itself is all there is to go on.
-//
-// Two signals, in order:
-//
-//   1. A record route ends in the record's identifier (`/boards/{id}`,
-//      `/accounts/{account_id}/users/{id}`); a cross-reference ends in the
-//      relationship's name (`/posts/{id}/author`). A terminal parameter is
-//      therefore the stronger signal, and unlike depth it survives an entity
-//      nested more deeply than the route pointing at it.
-//   2. Failing that, fewest path segments — the shallower route is the one
-//      the entity is named for.
-//
-// Ties keep the earlier point, so the sorted-key order of the model decides
-// and the output stays byte-stable.
-//
-// The same rule runs at GENERATION time, in `shortestPoint`/`ownPoint` in
-// helpers/opShape.ts. It cannot be shared with this file — a template ships
-// standalone, outside that package — so it is written twice on purpose, and
-// both sides must move together.
+const ParamUtility_1 = require("./ParamUtility");
+const PrepareMethodUtility_1 = require("./PrepareMethodUtility");
 function terminalParam(point) {
     const parts = point.parts;
     const last = 0 < parts.length ? parts[parts.length - 1] : '';
@@ -40,6 +20,18 @@ function ownPoint(points) {
     }
     return best;
 }
+// The path parameters of a point that neither the call nor the entity gives a
+// value for, looked up as prepareParams looks them up.
+function unfilled(ctx, point) {
+    const missing = [];
+    for (const part of (point.parts || [])) {
+        const name = /^\{([^{}\/]+)\}$/.exec(String(part))?.[1];
+        if (null != name && null == (0, ParamUtility_1.paramValue)(ctx, point, name)) {
+            missing.push(name);
+        }
+    }
+    return missing;
+}
 function makePoint(ctx) {
     if (ctx.out.point) {
         return ctx.point = ctx.out.point;
@@ -47,7 +39,7 @@ function makePoint(ctx) {
     const getprop = ctx.utility.struct.getprop;
     const op = ctx.op;
     const options = ctx.options;
-    if (!options.allow.op.includes(op.name)) {
+    if (!(0, PrepareMethodUtility_1.allowed)(options.allow.op, op.name)) {
         return ctx.error('point_op_allow', 'Operation "' + op.name +
             '" not allowed by SDK option allow.op value: "' + options.allow.op + '"');
     }
@@ -88,24 +80,25 @@ function makePoint(ctx) {
                 break;
             }
         }
-        // select.exist can list more than the params needed to pick a point (for
-        // /boards/{id} it is Trello's 17 optional query-includes), so a plain
-        // {id} call matches NOTHING. Fall back to the entity's OWN route rather
-        // than whichever point came last.
         if (!matched) {
-            // A request naming an action reaches here only because that action's
-            // own point failed its exist test, so the request is unbuildable
-            // whatever we pick. Refuse it BEFORE choosing a fallback: the guard
-            // below compares the chosen point's $action, and would wave the
-            // request through whenever the action point is itself the one the
-            // fallback selects (a short action route folded into an entity whose
-            // canonical route is longer). An unbuildable action request is an
-            // error, never a silent request to some other endpoint.
             if (null != reqselector.$action) {
                 return ctx.error('point_action_invalid', 'Operation "' + op.name +
                     '" action "' + reqselector.$action + '" is not valid.');
             }
-            point = ownPoint(op.points);
+            // A call without an action falls back to a point without one, as
+            // generation does, and only to a route the call can fill.
+            const plain = op.points.filter((cand) => null == cand.select?.$action);
+            if (0 === plain.length) {
+                return ctx.error('point_action_required', 'Operation "' + op.name +
+                    '" has only action endpoints; pass $action to choose one.');
+            }
+            const fillable = plain.filter((cand) => 0 === unfilled(ctx, cand).length);
+            if (0 === fillable.length) {
+                return ctx.error('point_no_match', 'Operation "' + op.name +
+                    '" has no endpoint whose path parameters are all given (missing: ' +
+                    unfilled(ctx, ownPoint(plain)).join(', ') + ').');
+            }
+            point = ownPoint(fillable);
         }
         if (null != reqselector.$action &&
             null != point &&

@@ -16,6 +16,9 @@
 #   subject ran - the resolver's CtxView takes care of presenting the
 #   context object as the map omni walks, camelCase keys included.
 
+import http.server
+import threading
+
 import pytest
 
 from elementdemo_sdk import ElementdemoSDK
@@ -47,8 +50,65 @@ client = _run['client']['sdk']
 utility = client._utility
 
 
+def _auth_bag(spec_obj, where):
+    # A cookie credential rides the header bag, because a cookie IS a header.
+    return spec_obj.query if "query" == where else spec_obj.headers
+
+
+class _AuthProbeClient:
+    """Minimal stand-in so the probe below controls the apikey: the suite's
+    own client carries whatever options a project configured, and an empty
+    apikey places no credential to find."""
+
+    def options_map(self):
+        # `basic: False`: a Basic API's config defaults it true, and the branch
+        # it selects needs a secret, so the probe would find nothing.
+        return {"apikey": "PROBE", "auth": {"prefix": "", "basic": False}}
+
+
+def _auth_credential():
+    """Which container the generated prepare_auth writes the credential
+    into, and under what name. The name is the API's OWN scheme name, so it
+    is discovered by running prepare_auth once rather than assumed."""
+    ctx = _make_test_ctx(client, utility)
+    ctx.client = _AuthProbeClient()
+    ctx.spec = ElementdemoSpec({"headers": {}, "query": {}})
+    try:
+        utility.prepare_auth(ctx)
+    except Exception:
+        return None
+    for where in ("headers", "query"):
+        bag = _auth_bag(ctx.spec, where)
+        for name in bag:
+            return {"where": where, "name": name}
+    return None
+
+
+def _retarget_auth(node, cred):
+    """Rename the corpus's `headers` bag to the real container, and the
+    `authorization` key inside it to the real credential name. Applied only
+    to the prepareAuth section, so real header assertions elsewhere are
+    untouched."""
+    if isinstance(node, list):
+        return [_retarget_auth(n, cred) for n in node]
+    if not isinstance(node, dict):
+        return node
+    out = {}
+    for key in node:
+        if "headers" == key:
+            bag = {}
+            inner = node[key] if isinstance(node[key], dict) else {}
+            for bagkey in inner:
+                name = cred["name"] if "authorization" == bagkey else bagkey
+                bag[name] = _retarget_auth(inner[bagkey], cred)
+            out[cred["where"]] = bag
+        else:
+            out[key] = _retarget_auth(node[key], cred)
+    return out
+
+
 # Sections deliberately left empty in the shared corpus
-# (.sdk/test/primary/<name>.aon carries a PENDING header). Everything else
+# (.sdk/test/primary/<name>.aontu carries a PENDING header). Everything else
 # MUST contribute cases.
 PENDING = {
     'fetcher', 'makeFetchDef', 'makeResult',
@@ -129,6 +189,7 @@ class TestPrimaryUtility:
         utility = client._utility
 
         assert utility.clean is not None
+        assert utility.clean_add is not None
         assert utility.done is not None
         assert utility.make_error is not None
         assert utility.feature_add is not None
@@ -320,6 +381,76 @@ class TestPrimaryUtility:
         _, err = blocked_utility.fetcher(ctx, "http://example.com/test", fetchdef)
         assert err is not None
         assert "blocked" in str(err).lower()
+
+    # Nothing listens on port 9: a request the guard let through fails there.
+    # A Django route answers its slashless form with a relative Location. The
+    # transport follows each hop, and answers a "manual" fetch with the 3xx.
+    def test_fetcher_redirect(self):
+        pytest.importorskip("requests")
+        seen = []
+        moved = {"/redirect/r1": (301, "/redirect/r1/"), "/redirect/r1/": (308, "done")}
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                seen.append(self.path)
+                hop = moved.get(self.path)
+                done = "/redirect/r1/done" == self.path
+                body = b'{"id":"r1"}' if done else b""
+                self.send_response(hop[0] if hop else 200 if done else 404)
+                if hop:
+                    self.send_header("Location", hop[1])
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:%d" % server.server_address[1]
+        try:
+            live_client = ElementdemoSDK({"base": base})
+            live_utility = live_client._utility
+            ctx = live_utility.make_context({
+                "opname": "load",
+                "client": live_client,
+                "utility": live_utility,
+            }, None)
+
+            res, err = live_utility.fetcher(ctx, base + "/redirect/r1", {"method": "GET", "headers": {}})
+            assert err is None and res["status"] == 200
+            assert res["json"]() == {"id": "r1"}
+            assert seen == ["/redirect/r1", "/redirect/r1/", "/redirect/r1/done"]
+
+            res, err = live_utility.fetcher(ctx, base + "/redirect/r1",
+                                            {"method": "GET", "headers": {}, "redirect": "manual"})
+            assert err is None and res["status"] == 301
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_fetcher_getonly_guard(self, monkeypatch):
+        live_client = ElementdemoSDK({"base": "http://127.0.0.1:9"})
+        live_utility = live_client._utility
+        ctx = live_utility.make_context({
+            "opname": "create",
+            "client": live_client,
+            "utility": live_utility,
+        }, None)
+        url = "http://127.0.0.1:9/planet/p1?apikey=GUARDKEY01"
+        monkeypatch.setenv("VOXGIG_GETONLY_GUARD", "TRUE")
+
+        _, err = live_utility.fetcher(ctx, url, {"method": "POST", "headers": {}})
+        assert isinstance(err, ElementdemoError)
+        assert err.code == "fetch_getonly_block"
+        assert "[GET-ONLY GUARD] blocked POST /planet/p1" in err.msg
+        assert "GUARDKEY01" not in err.msg
+
+        _, err = live_utility.fetcher(ctx, url, {"method": "GET", "headers": {}})
+        assert err is not None and not isinstance(err, ElementdemoError)
 
     def test_make_context_basic(self):
         def subject(vin):
@@ -538,7 +669,25 @@ class TestPrimaryUtility:
             ctx.client = auth_client
             return _unwrap(utility.prepare_auth(ctx))
 
-        runsection('prepareAuth', subject)
+        # The corpus writes the credential as `headers.authorization`: a
+        # PLACEHOLDER each runner points at the container and name this API
+        # actually uses.
+        cred = _auth_credential()
+        assert cred is not None, \
+            'prepare_auth placed no credential in headers or query'
+
+        # An absent section is runsection's report to make.
+        section = spec.get('prepareAuth') if isinstance(spec, dict) else None
+        swap = isinstance(section, dict) and (
+            'headers' != cred['where'] or 'authorization' != cred['name'])
+        original = section['basic'] if swap else None
+        if swap:
+            section['basic'] = _retarget_auth(original, cred)
+        try:
+            runsection('prepareAuth', subject)
+        finally:
+            if swap:
+                section['basic'] = original
 
     def test_prepare_body_basic(self):
         runsection('prepareBody', lambda ctx: utility.prepare_body(ctx))

@@ -1,15 +1,9 @@
 
-// Direct unit tests for the operation-pipeline utilities. The generated
-// entity tests exercise the happy path; these drive the error and edge
-// branches (missing spec/response/result, 4xx handling, transport
-// failures, feature ordering, auth header shaping) that a normal
-// success-path op never reaches. All utilities are reached through
-// `stdutil`, so this suite is API-agnostic.
 
 import { test, describe } from 'node:test'
 import { strictEqual, ok, deepStrictEqual } from 'node:assert'
 
-import { stdutil } from '..'
+import { ElementdemoSDK, stdutil } from '..'
 
 
 const struct: any = (stdutil as any).struct
@@ -79,9 +73,40 @@ describe('pipeline:makePoint + makeSpec', () => {
     strictEqual((stdutil as any).makePoint(base({ out: { point: preset } })), preset)
   })
 
+  test('an allow list names whole operations, in any case', () => {
+    const point = { method: 'GET', parts: ['a'] }
+    const op = { name: 'load', points: [point] }
+    strictEqual((stdutil as any).makePoint(base({ op, options: { allow: { op: 'reload,unload' } } })).code,
+      'point_op_allow')
+    strictEqual((stdutil as any).makePoint(base({ op, options: { allow: { op: 'list, LOAD' } } })), point)
+  })
+
+  test('an allow list names whole methods', () => {
+    const ctx = base({
+      op: { name: 'update', points: [] },
+      point: { method: 'pu', parts: ['a'] },
+      options: { allow: { method: 'GET,PUT' }, base: 'http://x' },
+    })
+    strictEqual((stdutil as any).makeSpec(ctx).code, 'spec_method_allow')
+  })
+
   test('makeSpec short-circuits a feature-supplied spec', () => {
     const preset = { method: 'GET' }
     strictEqual((stdutil as any).makeSpec(base({ out: { spec: preset } })), preset)
+  })
+})
+
+
+describe('pipeline:direct', () => {
+
+  test('direct and graphql answer a method allow.method refuses with a result map', async () => {
+    const sdk = ElementdemoSDK.test({}, { allow: { method: 'GET' } })
+    const direct: any = await sdk.direct({ path: '/a', method: 'POST' })
+    strictEqual(direct.ok, false)
+    strictEqual(direct.err.code, 'spec_method_allow')
+    const graphql: any = await sdk.graphql('{ a }')
+    strictEqual(graphql.ok, false)
+    strictEqual(graphql.err.code, 'spec_method_allow')
   })
 })
 
@@ -323,45 +348,179 @@ describe('pipeline:feature order', () => {
 })
 
 
+describe('pipeline:makeOptions', () => {
+
+  test('clients built from one options object keep its maps and see its edits', () => {
+    const probe = { x: 1 }
+    const testopts = { active: true }
+    const options: any = { entity: { probe }, feature: { test: testopts } }
+
+    const first = new ElementdemoSDK(options)
+    strictEqual(options.entity.probe, probe)
+    strictEqual(options.feature.test, testopts)
+
+    probe.x = 2
+    const second = new ElementdemoSDK(options)
+    strictEqual(second.options().entity.probe.x, 2)
+    strictEqual(first.options().entity.probe.x, 1)
+  })
+
+  test('a config option does not reach the caller\'s maps', () => {
+    const options: any = { entity: { probe: { x: 1 } } }
+    const ctx = { utility: stdutil, options, config: { options: { entity: { probe: { y: 5 } } } } } as any
+    const o = (stdutil as any).makeOptions(ctx)
+    strictEqual(o.entity.probe.x, 1)
+    strictEqual(o.entity.probe.y, 5)
+    deepStrictEqual(options, { entity: { probe: { x: 1 } } })
+  })
+})
+
+
+// A cookie credential as prepareAuth writes it: `<scheme>=K` for the probe
+// key, with no scheme prefix and nothing else in the bag.
+const COOKIE_PAIR = /^[^=;]+=K$/
+
+
 describe('pipeline:prepareAuth', () => {
 
-  // Fake client so the exact options.auth / apikey shape is controlled.
-  function authCtx(options: any, headers: any) {
-    return base({ client: { options: () => options }, spec: headers == null ? null : { headers } })
+  function authCtx(options: any, spec: any) {
+    return base({ client: { options: () => options }, spec })
+  }
+
+  function bags(): any {
+    return { headers: {} as any, query: {} as any }
+  }
+
+  // `basic: false` is explicit: an HTTP Basic API's generated config carries
+  // `auth.basic: true`, and a client that merges it in takes the Basic
+  // branch, which base64-joins the key with a password rather than placing
+  // the key as it is.
+  function auth(prefix: string): any {
+    return { prefix, basic: false }
+  }
+
+  // Run prepareAuth with both containers present and see which one the
+  // generated utility writes to, and under what name. Null means this SDK
+  // places no credential at all — a public API — which the cases below then
+  // assert instead.
+
+  // `pair` is the `<scheme>=` lead-in of a COOKIE credential, which rides the
+  // header bag under the key `cookie` rather than taking a header of its own.
+  function probe(options: any) {
+    const ctx = authCtx(options, bags())
+    ;(stdutil as any).prepareAuth(ctx)
+    for (const where of ['headers', 'query'] as const) {
+      const name = Object.keys(ctx.spec[where] as any)[0]
+      if (null == name) continue
+      const value = ctx.spec[where][name]
+      const pair = COOKIE_PAIR.test(String(value)) && 'cookie' === name && 'headers' === where
+        ? String(value).slice(0, -1)
+        : ''
+      return { where, name, value, pair }
+    }
+    return null
+  }
+
+  const CRED = probe({ apikey: 'K', auth: auth('Bearer') })
+
+  // Every credential this SDK could possibly place: both credentials and
+  // Basic switched on, so whichever branch the API has, something lands
+  // unless the API is public.
+  const ANY = probe({ apikey: 'K', secret: 'S', auth: { prefix: 'Bearer', basic: true } })
+
+  function placed(options: any, seed?: any) {
+    const spec: any = bags()
+    // Seed what prepareAuth would have written: CRED.pair is the `<scheme>=`
+    // lead-in for a cookie and '' for a header or query credential.
+    if (null != CRED && null != seed) spec[CRED.where][CRED.name] = CRED.pair + seed
+    const ctx = authCtx(options, spec)
+    ;(stdutil as any).prepareAuth(ctx)
+    return null == CRED ? undefined : ctx.spec[CRED.where][CRED.name]
   }
 
   test('guards a missing spec', () => {
-    strictEqual((stdutil as any).prepareAuth(authCtx({ auth: { prefix: '' }, apikey: 'K' }, null)).code, 'auth_no_spec')
+    strictEqual((stdutil as any).prepareAuth(authCtx({ auth: auth(''), apikey: 'K' }, null)).code, 'auth_no_spec')
   })
 
-  test('an apikey with a prefix is space-joined', () => {
-    const ctx = authCtx({ apikey: 'K', auth: { prefix: 'Bearer' } }, {})
-    ;(stdutil as any).prepareAuth(ctx)
-    strictEqual(ctx.spec.headers.authorization, 'Bearer K')
+  // Without this the cases below cannot fail for an SDK whose credential the
+  // probe misses: every one of them takes the public-API path instead.
+  test('the probe finds the credential this SDK places', () => {
+    strictEqual(null != CRED, null != ANY)
+  })
+
+  test('the apikey is placed where this API puts it', () => {
+    if (null == CRED) {
+      // A public API places nothing, and that is the whole assertion.
+      strictEqual(placed({ apikey: 'K', auth: auth('Bearer') }), undefined)
+      return
+    }
+    ok('headers' === CRED.where || 'query' === CRED.where)
+    if ('' !== CRED.pair) {
+      // A cookie credential is a `<scheme>=<key>` pair, and the scheme name
+      // leaves no room for the option's prefix.
+      ok(COOKIE_PAIR.test(String(CRED.value)), String(CRED.value))
+      return
+    }
+    // A header credential is prefix-joined; a query credential is the raw
+    // key, because a query parameter has nowhere to put a scheme name.
+    strictEqual(CRED.value, 'headers' === CRED.where ? 'Bearer K' : 'K')
   })
 
   test('a raw apikey (empty prefix) goes in as-is', () => {
-    const ctx = authCtx({ apikey: 'K', auth: { prefix: '' } }, {})
-    ;(stdutil as any).prepareAuth(ctx)
-    strictEqual(ctx.spec.headers.authorization, 'K')
+    const raw = null == CRED ? undefined : CRED.pair + 'K'
+    strictEqual(placed({ apikey: 'K', auth: auth('') }), raw)
   })
 
-  test('an empty apikey drops the header', () => {
-    const ctx = authCtx({ apikey: '', auth: { prefix: 'Bearer' } }, { authorization: 'stale' })
-    ;(stdutil as any).prepareAuth(ctx)
-    strictEqual(ctx.spec.headers.authorization, undefined)
+  test('an empty apikey drops the credential', () => {
+    strictEqual(placed({ apikey: '', auth: auth('Bearer') }, 'stale'), undefined)
   })
 
-  test('a public API (no auth block) drops the header', () => {
-    const ctx = authCtx({ apikey: 'K' }, { authorization: 'stale' })
-    ;(stdutil as any).prepareAuth(ctx)
-    strictEqual(ctx.spec.headers.authorization, undefined)
+  test('a public API (no auth block) drops the credential', () => {
+    strictEqual(placed({ apikey: 'K' }, 'stale'), undefined)
   })
 
-  test('a missing apikey option drops the header', () => {
-    const ctx = authCtx({ auth: { prefix: 'Bearer' } }, { authorization: 'stale' })
-    ;(stdutil as any).prepareAuth(ctx)
-    strictEqual(ctx.spec.headers.authorization, undefined)
+  test('a missing apikey option drops the credential', () => {
+    strictEqual(placed({ auth: auth('Bearer') }, 'stale'), undefined)
+  })
+
+  // HTTP Basic joins the key with a password, which may be empty (RFC 7617):
+  // Lob documents its key as the user with a blank password. An SDK for an
+  // API that is not HTTP Basic has no such branch, and the first placement
+  // below tells the two apart.
+  test('HTTP Basic sends the key with a blank password', () => {
+    if (null == CRED || 'headers' !== CRED.where || '' !== CRED.pair) return
+    const basic = { prefix: 'Basic', basic: true }
+    const b64 = (s: string) => Buffer.from(s).toString('base64')
+    if (placed({ apikey: 'K', secret: 'S', auth: basic }) !== 'Basic ' + b64('K:S')) return
+    strictEqual(placed({ apikey: 'K', auth: basic }), 'Basic ' + b64('K:'))
+    strictEqual(placed({ apikey: 'K', secret: '', auth: basic }), 'Basic ' + b64('K:'))
+    strictEqual(placed({ apikey: '', secret: 'S', auth: basic }, 'stale'), undefined)
+  })
+})
+
+
+describe('pipeline:prepareQuery', () => {
+
+  // The generated config lists path parameters as args.params. A match field
+  // that fills the path must not be sent again as a query parameter, which a
+  // strict server rejects.
+  test('a path parameter stays out of the query', () => {
+    const point = { args: { params: [{ name: 'id', kind: 'param' }] } }
+    const ctx = base({ point, reqmatch: { id: 'i1', q: 'x' } })
+    deepStrictEqual((stdutil as any).prepareQuery(ctx), { q: 'x' })
+  })
+
+  test('an action is never a query parameter', () => {
+    const ctx = base({ point: { args: { params: [] } }, reqmatch: { $action: 'go', q: 'x' } })
+    deepStrictEqual((stdutil as any).prepareQuery(ctx), { q: 'x' })
+  })
+
+  // A query argument's orig is the name the API definition gives it, which
+  // the model may have renamed for the caller.
+  test('a query argument goes out under its orig', () => {
+    const point = { args: { query: [{ name: 'item_id', orig: 'itemIds', kind: 'query' }] } }
+    const ctx = base({ point, reqmatch: { item_id: ['i1'], q: 'x' } })
+    deepStrictEqual((stdutil as any).prepareQuery(ctx), { itemIds: ['i1'], q: 'x' })
   })
 })
 
@@ -378,5 +537,25 @@ describe('pipeline:result helpers', () => {
     const ctx = base({ response: { json: async () => ({ a: 1 }), body: null }, result: {} })
     await (stdutil as any).resultBody(ctx)
     strictEqual(ctx.result.body, undefined)
+  })
+
+  // The agent and the body preview may carry a registered value; the body is
+  // cleaned before the bound so a split value cannot leave its prefix.
+  test('resultBody masks a registered value in the agent and across the preview bound', async () => {
+    const secret = 'PIPELINE-SECRET-a1b2c3d4e5f6'
+    const text = 'x'.repeat(150) + secret + 'y'.repeat(100)
+    const ctx = base({
+      options: { __derived__: { clean: { active: true, keys: [], values: [], mask: '[redacted]', hint: 0, min: 4 } } },
+      spec: { headers: { 'user-agent': 'Probe ' + secret } },
+      response: { body: 'body', json: async () => { throw Object.assign(new SyntaxError('bad json'), { text }) } },
+      result: { status: 200, headers: { 'content-type': 'text/html' } },
+    })
+    ;(stdutil as any).cleanAdd(ctx, secret)
+    await (stdutil as any).resultBody(ctx)
+    const message = String(ctx.result.err.message)
+    strictEqual(ctx.result.err.code, 'response_content_type')
+    ok(message.includes('user-agent Probe [redacted]'), message)
+    ok(message.includes('body: ' + 'x'.repeat(150) + '[redacted]'), message)
+    ok(!message.includes(secret.slice(0, 8)), message)
   })
 })

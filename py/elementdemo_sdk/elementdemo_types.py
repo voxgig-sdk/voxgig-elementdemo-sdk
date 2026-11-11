@@ -1,7 +1,7 @@
 # Typed models for the Elementdemo SDK.
 #
-# GENERATED from the API model: main.kit.entity.<e>.fields[] and per-op
-# params (op.<name>.points[].args.params[]). Field/param types come from the
+# GENERATED from the API model: main.kit.entity.<e>.fields{} and per-op
+# params (op.<name>.points[].g.params[]). Field/param types come from the
 # canonical type sentinels via @voxgig/sdkgen canonToType (source of truth:
 # @voxgig/apidef VALID_CANON). Do not edit by hand.
 #
@@ -28,11 +28,8 @@ class ElementRequired(TypedDict):
 
 
 class Element(ElementRequired, total=False):
-    charge: int
     discovered: int
     group: int
-    ion: str
-    ok: bool
     phase: str
 
 
@@ -42,15 +39,12 @@ class ElementLoadMatch(TypedDict):
 
 class ElementListMatch(TypedDict, total=False):
     block: str
-    charge: int
     discovered: int
     group: int
     id: str
-    ion: str
     mass: float
     name: str
     number: int
-    ok: bool
     period: int
     phase: str
     series_id: str
@@ -69,11 +63,8 @@ class ElementCreateDataRequired(TypedDict):
 
 
 class ElementCreateData(ElementCreateDataRequired, total=False):
-    charge: int
     discovered: int
     group: int
-    ion: str
-    ok: bool
     phase: str
 
 
@@ -83,14 +74,11 @@ class ElementUpdateDataRequired(TypedDict):
 
 class ElementUpdateData(ElementUpdateDataRequired, total=False):
     block: str
-    charge: int
     discovered: int
     group: int
-    ion: str
     mass: float
     name: str
     number: int
-    ok: bool
     period: int
     phase: str
     series_id: str
@@ -135,9 +123,7 @@ class Isotope(IsotopeRequired, total=False):
     abundance: float
     halflife: str
     mode: str
-    ok: bool
     product: str
-    steps: int
 
 
 class IsotopeLoadMatch(TypedDict):
@@ -162,9 +148,7 @@ class IsotopeCreateData(IsotopeCreateDataRequired, total=False):
     abundance: float
     halflife: str
     mode: str
-    ok: bool
     product: str
-    steps: int
 
 
 class IsotopeUpdateDataRequired(TypedDict):
@@ -179,10 +163,8 @@ class IsotopeUpdateData(IsotopeUpdateDataRequired, total=False):
     mass_number: int
     mode: str
     name: str
-    ok: bool
     product: str
     stable: bool
-    steps: int
 
 
 class IsotopeRemoveMatch(TypedDict):

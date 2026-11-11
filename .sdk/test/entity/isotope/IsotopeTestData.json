@@ -2,64 +2,88 @@
   "existing": {
     "isotope": {
       "ISOTOPE00": {
-        "abundance": 120,
+        "abundance": 100,
         "element_id": "ELEMENT01",
-        "halflife": "s7a",
+        "halflife": "s66",
         "id": "ISOTOPE00",
-        "mass": 124,
-        "mass_number": "s7d",
-        "mode": "s7e",
-        "name": "s7f",
-        "ok": true,
-        "product": "s81",
-        "stable": true,
-        "steps": "s83"
+        "mass": 104,
+        "mass_number": 105,
+        "mode": "s6a",
+        "name": "s6b",
+        "product": "s6c",
+        "stable": false
       },
       "ISOTOPE01": {
-        "abundance": 240,
+        "abundance": 200,
         "element_id": "ELEMENT01",
-        "halflife": "sf2",
+        "halflife": "sca",
         "id": "ISOTOPE01",
-        "mass": 244,
-        "mass_number": "sf5",
-        "mode": "sf6",
-        "name": "sf7",
-        "ok": true,
-        "product": "sf9",
-        "stable": true,
-        "steps": "sfb"
+        "mass": 204,
+        "mass_number": 205,
+        "mode": "sce",
+        "name": "scf",
+        "product": "sd0",
+        "stable": false
       },
       "ISOTOPE02": {
-        "abundance": 360,
+        "abundance": 300,
         "element_id": "ELEMENT01",
-        "halflife": "s16a",
+        "halflife": "s12e",
         "id": "ISOTOPE02",
-        "mass": 364,
-        "mass_number": "s16d",
-        "mode": "s16e",
-        "name": "s16f",
-        "ok": true,
-        "product": "s171",
-        "stable": true,
-        "steps": "s173"
+        "mass": 304,
+        "mass_number": 305,
+        "mode": "s132",
+        "name": "s133",
+        "product": "s134",
+        "stable": false
       }
     }
   },
   "new": {
     "isotope": {
       "isotope_ref01": {
-        "abundance": 480,
+        "abundance": 400,
         "element_id": "ELEMENT01",
-        "halflife": "s1e2",
-        "mass": 484,
-        "mass_number": "s1e5",
-        "mode": "s1e6",
-        "name": "s1e7",
-        "ok": true,
-        "product": "s1e9",
-        "stable": true,
-        "steps": "s1eb"
+        "halflife": "s192",
+        "mass": 404,
+        "mass_number": 405,
+        "mode": "s196",
+        "name": "s197",
+        "product": "s198",
+        "stable": false
       }
+    }
+  },
+  "requests": {
+    "POST /element/{element_id}/isotope/{isotope_id}/decay": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "POST /element/{element_id}/isotope": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "GET /element/{element_id}/isotope": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "GET /element/{element_id}/isotope/{isotope_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "DELETE /element/{element_id}/isotope/{isotope_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
+    },
+    "PUT /element/{element_id}/isotope/{isotope_id}": {
+      "provenance": "operation-contract",
+      "version": 2,
+      "source": "openapi3"
     }
   }
 }

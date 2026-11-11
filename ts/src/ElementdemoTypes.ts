@@ -1,21 +1,18 @@
 // Typed models for the Elementdemo SDK.
 //
-// GENERATED from the API model: main.kit.entity.<e>.fields[] and per-op
-// params (op.<name>.points[].args.params[]). Field/param types come from the
+// GENERATED from the API model: main.kit.entity.<e>.fields{} and per-op
+// params (op.<name>.points[].g.params[]). Field/param types come from the
 // canonical type sentinels via @voxgig/sdkgen canonToType (source of truth:
 // @voxgig/apidef VALID_CANON). Do not edit by hand.
 
 export interface Element {
   block: string
-  charge?: number
   discovered?: number
   group?: number
   id: string
-  ion?: string
   mass: number
   name: string
   number: number
-  ok?: boolean
   period: number
   phase?: string
   series_id: string
@@ -28,15 +25,12 @@ export interface ElementLoadMatch {
 
 export interface ElementListMatch {
   block?: string
-  charge?: number
   discovered?: number
   group?: number
   id?: string
-  ion?: string
   mass?: number
   name?: string
   number?: number
-  ok?: boolean
   period?: number
   phase?: string
   series_id?: string
@@ -45,15 +39,12 @@ export interface ElementListMatch {
 
 export interface ElementCreateData {
   block: string
-  charge?: number
   discovered?: number
   group?: number
   id: string
-  ion?: string
   mass: number
   name: string
   number: number
-  ok?: boolean
   period: number
   phase?: string
   series_id: string
@@ -69,14 +60,11 @@ export interface ElementCreateData {
 export interface ElementUpdateData {
   id: string
   block?: string
-  charge?: number
   discovered?: number
   group?: number
-  ion?: string
   mass?: number
   name?: string
   number?: number
-  ok?: boolean
   period?: number
   phase?: string
   series_id?: string
@@ -114,10 +102,8 @@ export interface Isotope {
   mass_number: number
   mode?: string
   name: string
-  ok?: boolean
   product?: string
   stable: boolean
-  steps?: number
 }
 
 export interface IsotopeLoadMatch {
@@ -138,10 +124,8 @@ export interface IsotopeCreateData {
   mass_number: number
   mode?: string
   name: string
-  ok?: boolean
   product?: string
   stable: boolean
-  steps?: number
 
   // Selects a custom action instead of the plain create:
   //   'decay'
@@ -159,10 +143,8 @@ export interface IsotopeUpdateData {
   mass_number?: number
   mode?: string
   name?: string
-  ok?: boolean
   product?: string
   stable?: boolean
-  steps?: number
 }
 
 export interface IsotopeRemoveMatch {
