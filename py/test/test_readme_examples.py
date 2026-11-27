@@ -94,7 +94,7 @@ _DOCS = (
 
 
 def _read_doc(path, label):
-    if not os.path.exists(path):
+    if path is None or not os.path.exists(path):
         pytest.skip(label + " not found: " + path)
     with open(path, "r", encoding="utf-8") as fh:
         return fh.read()

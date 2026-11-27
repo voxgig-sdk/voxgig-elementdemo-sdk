@@ -8,6 +8,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import voxgig.elementdemosdk.core.Config;
 import voxgig.elementdemosdk.core.Context;
 import voxgig.elementdemosdk.core.SdkClient;
 import voxgig.elementdemosdk.core.Utility;
+import voxgig.elementdemosdk.utility.Fetcher;
 import voxgig.elementdemosdk.feature.secrets.plugin.Definition;
 import voxgig.elementdemosdk.feature.secrets.sekreto.Json;
 import voxgig.elementdemosdk.feature.secrets.sekreto.Sekreto;
@@ -84,6 +87,11 @@ public class SecretsFeature extends BaseFeature {
   // client clones for optionsMap). READ ONLY: this feature never writes it.
   private Map<String, Object> liveopts;
 
+  // What prepareAuth was generated from: the config declares auth only
+  // where it places a credential, and Basic only where it composes one.
+  private boolean declared;
+  private boolean basic;
+
   private String secretname = "apikey";
   private boolean cache = true;
   private Sekreto sek;
@@ -128,7 +136,10 @@ public class SecretsFeature extends BaseFeature {
     String response;
     List<Integer> statuses;
     int retries;
+    String redirect;
   }
+
+  private static final int REDIRECT_MAX = 5;
 
   // One shared in-flight resolution: late arrivals await the latch and
   // read the outcome.
@@ -153,6 +164,11 @@ public class SecretsFeature extends BaseFeature {
     this.liveopts = ctx.options == null ? new LinkedHashMap<>() : ctx.options;
     this.active = true;
 
+    Object configopts = ctx.config == null ? null : ctx.config.get("options");
+    Object authdecl = configopts instanceof Map ? ((Map<?, ?>) configopts).get("auth") : null;
+    this.declared = authdecl instanceof Map;
+    this.basic = this.declared && Boolean.TRUE.equals(((Map<?, ?>) authdecl).get("basic"));
+
     this.secretname = FeatureOptions.foptStr(options, "name", "apikey");
     this.cache = FeatureOptions.foptBool(options, "cache", true);
 
@@ -164,6 +180,8 @@ public class SecretsFeature extends BaseFeature {
       x.request = FeatureOptions.foptStr(xopts, "request", "refresh_token");
       x.response = FeatureOptions.foptStr(xopts, "response", "access_token");
       x.retries = FeatureOptions.foptInt(xopts, "retries", 1);
+      x.redirect = "same-origin".equals(FeatureOptions.foptStr(xopts, "redirect", "refuse"))
+          ? "same-origin" : "refuse";
       x.statuses = new ArrayList<>();
       List<Object> rawstatuses = FeatureOptions.foptList(xopts, "statuses");
       if (rawstatuses != null) {
@@ -388,11 +406,17 @@ public class SecretsFeature extends BaseFeature {
     }
   }
 
+  // prepareAuth's decision: auth the config declares, not suppressed by
+  // `auth: null`.
+  private boolean authon() {
+    return this.declared && this.liveopts.get("auth") != null;
+  }
+
   // resolveonce resolves once, reporting whether a credential came out of
   // it. That boolean is the whole of what resolve() needs to tell a
   // cacheable HIT from a miss it must not keep.
   private boolean resolveonce() {
-    if (this.sek == null) {
+    if (this.sek == null || !authon()) {
       return false;
     }
 
@@ -438,17 +462,6 @@ public class SecretsFeature extends BaseFeature {
       return true;
     }
 
-    // `auth: null` is the documented way to send NO credential, and a
-    // purchase is a credential-bearing call: the refresh token goes to the
-    // token endpoint in the request body. withrefresh honours suppression
-    // for the RETRY, but it runs after this - by then the refresh token has
-    // already left the process, and no later check can call it back. The
-    // suppression has to be honoured here, before the first purchase, or it
-    // only ever half-held.
-    if (this.liveopts.get("auth") == null) {
-      return false;
-    }
-
     buy();
 
     return true;
@@ -465,12 +478,9 @@ public class SecretsFeature extends BaseFeature {
   private Object withrefresh(Context ctx, String url, Map<String, Object> fetchdef,
       Utility.FetcherFn inner) {
 
-    // `auth: null` is the documented way to send NO credential, and
-    // prepareAuth honours it by removing the header. A refusal of a
-    // deliberately unauthenticated request is not an expired token and
-    // cannot be fixed by buying one - retrying would transmit exactly the
-    // credential the caller suppressed.
-    if (this.liveopts.get("auth") == null) {
+    // A refusal of an unauthenticated request is not an expired token, and
+    // retrying would transmit the credential that auth off withholds.
+    if (!authon()) {
       return inner.fetch(ctx, url, fetchdef);
     }
 
@@ -549,7 +559,7 @@ public class SecretsFeature extends BaseFeature {
     // The options map is FROZEN after construction (this feature never
     // writes it), so the raw read is safe on any thread.
     Object rawauth = this.liveopts.get("auth");
-    if (!(rawauth instanceof Map)) {
+    if (!authon() || !(rawauth instanceof Map)) {
       headers.remove("authorization");
       return;
     }
@@ -559,15 +569,28 @@ public class SecretsFeature extends BaseFeature {
     String name = nameRaw instanceof String && !"".equals(nameRaw)
         ? ((String) nameRaw).toLowerCase(java.util.Locale.ROOT) : "authorization";
 
+    String value = this.basic && Boolean.TRUE.equals(((Map<String, Object>) rawauth).get("basic"))
+        ? pair(token) : token;
+
     Object prefixRaw = ((Map<String, Object>) rawauth).get("prefix");
     String prefix = prefixRaw instanceof String ? (String) prefixRaw : "";
 
     if ("".equals(prefix)) {
-      headers.put(name, token);
+      headers.put(name, value);
     }
     else {
-      headers.put(name, prefix + " " + token);
+      headers.put(name, prefix + " " + value);
     }
+  }
+
+  // Under Basic the token is the key half, as apikey is: prepareAuth's pair.
+  private String pair(String token) {
+    Object secret = this.liveopts.get("secret");
+    String pair = Base64.getEncoder().encodeToString(
+        (token + ":" + (secret instanceof String ? (String) secret : ""))
+            .getBytes(StandardCharsets.UTF_8));
+    register(pair);
+    return pair;
   }
 
   // buy an access token with the refresh token. Concurrent callers share
@@ -689,22 +712,24 @@ public class SecretsFeature extends BaseFeature {
     fetchdef.put("method", x.method);
     fetchdef.put("headers", headers);
     fetchdef.put("body", Json.stringify(payload));
+    // Never followed by the client: a redirect would carry the refresh token on.
+    fetchdef.put("redirect", "manual");
 
     // Deliberately NOT the SDK transport. The transport is what this
     // feature wraps, and sending the token request back through it would
     // recurse on the first expiry - and would route the exchange through
     // the test mock, which knows nothing about it.
-    Object res;
-    if (fetchRaw instanceof BiFunction) {
-      res = ((BiFunction<String, Map<String, Object>, Object>) fetchRaw)
-          .apply(url, fetchdef);
-    }
-    else {
-      // No custom transport supplied - the ordinary case. makeOptions
-      // leaves system.fetch unset, so the exchange gets its own raw HTTP
-      // path: requiring a custom transport for the COMMON case would
-      // reject every live token purchase before a request was made.
-      res = rawExchangeFetch(url, fetchdef);
+    Object res = exchangeFetch(fetchRaw, url, fetchdef);
+
+    // By option alone, and only while the exchange stays on its own origin.
+    String at = url;
+    for (int hops = 0; "same-origin".equals(x.redirect) && hops < REDIRECT_MAX; hops++) {
+      String next = moved(url, at, res);
+      if (next == null) {
+        break;
+      }
+      at = next;
+      res = exchangeFetch(fetchRaw, at, fetchdef);
     }
 
     int status = FeatureOptions.fresStatus(res);
@@ -737,6 +762,51 @@ public class SecretsFeature extends BaseFeature {
     }
 
     return token;
+  }
+
+  private static Object exchangeFetch(Object fetchRaw, String url,
+      Map<String, Object> fetchdef) {
+    if (fetchRaw instanceof BiFunction) {
+      return ((BiFunction<String, Map<String, Object>, Object>) fetchRaw)
+          .apply(url, fetchdef);
+    }
+    // No custom transport supplied - the ordinary case. makeOptions
+    // leaves system.fetch unset, so the exchange gets its own raw HTTP
+    // path: requiring a custom transport for the COMMON case would
+    // reject every live token purchase before a request was made.
+    return rawExchangeFetch(url, fetchdef);
+  }
+
+  // Where a 307 or 308 points, when that is on the exchange's own origin. Any
+  // other redirect would drop the body or leave the origin.
+  private static String moved(String url, String at, Object res) {
+    int status = FeatureOptions.fresStatus(res);
+    if (307 != status && 308 != status) {
+      return null;
+    }
+    String location = FeatureOptions.fresHeader(res, "location");
+    if ("".equals(location)) {
+      return null;
+    }
+    try {
+      URI next = Fetcher.resolveLocation(URI.create(at), location);
+      String origin = originOf(next);
+      return origin != null && origin.equals(originOf(URI.create(url))) ? next.toString() : null;
+    }
+    catch (RuntimeException e) {
+      return null;
+    }
+  }
+
+  private static String originOf(URI uri) {
+    String scheme = uri.getScheme();
+    String host = uri.getHost();
+    if (scheme == null || host == null) {
+      return null;
+    }
+    scheme = scheme.toLowerCase(Locale.ROOT);
+    int port = uri.getPort() < 0 ? ("https".equals(scheme) ? 443 : 80) : uri.getPort();
+    return scheme + "://" + host.toLowerCase(Locale.ROOT) + ":" + port;
   }
 
   // rawExchangeFetch is the token-exchange transport of last resort: plain
@@ -773,6 +843,7 @@ public class SecretsFeature extends BaseFeature {
     try {
       resp = HttpClient.newBuilder()
           .connectTimeout(Duration.ofSeconds(30))
+          .followRedirects(HttpClient.Redirect.NEVER)
           .build()
           .send(reqb.build(), HttpResponse.BodyHandlers.ofString());
     }
@@ -796,7 +867,9 @@ public class SecretsFeature extends BaseFeature {
 
     Map<String, Object> out = new LinkedHashMap<>();
     out.put("status", resp.statusCode());
-    out.put("headers", new LinkedHashMap<String, Object>());
+    Map<String, Object> rheaders = new LinkedHashMap<>();
+    resp.headers().firstValue("location").ifPresent((v) -> rheaders.put("location", v));
+    out.put("headers", rheaders);
     out.put("json", (Supplier<Object>) () -> jsonBody);
     out.put("body", text);
     return out;

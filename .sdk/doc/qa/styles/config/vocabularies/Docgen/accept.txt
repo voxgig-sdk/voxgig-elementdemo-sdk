@@ -270,7 +270,7 @@ initialiser
 [Bb][Aa][Ss][Hh]
 [Bb][Aa][Ss][Hh]
 [Gg][Oo]
-[Gg][Oo][Ll][Aa][Nn][Gg]
+[Gg][Oo]
 [Jj][Aa][Vv][Aa]
 [Jj][Aa][Vv][Aa]
 [Pp][Yy]

@@ -1,6 +1,6 @@
 "use strict";
-// VENDORED: @voxgig/struct 0.3.7 (typescript/src/StructUtility.ts)
-// Source: https://github.com/voxgig/struct @ 621057e24eb5f3e3da6fd3820ff24a36aaacb21b  [tag: sdk-20261016-0845-0]
+// VENDORED: @voxgig/struct 0.4.0 (typescript/src/StructUtility.ts)
+// Source: https://github.com/voxgig/struct @ 358af9d51c90b589a295a70b2165dbe4629eaf8e  [tag: sdk-20261125-1959-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 /* Copyright (c) 2025-2026 Voxgig Ltd. MIT LICENSE. */
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -170,7 +170,7 @@ const SKIP = { '`$SKIP`': true };
 exports.SKIP = SKIP;
 const DELETE = { '`$DELETE`': true };
 exports.DELETE = DELETE;
-const R_INTEGER_KEY = /^[-0-9]+$/;
+const R_INTEGER_KEY = /^(0|-?[1-9][0-9]*)$/;
 const R_ESCAPE_REGEXP = /[.*+?^${}()|[\]\\]/g; // Chars that need escaping in regexp.
 const R_QUOTES = /"/g;
 const R_DOT = /\./g;
@@ -179,6 +179,7 @@ const R_META_PATH = /^([^$]+)\$([=~])(.+)$/;
 const R_DOUBLE_DOLLAR = /\$\$/g;
 const R_TRANSFORM_NAME = /`\$([A-Z]+)`/g;
 const R_INJECTION_FULL = /^`(\$[A-Z]+|[^`]*)[0-9]*`$/;
+const R_CHECKER_NAME = /^\$[A-Z]+$/;
 const R_BT_ESCAPE = /\$BT/g;
 const R_DS_ESCAPE = /\$DS/g;
 const R_INJECTION_PARTIAL = /`([^`]+)`/g;
@@ -362,20 +363,53 @@ function typify(value) {
     // Anything else (e.g. bigint) is considered T_any
     return T_any;
 }
-// Get a list element. The key should be an integer, or a string
-// that can parse to an integer only. Negative integers count from the end of the list.
+// A list key's index: an integral number, or the string String(n) prints, else NaN.
+function _listkey(key) {
+    if (S_number === typeof key) {
+        return Number.isInteger(key) ? key + 0 : NaN;
+    }
+    return S_string === typeof key && R_INTEGER_KEY.test(key) ? +key : NaN;
+}
+// The stored value; a plain map yields own properties only, never __proto__.
+function _readprop(val, key) {
+    if (islist(val)) {
+        const keyI = _listkey(key);
+        return 0 <= keyI ? val[keyI] : NONE;
+    }
+    if (S_string !== typeof key && S_number !== typeof key) {
+        return NONE;
+    }
+    if (0 < (T_instance & typify(val))) {
+        return val[key];
+    }
+    return Object.prototype.hasOwnProperty.call(val, key) ? val[key] : NONE;
+}
+function _setown(obj, key, val) {
+    if ('__proto__' === key) {
+        Object.defineProperty(obj, key, {
+            value: val,
+            enumerable: true,
+            writable: true,
+            configurable: true,
+        });
+    }
+    else {
+        obj[key] = val;
+    }
+}
+// Get a list element; a negative integer key counts from the end.
 function getelem(val, key, alt) {
     let out = NONE;
     if (NONE === val || NONE === key) {
         return alt;
     }
     if (islist(val)) {
-        const nkey = parseInt(key);
-        if (Number.isInteger(nkey) && re_test(R_INTEGER_KEY, '' + key)) {
-            if (nkey < 0) {
-                key = val.length + nkey;
-            }
-            out = val[key];
+        let keyI = _listkey(key);
+        if (keyI < 0) {
+            keyI = val.length + keyI;
+        }
+        if (0 <= keyI) {
+            out = val[keyI];
         }
     }
     // null at a slot counts as "no value" — same Group A rule as getprop.
@@ -392,7 +426,7 @@ function getprop(val, key, alt) {
         return alt;
     }
     if (isnode(val)) {
-        out = val[key];
+        out = _readprop(val, key);
     }
     // JSON null at a key is treated as "no value" for the default-substitution
     // rule. This unifies cross-port behaviour: every host language conflates
@@ -412,7 +446,7 @@ function _lookup(val, key) {
     if (NONE === val || NONE === key)
         return NONE;
     if (isnode(val))
-        return val[key];
+        return _readprop(val, key);
     return NONE;
 }
 // Convert different types of keys to string representation.
@@ -744,7 +778,7 @@ function jm(...kv) {
         // with value null" from "slot beyond end of kv".
         let k = i < kv.length ? kv[i] : '$KEY' + i;
         k = 'string' === typeof k ? k : stringify(k);
-        o[k] = i + 1 < kv.length ? kv[i + 1] : null;
+        _setown(o, k, i + 1 < kv.length ? kv[i + 1] : null);
     }
     return o;
 }
@@ -769,11 +803,10 @@ function delprop(parent, key) {
         delete parent[key];
     }
     else if (islist(parent)) {
-        let keyI = +key;
+        const keyI = _listkey(key);
         if (isNaN(keyI)) {
             return parent;
         }
-        keyI = Math.floor(keyI);
         // Delete list element at position keyI, shifting later elements down.
         const psize = size(parent);
         if (0 <= keyI && keyI < psize) {
@@ -798,16 +831,13 @@ function setprop(parent, key, val) {
         throw new Error('struct: condensed structures are immutable - ' + 'expand() first, then modify the copy');
     }
     if (ismap(parent)) {
-        key = S_MT + key;
-        const pany = parent;
-        pany[key] = val;
+        _setown(parent, S_MT + key, val);
     }
     else if (islist(parent)) {
-        let keyI = +key;
+        const keyI = _listkey(key);
         if (isNaN(keyI)) {
             return parent;
         }
-        keyI = Math.floor(keyI);
         // Set or append value at position keyI, or append if keyI out of bounds.
         if (0 <= keyI) {
             parent[slice(keyI, 0, size(parent) + 1)] = val;
@@ -976,13 +1006,27 @@ function setpath(store, path, val, injdef) {
     return parent;
 }
 function getpath(store, path, injdef) {
-    const parts = islist(path)
-        ? path
-        : 'string' === typeof path
-            ? path.split(S_DT)
-            : 'number' === typeof path
-                ? [strkey(path)]
-                : NONE;
+    let parts = NONE;
+    if (islist(path)) {
+        parts = [];
+        for (const part of path) {
+            if (S_number === typeof part) {
+                parts.push(S_MT + part);
+            }
+            else if (S_string === typeof part) {
+                parts.push(part);
+            }
+            else {
+                return NONE;
+            }
+        }
+    }
+    else if (S_string === typeof path) {
+        parts = path.split(S_DT);
+    }
+    else if (S_number === typeof path) {
+        parts = [S_MT + path];
+    }
     if (NONE === parts) {
         return NONE;
     }
@@ -1109,14 +1153,14 @@ function inject(val, store, injdef) {
     inj.descend();
     // console.log('INJ-START', val, inj.mode, inj.key, inj.val,
     //  't=', inj.path, 'P=', inj.parent, 'dp=', inj.dparent, 'ST=', store.$TOP)
+    inj.named = false;
     if (isnode(val)) {
         let nodekeys;
         nodekeys = keysof(val);
         if (ismap(val)) {
-            nodekeys = flatten([
-                filter(nodekeys, (n) => !n[1].includes(S_DS)),
-                filter(nodekeys, (n) => n[1].includes(S_DS)),
-            ]);
+            const named = filter(nodekeys, (n) => !n[1].includes(S_DS));
+            nodekeys = flatten([named, filter(nodekeys, (n) => n[1].includes(S_DS))]);
+            inj.named = 0 < size(named);
         }
         else {
             nodekeys = keysof(val);
@@ -1148,6 +1192,15 @@ function inject(val, store, injdef) {
                 nodekeys = childinj.keys;
             }
         }
+        if (islist(val)) {
+            let kept = 0;
+            for (let i = 0; i < val.length; i++) {
+                if (SKIP !== val[i]) {
+                    val[kept++] = val[i];
+                }
+            }
+            val.length = kept;
+        }
     }
     else if (S_string === valtype) {
         inj.mode = M_VAL;
@@ -1160,7 +1213,7 @@ function inject(val, store, injdef) {
         const mkey = inj.key;
         const mparent = inj.parent;
         const mval = getprop(mparent, mkey);
-        inj.modify(mval, mkey, mparent, inj, store);
+        inj.modify(SKIP === mval ? NONE : mval, mkey, mparent, inj, store);
     }
     inj.val = val;
     return _lookup(inj.parent, S_DTOP);
@@ -1379,21 +1432,27 @@ const transform_PACK = (inj, _val, _ref, store) => {
     setprop(target, tkey, rval);
     return NONE;
 };
-const transform_REF = (inj, val, _ref, store) => {
-    const { nodes } = inj;
+const transform_REF = (inj, _val, _ref, store) => {
     if (M_VAL !== inj.mode) {
         return NONE;
     }
-    // Get arguments: ['`$REF`', 'ref-path'].
+    // ['`$REF`', 'ref-path']: a relative path starts where this slot is, so .x is a sibling.
     const refpath = _lookup(inj.parent, 1);
     inj.keyI = size(inj.keys);
     const spec = getprop(store, S_DSPEC)();
-    const dpath = slice(inj.path, 1);
-    const ref = getpath(spec, refpath, {
-        dpath,
-        // dparent: getpath(spec, inj.path.slice(1))
-        dparent: getpath(spec, dpath),
-    });
+    const dpath = slice(inj.path, 1, -2);
+    const refinj = { dpath, dparent: getpath(spec, dpath) };
+    let ref = getpath(spec, refpath, refinj);
+    // A chain of references that comes back to a path it has named names nothing.
+    const seen = [refpath];
+    for (let next = ref; islist(next) && '`$REF`' === next[0];) {
+        if (seen.includes(next[1])) {
+            ref = NONE;
+            break;
+        }
+        seen.push(next[1]);
+        next = getpath(spec, next[1], refinj);
+    }
     let hasSubRef = false;
     if (isnode(ref)) {
         walk(ref, (_k, v) => {
@@ -1403,31 +1462,20 @@ const transform_REF = (inj, val, _ref, store) => {
             return v;
         });
     }
-    const tref = clone(ref);
-    const cpath = slice(inj.path, -3);
-    const tpath = slice(inj.path, -1);
-    const tcur = getpath(store, cpath);
-    const tval = getpath(store, tpath);
-    let rval = NONE;
-    if (!hasSubRef || NONE !== tval) {
-        const tinj = inj.child(0, [getelem(tpath, -1)]);
-        tinj.path = tpath;
-        tinj.nodes = slice(inj.nodes, -1);
-        tinj.parent = getelem(nodes, -2);
-        tinj.val = tref;
-        tinj.dpath = flatten([cpath]);
-        tinj.dparent = tcur;
-        inject(tref, store, tinj);
-        rval = tinj.val;
-    }
-    else {
-        rval = NONE;
-    }
+    // A recursive reference stops where the data does.
+    const tval = getpath(store, slice(inj.path, -1));
+    const rval = !hasSubRef || NONE !== tval ? clone(ref) : NONE;
+    // The enclosing loop injects the referenced spec in this list's place, so
+    // neither this pass nor this element leaves a value for modify to check.
     const grandparent = inj.setval(rval, 2);
-    if (islist(grandparent) && inj.prior) {
-        inj.prior.keyI--;
+    const prior = inj.prior;
+    if (prior) {
+        prior.modify = NONE;
+        if (islist(grandparent) || NONE !== rval) {
+            prior.keyI--;
+        }
     }
-    return val;
+    return SKIP;
 };
 const transform_FORMAT = (inj, _val, _ref, store) => {
     // Remove remaining keys to avoid spurious processing.
@@ -1563,24 +1611,25 @@ const validate_STRING = (inj) => {
     if (0 === (T_string & t)) {
         const msg = _invalidTypeMsg(inj.path, S_string, t, out, 'V1010');
         inj.errs.push(msg);
-        return NONE;
+        return out;
     }
     if (S_MT === out) {
         const msg = 'Empty string at ' + pathify(inj.path, 1);
         inj.errs.push(msg);
-        return NONE;
+        return out;
     }
     return out;
 };
 const validate_TYPE = (inj, _val, ref) => {
     const tname = slice(ref, 1).toLowerCase();
-    const typev = 1 << (31 - TYPENAME.indexOf(tname));
+    // $NIL is absent or null.
+    const typev = (1 << (31 - TYPENAME.indexOf(tname))) | (S_nil === tname ? T_null : 0);
     const out = _lookup(inj.dparent, inj.key);
     const t = typify(out);
     // console.log('TYPE', tname, typev, tn(typev), 'O=', t, tn(t), out, 'C=', t & typev)
     if (0 === (t & typev)) {
         inj.errs.push(_invalidTypeMsg(inj.path, tname, t, out, 'V1001'));
-        return NONE;
+        return out;
     }
     return out;
 };
@@ -1602,7 +1651,7 @@ const validate_CHILD = (inj) => {
             tval = {};
         }
         else if (!ismap(tval)) {
-            inj.errs.push(_invalidTypeMsg(slice(inj.path, -1), S_object, typify(tval), tval), 'V0220');
+            // _validation reports the mismatch, once.
             return NONE;
         }
         const ckeys = keysof(tval);
@@ -1625,8 +1674,6 @@ const validate_CHILD = (inj) => {
             return NONE;
         }
         if (!islist(inj.dparent)) {
-            const msg = _invalidTypeMsg(slice(inj.path, -1), S_list, typify(inj.dparent), inj.dparent, 'V0230');
-            inj.errs.push(msg);
             inj.keyI = size(parent);
             return inj.dparent;
         }
@@ -1650,48 +1697,52 @@ const validate_CHILD = (inj) => {
     }
     return NONE;
 };
-const validate_ONE = (inj, _val, _ref, store) => {
-    const { mode, parent, keyI } = inj;
-    // Only operate in val mode, since parent is a list.
-    if (M_VAL === mode) {
-        if (!islist(parent) || 0 !== keyI) {
-            inj.errs.push('The $ONE validator at field ' +
-                pathify(inj.path, 1, 1) +
-                ' must be the first element of an array.');
-            return;
-        }
-        inj.keyI = size(inj.keys);
-        // Clean up structure, replacing [$ONE, ...] with current
-        inj.setval(inj.dparent, 2);
-        // Path shortens for the message only: `modify` reads
-        // getprop(inj.parent, inj.key), and inj.parent is still this list.
-        inj.path = slice(inj.path, -1);
-        const tvals = slice(parent, 1);
-        if (0 === size(tvals)) {
-            inj.errs.push('The $ONE validator at field ' +
-                pathify(inj.path, 1, 1) +
-                ' must have at least one argument.');
-            return;
-        }
-        for (const tval of tvals) {
-            const terrs = [];
-            const vstore = merge([{}, store], 1);
-            vstore.$TOP = inj.dparent;
-            const vcurrent = validate(inj.dparent, tval, {
-                extra: vstore,
-                errs: terrs,
-                meta: inj.meta,
-            });
-            inj.setval(vcurrent, -2);
-            // Accept current value if there was a match
-            if (0 === size(terrs)) {
-                return;
+// The members a spec does not name: the map form is a key, the list form a
+// tuple's last item. Each places clones of its spec for the loop to check.
+const validate_REST = (inj) => {
+    const { mode, key, parent, keys, path } = inj;
+    if (M_KEYPRE === mode) {
+        const resttm = _lookup(parent, key);
+        const tval = getprop(inj.dparent, getelem(path, -2));
+        if (ismap(tval)) {
+            for (const ckey of keysof(tval)) {
+                if (!keys.includes(ckey)) {
+                    setprop(parent, ckey, clone(resttm));
+                    keys.push(ckey);
+                }
             }
         }
-        const valdesc = replace(join(items(tvals, (n) => stringify(n[1])), ', '), R_TRANSFORM_NAME, (_m, p1) => p1.toLowerCase());
-        inj.errs.push(_invalidTypeMsg(inj.path, (1 < size(tvals) ? 'one of ' : '') + valdesc, typify(inj.dparent), inj.dparent, 'V0210'));
+        inj.setval(NONE);
+        return NONE;
     }
+    const prior = inj.prior;
+    if (M_VAL !== mode || NONE === prior || !islist(prior.parent) || 0 !== inj.keyI) {
+        inj.errs.push(_restmsg(slice(path, 1), ' must be the last element of an array.'));
+        return NONE;
+    }
+    inj.keyI = size(keys);
+    prior.modify = NONE;
+    const tuple = prior.parent;
+    const slot = _listkey(prior.key);
+    const dlist = prior.dparent;
+    const numitems = islist(dlist) ? size(dlist) : 0;
+    if (numitems <= slot) {
+        inj.setval(NONE, 2);
+        return SKIP;
+    }
+    const resttm = _lookup(parent, 1);
+    for (let i = slot; i < numitems; i++) {
+        setprop(tuple, i, clone(resttm));
+    }
+    for (let i = size(prior.keys); i < numitems; i++) {
+        prior.keys.push(strkey(i));
+    }
+    prior.keyI--;
+    return SKIP;
 };
+function _restmsg(path, problem) {
+    return 'The $REST validator at field ' + pathify(path) + problem;
+}
 const validate_EXACT = (inj) => {
     const { mode, parent, key, keyI } = inj;
     // Only operate in val mode, since parent is a list.
@@ -1702,40 +1753,231 @@ const validate_EXACT = (inj) => {
                 ' must be the first element of an array.');
             return;
         }
+        const cval = _slotval(inj);
         inj.keyI = size(inj.keys);
-        // Clean up structure, replacing [$EXACT, ...] with current data parent
-        inj.setval(inj.dparent, 2);
+        // Replace [$EXACT, ...] with the data value; SKIP keeps inject off the detached list.
+        inj.setval(cval, 2);
         inj.path = slice(inj.path, 0, -1);
-        inj.key = getelem(inj.path, -1);
         const tvals = slice(parent, 1);
         if (0 === size(tvals)) {
             inj.errs.push('The $EXACT validator at field ' +
                 pathify(inj.path, 1, 1) +
                 ' must have at least one argument.');
-            return;
+            return SKIP;
         }
-        let currentstr = undefined;
         for (const tval of tvals) {
-            let exactmatch = tval === inj.dparent;
-            if (!exactmatch && isnode(tval)) {
-                currentstr = undefined === currentstr ? stringify(inj.dparent) : currentstr;
-                const tvalstr = stringify(tval);
-                exactmatch = tvalstr === currentstr;
-            }
-            if (exactmatch) {
-                return;
+            if (_deepequal(tval, cval)) {
+                return SKIP;
             }
         }
         const valdesc = replace(join(items(tvals, (n) => stringify(n[1])), ', '), R_TRANSFORM_NAME, (_m, p1) => p1.toLowerCase());
         inj.errs.push(_invalidTypeMsg(inj.path, (1 < size(inj.path) ? '' : 'value ') +
             'exactly equal to ' +
             (1 === size(tvals) ? '' : 'one of ') +
-            valdesc, typify(inj.dparent), inj.dparent, 'V0110'));
+            valdesc, typify(cval), cval, 'V0110'));
+        return SKIP;
     }
     else {
         delprop(parent, key);
     }
 };
+// Count the specs that admit the value: ['`$NOF`', count, spec, ...], where
+// count is an integer, or a map holding min, max or both.
+const validate_NOF = (inj, _val, _ref, store) => _validatecount(inj, store, '$NOF', true);
+// Every spec admits the value: ['`$ALL`', spec, ...].
+const validate_ALL = (inj, _val, _ref, store) => _validatecount(inj, store, '$ALL', false);
+// The counting list directives. Without a count, every spec has to admit.
+function _validatecount(inj, store, name, counted) {
+    const { mode, parent, keyI } = inj;
+    if (M_VAL !== mode) {
+        return NONE;
+    }
+    if (!islist(parent) || 0 !== keyI) {
+        inj.errs.push('The ' +
+            name +
+            ' validator at field ' +
+            pathify(inj.path, 1, 1) +
+            ' must be the first element of an array.');
+        return NONE;
+    }
+    const cval = _slotval(inj);
+    inj.keyI = size(inj.keys);
+    // Replace the directive's list with the data value. Each return is SKIP, so
+    // that inject leaves the detached list alone and validates nothing in it.
+    inj.setval(cval, 2);
+    inj.path = slice(inj.path, -1);
+    const count = counted ? _lookup(parent, 1) : NONE;
+    const tvals = slice(parent, counted ? 2 : 1);
+    const numtvals = size(tvals);
+    const field = 'The ' + name + ' validator at field ' + pathify(inj.path, 1);
+    if (0 === numtvals) {
+        inj.errs.push(field + (counted ? ' must have a count and' : ' must have') + ' at least one argument.');
+        return SKIP;
+    }
+    const [lo, hi, countdesc] = counted ? _nofcount(count, numtvals) : [numtvals, numtvals, 'all'];
+    if (NONE === countdesc) {
+        inj.errs.push(field + ' has an invalid count: ' + stringify(count) + '.');
+        return SKIP;
+    }
+    let admitted = 0;
+    for (let tI = 0; tI < numtvals; tI++) {
+        const left = numtvals - tI;
+        // Stop once the specs left cannot change the verdict.
+        if (hi < admitted || admitted + left < lo || (lo <= admitted && admitted + left <= hi)) {
+            break;
+        }
+        if (_admits(cval, tvals[tI], inj, store)) {
+            admitted++;
+        }
+    }
+    if (admitted < lo || hi < admitted) {
+        const valdesc = replace(join(items(tvals, (n) => stringify(n[1])), ', '), R_TRANSFORM_NAME, (_m, p1) => p1.toLowerCase());
+        inj.errs.push(_invalidTypeMsg(inj.path, countdesc + ' of ' + valdesc, typify(cval), cval, 'V0310'));
+    }
+    return SKIP;
+}
+// The value's length is within a bound: ['`$LEN`', bound, spec?], where the
+// bound is as for a $NOF count. A string's length is in code points.
+const validate_LEN = (inj, _val, _ref, store) => _validatebound(inj, store, '$LEN');
+// The value is a number within a bound: ['`$RANGE`', bound, spec?], where the
+// bound holds min or gt, max or lt, or one of each.
+const validate_RANGE = (inj, _val, _ref, store) => _validatebound(inj, store, '$RANGE');
+const validate_LIKE = (inj, _val, _ref, store) => _validatebound(inj, store, '$LIKE');
+// The bounding list directives: a bound or pattern, then at most one spec that also admits.
+function _validatebound(inj, store, name) {
+    const { mode, parent, keyI } = inj;
+    if (M_VAL !== mode) {
+        return NONE;
+    }
+    if (!islist(parent) || 0 !== keyI) {
+        inj.errs.push('The ' +
+            name +
+            ' validator at field ' +
+            pathify(inj.path, 1, 1) +
+            ' must be the first element of an array.');
+        return NONE;
+    }
+    const cval = _slotval(inj);
+    inj.keyI = size(inj.keys);
+    // As for the counting directives: SKIP keeps inject off the detached list.
+    inj.setval(cval, 2);
+    inj.path = slice(inj.path, -1);
+    const field = 'The ' + name + ' validator at field ' + pathify(inj.path, 1);
+    const nargs = size(parent) - 1;
+    const islen = '$LEN' === name;
+    const islike = '$LIKE' === name;
+    const argname = islike ? 'pattern' : 'bound';
+    if (nargs < 1 || 2 < nargs) {
+        inj.errs.push(field + ' must have a ' + argname + ' and at most one spec.');
+        return SKIP;
+    }
+    const bound = _lookup(parent, 1);
+    const like = islike ? _likere(bound) : NONE;
+    const [lo, hi, desc] = islen
+        ? _lenbound(bound)
+        : [0, 0, islike ? (NONE === like ? NONE : 'like /' + bound + '/') : _rangedesc(bound)];
+    if (NONE === desc) {
+        inj.errs.push(field + ' has an invalid ' + argname + ': ' + stringify(bound) + '.');
+        return SKIP;
+    }
+    const ctype = typify(cval);
+    if (2 === nargs && !_admits(cval, _lookup(parent, 2), inj, store)) {
+        const specdesc = replace(stringify(_lookup(parent, 2)), R_TRANSFORM_NAME, (_m, p1) => p1.toLowerCase());
+        inj.errs.push(_invalidTypeMsg(inj.path, specdesc, ctype, cval, 'V0410'));
+        return SKIP;
+    }
+    if (0 === ((islen ? T_string | T_list | T_map : islike ? T_string : T_number) & ctype)) {
+        const needtype = islen ? 'string, list or map' : islike ? S_string : S_number;
+        inj.errs.push(_invalidTypeMsg(inj.path, needtype, ctype, cval, 'V0420'));
+        return SKIP;
+    }
+    const len = islen
+        ? S_string === typeof cval
+            ? Array.from(cval).length
+            : size(cval)
+        : 0;
+    const inbound = islen
+        ? lo <= len && (-1 === hi || len <= hi)
+        : islike
+            ? re_test(like, cval)
+            : _inrange(bound, cval);
+    if (!inbound) {
+        const needtype = (1 < size(inj.path) ? '' : 'value ') + desc;
+        inj.errs.push(_invalidTypeMsg(inj.path, needtype, ctype, cval, 'V0430'));
+    }
+    return SKIP;
+}
+// The bounds of a $LEN bound, with -1 for no maximum, and the words for it,
+// which are absent when the bound is invalid.
+function _lenbound(bound) {
+    const [lo, hi, countdesc] = _nofcount(bound, -1);
+    if (NONE === countdesc) {
+        return [0, 0, NONE];
+    }
+    const desc = 'of length ' +
+        (lo === hi ? lo : -1 === hi ? 'at least ' + lo : 0 === lo ? 'at most ' + hi : lo + ' to ' + hi);
+    return [lo, hi, desc];
+}
+// A $LIKE pattern compiled by the port's own regex engine; absent unless it compiles.
+function _likere(pattern) {
+    if (S_string !== typeof pattern) {
+        return NONE;
+    }
+    try {
+        return re_compile(pattern);
+    }
+    catch {
+        return NONE;
+    }
+}
+// The words for a $RANGE bound, which are absent when the bound is invalid.
+function _rangedesc(bound) {
+    if (!ismap(bound)) {
+        return NONE;
+    }
+    const min = _lookup(bound, 'min');
+    const max = _lookup(bound, 'max');
+    const gt = _lookup(bound, 'gt');
+    const lt = _lookup(bound, 'lt');
+    const lower = NONE === min ? gt : min;
+    const upper = NONE === max ? lt : max;
+    const isnum = (n) => NONE === n || 0 < (T_number & typify(n));
+    const valid = 0 < size(bound) &&
+        size(bound) === [min, max, gt, lt].filter((n) => NONE !== n).length &&
+        (NONE === min || NONE === gt) &&
+        (NONE === max || NONE === lt) &&
+        isnum(min) &&
+        isnum(max) &&
+        isnum(gt) &&
+        isnum(lt) &&
+        (NONE === lower || NONE === upper || lower <= upper);
+    if (!valid) {
+        return NONE;
+    }
+    return join([
+        NONE !== min
+            ? 'at least ' + stringify(min)
+            : NONE !== gt
+                ? 'greater than ' + stringify(gt)
+                : NONE,
+        NONE !== max
+            ? 'at most ' + stringify(max)
+            : NONE !== lt
+                ? 'less than ' + stringify(lt)
+                : NONE,
+    ], ' and ');
+}
+// A number within a valid $RANGE bound.
+function _inrange(bound, val) {
+    const min = _lookup(bound, 'min');
+    const max = _lookup(bound, 'max');
+    const gt = _lookup(bound, 'gt');
+    const lt = _lookup(bound, 'lt');
+    return ((NONE === min || min <= val) &&
+        (NONE === max || val <= max) &&
+        (NONE === gt || gt < val) &&
+        (NONE === lt || val < lt));
+}
 // This is the "modify" argument to inject. Use this to perform
 // generic validation. Runs *after* any special commands.
 const _validation = (pval, key, parent, inj) => {
@@ -1767,8 +2009,8 @@ const _validation = (pval, key, parent, inj) => {
         }
         const ckeys = keysof(cval);
         const pkeys = keysof(pval);
-        // Empty spec object {} means object can be open (any keys).
-        if (0 < size(pkeys) && true !== getprop(pval, '`$OPEN`')) {
+        // Only a spec written as {} is open, even if named keys resolved away.
+        if ((0 < size(pkeys) || inj.named) && true !== getprop(pval, '`$OPEN`')) {
             const badkeys = [];
             for (const ckey of ckeys) {
                 // Literal presence: _validation needs to know if the SHAPE declares
@@ -1795,6 +2037,21 @@ const _validation = (pval, key, parent, inj) => {
     else if (islist(cval)) {
         if (!islist(pval)) {
             inj.errs.push(_invalidTypeMsg(inj.path, typename(ptype), ctype, cval, 'V0030'));
+        }
+        else if (0 < size(pval)) {
+            // Closed list, so reject items past the end of the shape.
+            const badkeys = [];
+            for (let i = size(pval); i < size(cval); i++) {
+                badkeys.push(strkey(i));
+            }
+            if (0 < size(badkeys)) {
+                const msg = 'Unexpected keys at field ' + pathify(inj.path, 1) + S_VIZ + join(badkeys, ', ');
+                inj.errs.push(msg);
+            }
+        }
+        else {
+            // Empty spec list [] means list can be open (any items).
+            merge([pval, cval]);
         }
     }
     else if (exact) {
@@ -1837,8 +2094,13 @@ injdef) {
             $INSTANCE: validate_TYPE,
             $ANY: validate_ANY,
             $CHILD: validate_CHILD,
-            $ONE: validate_ONE,
             $EXACT: validate_EXACT,
+            $NOF: validate_NOF,
+            $ALL: validate_ALL,
+            $LEN: validate_LEN,
+            $RANGE: validate_RANGE,
+            $LIKE: validate_LIKE,
+            $REST: validate_REST,
         },
         getdef(extra, {}),
         // A special top level value to collect errors.
@@ -1849,13 +2111,18 @@ injdef) {
     ], 1);
     const meta = getprop(injdef, 'meta', {});
     setprop(meta, S_BEXACT, getprop(meta, S_BEXACT, false));
-    const out = transform(data, spec, {
-        meta,
-        extra: store,
-        modify: _validation,
-        handler: _validatehandler,
-        errs,
-    });
+    // A spec that names an unknown checker validates nothing.
+    const numerrs = size(errs);
+    _checknames(spec, store, [], errs);
+    const out = numerrs < size(errs)
+        ? clone(data)
+        : transform(data, spec, {
+            meta,
+            extra: store,
+            modify: _validation,
+            handler: _validatehandler,
+            errs,
+        });
     const generr = 0 < size(errs) && !collect;
     if (generr) {
         throw new Error(join(errs, ' | '));
@@ -1931,6 +2198,10 @@ const select_NOT = (inj, _val, _ref, store) => {
     }
 };
 const select_CMP = (inj, _val, ref, store) => {
+    // The list form of $LIKE is validate's checker; the key form is this operator.
+    if (M_VAL === inj.mode && '$LIKE' === ref) {
+        return validate_LIKE(inj, _val, ref, store);
+    }
     if (M_KEYPRE === inj.mode) {
         const term = _lookup(inj.parent, inj.key);
         const gkey = getelem(inj.path, -2);
@@ -1999,12 +2270,7 @@ function select(children, query) {
         },
     };
     const q = clone(query);
-    walk(q, (_k, v) => {
-        if (ismap(v)) {
-            setprop(v, '`$OPEN`', getprop(v, '`$OPEN`', true));
-        }
-        return v;
-    });
+    _openquery(q);
     for (const child of children) {
         injdef.errs = [];
         validate(child, clone(q), injdef);
@@ -2013,6 +2279,27 @@ function select(children, query) {
         }
     }
     return results;
+}
+// Open every map in a select query, so a child may hold keys the query does
+// not name, but leave a directive's literals as written: what $EXACT
+// compares, and the count or bound of $NOF, $LEN and $RANGE.
+function _openquery(q) {
+    if (ismap(q)) {
+        setprop(q, '`$OPEN`', getprop(q, '`$OPEN`', true));
+        for (const key of keysof(q)) {
+            _openquery(q[key]);
+        }
+    }
+    else if (islist(q)) {
+        const head = q[0];
+        const exact = '`$EXACT`' === head;
+        const bounded = '`$NOF`' === head || '`$LEN`' === head || '`$RANGE`' === head;
+        for (let i = 0; i < size(q); i++) {
+            if (0 === i || !(exact || (bounded && 1 === i))) {
+                _openquery(q[i]);
+            }
+        }
+    }
 }
 // Injection state used for recursive injection into JSON - like data structures.
 class Injection {
@@ -2034,10 +2321,12 @@ class Injection {
     modify;
     prior;
     extra;
+    named; // Current map node names keys of its own (not $ commands).
     constructor(val, parent) {
         this.val = val;
         this.parent = parent;
         this.errs = [];
+        this.named = false;
         this.dparent = NONE;
         this.dpath = [S_DTOP];
         this.mode = M_VAL;
@@ -2127,9 +2416,12 @@ class Injection {
     setval(val, ancestor) {
         let parent = NONE;
         if (null == ancestor || ancestor < 2) {
+            // A list keeps the removed slot as a hole until inject's loop ends.
             parent =
                 NONE === val
-                    ? (this.parent = delprop(this.parent, this.key))
+                    ? islist(this.parent)
+                        ? setprop(this.parent, this.key, SKIP)
+                        : (this.parent = delprop(this.parent, this.key))
                     : setprop(this.parent, this.key, val);
         }
         else {
@@ -2154,6 +2446,157 @@ function _invalidTypeMsg(path, needtype, vt, v, _whence) {
         // Uncomment to help debug validation errors.
         // ' [' + _whence + ']' +
         '.');
+}
+// Names a validate spec may use besides its checkers: transform's that it keeps, and $OPEN.
+const VALIDATE_NAMES = [
+    '$TOP',
+    '$SPEC',
+    '$BT',
+    '$DS',
+    '$WHEN',
+    '$ANNO',
+    '$REF',
+    '$FORMAT',
+    '$APPLY',
+    '$OPEN',
+];
+// Report each checker the spec names that validate lacks, and each misplaced
+// $REST; $EXACT's arguments are literals. Last: spec is a list's last item.
+function _checknames(spec, store, path, errs, last) {
+    const name = _refname(spec);
+    if (NONE !== name) {
+        if (_unknownname(name, store)) {
+            errs.push('Unknown validator ' + name + ' at field ' + pathify(path) + '.');
+        }
+        else if ('$REST' === name) {
+            errs.push(_restmsg(path, ' must be the last element of an array.'));
+        }
+        return;
+    }
+    const head = islist(spec) ? _refname(spec[0]) : NONE;
+    if ('$EXACT' === head) {
+        return;
+    }
+    if ('$REST' === head) {
+        if (true !== last) {
+            errs.push(_restmsg(path, ' must be the last element of an array.'));
+        }
+        else if (2 !== size(spec)) {
+            errs.push(_restmsg(path, ' must have exactly one spec.'));
+        }
+        _checknames(spec[1], store, flatten([path, 1]), errs);
+        return;
+    }
+    const restkey = '`$REST`';
+    if (ismap(spec) && NONE !== _lookup(spec, restkey) && NONE !== _lookup(spec, '`$CHILD`')) {
+        errs.push(_restmsg(path, ' cannot be used with $CHILD.'));
+    }
+    const lastkey = islist(spec) ? strkey(size(spec) - 1) : NONE;
+    for (const key of keysof(spec)) {
+        if (ismap(spec) && restkey !== key) {
+            _checknames(key, store, path, errs);
+        }
+        _checknames(spec[key], store, flatten([path, key]), errs, lastkey === key);
+    }
+}
+// The name a whole-string reference gives, when it is a checker name in any case.
+function _refname(val) {
+    const m = S_string === typeof val ? re_find(R_INJECTION_FULL, val) : null;
+    return null != m && re_test(R_CHECKER_NAME, m[1].toUpperCase()) ? m[1] : NONE;
+}
+// Unknown: undefined and upper case, or a defined name in another case. Null disables a name.
+function _unknownname(name, store) {
+    const known = (n) => VALIDATE_NAMES.includes(n) || null != _lookup(store, n);
+    const upper = name.toUpperCase();
+    return !known(name) && (upper === name || known(upper));
+}
+// The data value at a list directive's slot. The directive's own dparent was
+// read with getprop, which reports a stored null as absent.
+function _slotval(inj) {
+    const prior = inj.prior;
+    return NONE === prior ? inj.dparent : _lookup(prior.dparent, prior.key);
+}
+// JSON equality: numbers by value, lists in order, maps by key in any order.
+function _deepequal(a, b) {
+    if (a === b) {
+        return true;
+    }
+    const atype = typify(a);
+    if (atype !== typify(b) || 0 === ((T_list | T_map) & atype)) {
+        return false;
+    }
+    const akeys = keysof(a);
+    const bkeys = keysof(b);
+    if (size(akeys) !== size(bkeys)) {
+        return false;
+    }
+    for (let kI = 0; kI < size(akeys); kI++) {
+        const k = akeys[kI];
+        if (k !== bkeys[kI] || !_deepequal(a[k], b[k])) {
+            return false;
+        }
+    }
+    return true;
+}
+// Every member val has is in out, unchanged. A member only out has is a
+// default the spec supplied, and is ignored.
+function _keeps(val, out) {
+    if (NONE === val) {
+        return true;
+    }
+    if (0 === ((T_list | T_map) & typify(val)) || islist(val) !== islist(out) || !isnode(out)) {
+        return _deepequal(val, out);
+    }
+    for (const k of keysof(val)) {
+        if (!_keeps(val[k], _lookup(out, k))) {
+            return false;
+        }
+    }
+    return true;
+}
+// A spec admits a value when validating the value against it finds no error
+// and gives back the value as it is.
+function _admits(val, spec, inj, store) {
+    const terrs = [];
+    const vstore = merge([{}, store], 1);
+    vstore.$TOP = val;
+    const out = validate(val, spec, {
+        extra: vstore,
+        errs: terrs,
+        meta: inj.meta,
+    });
+    return 0 === size(terrs) && _keeps(val, out);
+}
+// The bounds of a $NOF count, and the words for it, which are absent when
+// the count is invalid. Without a max, the bound is the number of specs.
+function _nofcount(count, numtvals) {
+    const isnat = (n) => 0 < (T_integer & typify(n)) && 0 <= n;
+    if (isnat(count)) {
+        return [count, count, 0 === count ? 'none' : 'exactly ' + count];
+    }
+    const min = _lookup(count, 'min');
+    const max = _lookup(count, 'max');
+    const valid = ismap(count) &&
+        0 < size(count) &&
+        size(count) === (NONE === min ? 0 : 1) + (NONE === max ? 0 : 1) &&
+        (NONE === min || isnat(min)) &&
+        (NONE === max || isnat(max)) &&
+        (NONE === min || NONE === max || min <= max);
+    if (!valid) {
+        return [0, 0, NONE];
+    }
+    const lo = NONE === min ? 0 : min;
+    const hi = NONE === max ? numtvals : max;
+    const desc = NONE === max
+        ? 'at least ' + lo
+        : 0 === hi
+            ? 'none'
+            : NONE === min
+                ? 'at most ' + hi
+                : lo === hi
+                    ? 'exactly ' + lo
+                    : lo + ' to ' + hi;
+    return [lo, hi, desc];
 }
 // Default inject handler for transforms. If the path resolves to a function,
 // call the function passing the injection inj. This is how transforms operate.
@@ -2407,19 +2850,6 @@ function condenseCmp(a, b) {
     }
     return a.length - i - (b.length - j);
 }
-function condenseSet(obj, key, val) {
-    if ('__proto__' === key) {
-        Object.defineProperty(obj, key, {
-            value: val,
-            enumerable: true,
-            writable: true,
-            configurable: true,
-        });
-    }
-    else {
-        obj[key] = val;
-    }
-}
 function iscondensed(val) {
     // The version must MATCH, not merely be numeric: a future profile would
     // otherwise be decoded under this one's schema.
@@ -2478,8 +2908,8 @@ function condense(val) {
     const build = (n) => {
         if (ismap(n)) {
             const enc = [CONDENSE_MAP];
-            // keysof sorts, so the key ids ascend and lookup can bisect.
-            const keys = keysof(n);
+            // Code-point order, not keysof's code-unit order, so the key ids ascend for bisection.
+            const keys = keysof(n).sort(condenseCmp);
             for (let i = 0; i < keys.length; i++) {
                 enc.push(symid[keys[i]]);
                 enc.push(build(n[keys[i]]));
@@ -2539,7 +2969,7 @@ function condenseSymId(cond, key) {
 // The node index of `key` inside node `idx`, or -1. Touches only this node.
 function condenseChild(cond, idx, key) {
     const enc = cond[S_condnode][idx];
-    if (null == enc) {
+    if (null == enc || (S_string !== typeof key && S_number !== typeof key)) {
         return -1;
     }
     if (CONDENSE_MAP === enc[0]) {
@@ -2616,7 +3046,7 @@ function condenseMaterialise(cond, idx) {
         if (CONDENSE_MAP === kind) {
             const out = {};
             for (let j = 1; j < enc.length; j += 2) {
-                condenseSet(out, sym[enc[j]], rebuild(enc[j + 1]));
+                _setown(out, sym[enc[j]], rebuild(enc[j + 1]));
             }
             return out;
         }

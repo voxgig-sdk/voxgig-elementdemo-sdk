@@ -1,4 +1,4 @@
-import { clean, cleanAdd } from './CleanUtility';
+import { clean, cleanAdd, cleanSecret } from './CleanUtility';
 import { cleanExplain, done } from './DoneUtility';
 import { makeError } from './MakeErrorUtility';
 import { featureAdd } from './FeatureAddUtility';
@@ -32,6 +32,7 @@ import { StructUtility } from './StructUtility';
 declare class Utility {
     clean: typeof clean;
     cleanAdd: typeof cleanAdd;
+    cleanSecret: typeof cleanSecret;
     cleanExplain: typeof cleanExplain;
     done: typeof done;
     makeError: typeof makeError;

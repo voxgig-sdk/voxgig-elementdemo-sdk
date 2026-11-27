@@ -52,83 +52,270 @@ declare const OPTSPEC: {
             active: boolean;
         };
         debug: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            max?: undefined;
+            redact?: undefined;
+            now?: undefined;
+            onEntry?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            max: string[];
-            redact: string[];
-            now: string[];
-            onEntry: string[];
+            active: (string | {
+                min: number;
+            })[];
+            max: (string | {
+                min: number;
+            })[];
+            redact: (string | {
+                min: number;
+            })[];
+            now: (string | {
+                min: number;
+            })[];
+            onEntry: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         elementcard: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            print?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            print: string[];
+            active: (string | {
+                min: number;
+            })[];
+            print: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         idempotency: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            header?: undefined;
+            methods?: undefined;
+            ops?: undefined;
+            keygen?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            header: (string | string[])[];
-            methods: string[];
-            ops: string[];
-            keygen: string[];
+            active: (string | {
+                min: number;
+            })[];
+            header: (string | string[] | {
+                min: number;
+            })[];
+            methods: (string | {
+                min: number;
+            })[];
+            ops: (string | {
+                min: number;
+            })[];
+            keygen: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         metrics: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            now?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            now: string[];
+            active: (string | {
+                min: number;
+            })[];
+            now: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         paging: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            afterVar?: undefined;
+            cursorParam?: undefined;
+            firstVar?: undefined;
+            limitParam?: undefined;
+            pageParam?: undefined;
+            startPage?: undefined;
+            limit?: undefined;
+            ops?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            afterVar: (string | string[])[];
-            cursorParam: (string | string[])[];
-            firstVar: (string | string[])[];
-            limitParam: (string | string[])[];
-            pageParam: (string | string[])[];
-            startPage: string[];
-            limit: string[];
-            ops: string[];
+            active: (string | {
+                min: number;
+            })[];
+            afterVar: (string | string[] | {
+                min: number;
+            })[];
+            cursorParam: (string | string[] | {
+                min: number;
+            })[];
+            firstVar: (string | string[] | {
+                min: number;
+            })[];
+            limitParam: (string | string[] | {
+                min: number;
+            })[];
+            pageParam: (string | string[] | {
+                min: number;
+            })[];
+            startPage: (string | {
+                min: number;
+            })[];
+            limit: (string | {
+                min: number;
+            })[];
+            ops: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         ratelimit: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            burst?: undefined;
+            rate?: undefined;
+            now?: undefined;
+            sleep?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            burst: string[];
-            rate: string[];
-            now: string[];
-            sleep: string[];
+            active: (string | {
+                min: number;
+            })[];
+            burst: (string | {
+                min: number;
+            })[];
+            rate: (string | {
+                min: number;
+            })[];
+            now: (string | {
+                min: number;
+            })[];
+            sleep: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         retry: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            factor?: undefined;
+            maxDelay?: undefined;
+            minDelay?: undefined;
+            retries?: undefined;
+            statuses?: undefined;
+            jitter?: undefined;
+            sleep?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            factor: string[];
-            maxDelay: string[];
-            minDelay: string[];
-            retries: string[];
-            statuses: string[];
-            jitter: string[];
-            sleep: string[];
+            active: (string | {
+                min: number;
+            })[];
+            factor: (string | {
+                min: number;
+            })[];
+            maxDelay: (string | {
+                min: number;
+            })[];
+            minDelay: (string | {
+                min: number;
+            })[];
+            retries: (string | {
+                min: number;
+            })[];
+            statuses: (string | {
+                min: number;
+            })[];
+            jitter: (string | {
+                min: number;
+            })[];
+            sleep: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         secrets: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            cache?: undefined;
+            exchange?: undefined;
+            name?: undefined;
+            providers?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            cache: string[];
-            exchange: string[];
-            name: (string | string[])[];
-            providers: string[];
+            active: (string | {
+                min: number;
+            })[];
+            cache: (string | {
+                min: number;
+            })[];
+            exchange: (string | {
+                min: number;
+            })[];
+            name: (string | string[] | {
+                min: number;
+            })[];
+            providers: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         test: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            entity?: undefined;
+            net?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            entity: string[];
-            net: string[];
+            active: (string | {
+                min: number;
+            })[];
+            entity: (string | {
+                min: number;
+            })[];
+            net: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
         timeout: (string | {
+            min: number;
+            "`$OPEN`"?: undefined;
+            active?: undefined;
+            ms?: undefined;
+            clearTimer?: undefined;
+            now?: undefined;
+            setTimer?: undefined;
+        } | {
             "`$OPEN`": boolean;
-            active: string[];
-            ms: string[];
-            clearTimer: string[];
-            now: string[];
-            setTimer: string[];
+            active: (string | {
+                min: number;
+            })[];
+            ms: (string | {
+                min: number;
+            })[];
+            clearTimer: (string | {
+                min: number;
+            })[];
+            now: (string | {
+                min: number;
+            })[];
+            setTimer: (string | {
+                min: number;
+            })[];
+            min?: undefined;
         })[];
     };
 };

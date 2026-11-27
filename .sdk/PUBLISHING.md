@@ -31,9 +31,9 @@ publish credential, and attaches SLSA provenance as it goes.
 `expect_sha` is optional and worth using: it refuses if `main` moved between
 the commit you checked and the run resolving.
 
-It is a DISPATCH rather than a tag push because the root `Makefile` also
-publishes, with a vault-injected token. A tag-triggered workflow racing it
-would publish one version by two mechanisms.
+It is a DISPATCH rather than a tag push. While the registry is pending, the
+root `Makefile` only cuts the git tag, and a tag-triggered workflow would
+turn every tag it cuts into a publish.
 
 ## The release is tagged for you
 

@@ -35,6 +35,7 @@ const StructUtility_1 = require("./StructUtility");
 class Utility {
     clean = CleanUtility_1.clean;
     cleanAdd = CleanUtility_1.cleanAdd;
+    cleanSecret = CleanUtility_1.cleanSecret;
     cleanExplain = DoneUtility_1.cleanExplain;
     done = DoneUtility_1.done;
     makeError = MakeErrorUtility_1.makeError;

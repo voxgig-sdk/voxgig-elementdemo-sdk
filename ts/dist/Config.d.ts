@@ -109,6 +109,7 @@ declare class Config {
                     active: boolean;
                     method: string;
                     path: string;
+                    redirect: string;
                     refresh: string;
                     request: string;
                     response: string;

@@ -2,7 +2,7 @@
 
 from elementdemo_sdk.core.utility_type import ElementdemoUtility
 
-from elementdemo_sdk.utility.clean import clean_util, clean_add_util
+from elementdemo_sdk.utility.clean import clean_util, clean_add_util, clean_secret_util
 from elementdemo_sdk.utility.done import done_util, clean_explain_util
 from elementdemo_sdk.utility.make_error import make_error_util
 from elementdemo_sdk.utility.feature_add import feature_add_util
@@ -37,6 +37,7 @@ from elementdemo_sdk.utility.transform_response import transform_response_util
 def register_all(u):
     u.clean = clean_util
     u.clean_add = clean_add_util
+    u.clean_secret = clean_secret_util
     u.clean_explain = clean_explain_util
     u.done = done_util
     u.make_error = make_error_util

@@ -223,7 +223,7 @@ func elementDirectSetup(mockres any) *elementDirectSetupResult {
 		} {
 			mergedOpts[k] = v
 		}
-		client := sdk.NewElementdemoSDK(mergedOpts)
+		client := newClient(mergedOpts)
 
 		idmap := map[string]any{}
 		if entidRaw, ok := env["ELEMENTDEMO_TEST_ELEMENT_ENTID"]; ok {
@@ -252,7 +252,7 @@ func elementDirectSetup(mockres any) *elementDirectSetupResult {
 		}, nil
 	}
 
-	client := sdk.NewElementdemoSDK(map[string]any{
+	client := newClient(map[string]any{
 		"base": "http://localhost:8080",
 		"system": map[string]any{
 			"fetch": (func(string, map[string]any) (map[string]any, error))(mockFetch),

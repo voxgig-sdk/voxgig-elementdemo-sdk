@@ -3,6 +3,7 @@ package core
 type Utility struct {
 	Clean             func(ctx *Context, val any) any
 	CleanAdd          func(ctx *Context, val any)
+	CleanSecret       func(ctx *Context, key string, val any) bool
 	CleanExplain      func(ctx *Context)
 	Done              func(ctx *Context) (any, error)
 	MakeError         func(ctx *Context, err error) (any, error)
@@ -12,7 +13,7 @@ type Utility struct {
 	Fetcher           FetcherFunc
 	MakeFetchDef      func(ctx *Context) (map[string]any, error)
 	MakeContext       func(ctxmap map[string]any, basectx *Context) *Context
-	MakeOptions       func(ctx *Context) map[string]any
+	MakeOptions       func(ctx *Context) (map[string]any, error)
 	MakeRequest       func(ctx *Context) (*Response, error)
 	MakeResponse      func(ctx *Context) (*Response, error)
 	MakeResult        func(ctx *Context) (*Result, error)

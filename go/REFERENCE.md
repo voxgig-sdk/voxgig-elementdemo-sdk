@@ -1,6 +1,6 @@
-# Elementdemo Golang SDK Reference
+# Elementdemo Go SDK Reference
 
-Complete API reference for the Elementdemo Golang SDK.
+Complete API reference for the Elementdemo Go SDK.
 
 
 ## ElementdemoSDK
@@ -8,23 +8,29 @@ Complete API reference for the Elementdemo Golang SDK.
 ### Constructor
 
 ```go
-func NewElementdemoSDK(options map[string]any) *ElementdemoSDK
+func NewElementdemoSDK(options map[string]any) (*ElementdemoSDK, error)
 ```
 
 Create a new SDK client instance.
+
+Construction refuses `options["server"]` without a value for `account_id`:
+it returns a nil client and an error whose code is `server_var_required`
+and whose message names the variable.
 
 **Parameters:**
 
 | Name | Type | Description |
 | --- | --- | --- |
 | `options` | `map[string]any` | SDK configuration options. |
+| `options["server"]` | `map[string]any` | **Required.** Values for the server-URL variables: `account_id`. The API base URL is a template over them. |
 | `options["apikey"]` | `string` | API key for authentication. |
-| `options["base"]` | `string` | Base URL for API requests. |
-| `options["prefix"]` | `string` | URL prefix appended after base. |
-| `options["suffix"]` | `string` | URL suffix appended after path. |
-| `options["headers"]` | `map[string]any` | Custom headers for all requests. |
-| `options["feature"]` | `map[string]any` | Feature configuration. |
-| `options["system"]` | `map[string]any` | System overrides (e.g. custom fetch). |
+| `options["base"]` | `string` | Base URL of the API server. |
+| `options["prefix"]` | `string` | URL path prefix prepended to all requests. |
+| `options["suffix"]` | `string` | URL path suffix appended to all requests. |
+| `options["headers"]` | `map[string]any` | Headers sent with every request. |
+| `options["feature"]` | `map[string]any` | Feature activation flags. |
+| `options["extend"]` | `[]any` | Additional feature instances to load. |
+| `options["system"]` | `map[string]any` | System overrides, such as a custom fetch function. |
 
 
 ### Static Methods
@@ -531,7 +537,7 @@ Return the entity name.
 Features are activated via the `feature` option:
 
 ```go
-client := sdk.NewElementdemoSDK(map[string]any{
+client, err := sdk.NewElementdemoSDK(map[string]any{
     "feature": map[string]any{
         "debug": map[string]any{"active": true},
         "elementcard": map[string]any{"active": true},
@@ -545,16 +551,19 @@ client := sdk.NewElementdemoSDK(map[string]any{
         "timeout": map[string]any{"active": true},
     },
 })
+if err != nil {
+    panic(err)
+}
 ```
 
 
 ### Configuring features
 
 Each feature is inactive until switched on, and an SDK with no feature
-configured does no feature work at all. Every option below keeps its default
-unless you name it.
+configured does no feature work at all.
+Every option below keeps its default unless you name it.
 
-The array form of \`feature\` is significant: several features wrap the
+The array form of `feature` is significant: several features wrap the
 transport, and the order you list them in is the order they nest.
 
 #### Ordering
@@ -565,10 +574,10 @@ a feature activated later sits OUTSIDE one activated earlier, and sees the call
 first.
 
 That decides behaviour, not just sequence: a feature that short-circuits the
-call, such as a cache serving a hit, stops every feature nested inside it from
+call stops every feature nested inside it from
 ever seeing that call.
 
-`debug`, `elementcard`, `idempotency`, `metrics`, `paging`, `test` attach to pipeline hooks
+`debug`, `elementcard`, `idempotency`, `metrics`, `paging` attach to pipeline hooks
 rather than the transport, so their order does not affect what they observe.
 
 #### `debug`
@@ -793,7 +802,7 @@ Secrets.
 |---|---|
 | `active` | `false` |
 | `cache` | `true` |
-| `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
+| `exchange` | `{active: false, method: 'POST', path: 'auth/token', redirect: 'refuse', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
 | `name` | `'apikey'` |
 | `providers` | `[]` |
 
@@ -806,6 +815,7 @@ its default unless you name it.
 
 - Wraps the transport: its place in the activation order decides what it
   sees. See [Ordering](#ordering) above.
+- Also attaches to pipeline hooks.
 - Inactive by default: leaving it out costs nothing at runtime.
 
 #### `test`
@@ -833,10 +843,9 @@ its default unless you name it.
 
 **Considerations**
 
-- Attaches to pipeline hooks, not the transport, so activation order does
-  not change what it observes.
 - Installs the BASE transport that the wrapping features wrap, so it must be
   activated before them.
+- Also attaches to pipeline hooks.
 - Inactive by default: leaving it out costs nothing at runtime.
 
 #### `timeout`

@@ -9,10 +9,34 @@ const sekreto_1 = require("./sekreto");
 // passed in `plugins` is unknown to that Sekreto, so the model's choice of
 // plugin groups IS the SDK's provider vocabulary.
 const Config_1 = require("../../Config");
+const REDIRECT_MAX = 5;
+// The next URL of a redirect that keeps its method, when that URL is on the
+// exchange's own origin. Any other redirect would drop the body or leave it.
+function moved(url, at, res) {
+    const status = null == res ? 0 : res.status;
+    if (307 !== status && 308 !== status) {
+        return undefined;
+    }
+    const headers = res.headers;
+    const location = null == headers ? undefined :
+        'function' === typeof headers.get ? headers.get('location') : headers.location;
+    if ('string' !== typeof location || '' === location) {
+        return undefined;
+    }
+    try {
+        const next = new URL(location, at);
+        return next.origin === new URL(url).origin ? next.href : undefined;
+    }
+    catch (_err) {
+        return undefined;
+    }
+}
 class SecretsFeature extends BaseFeature_1.BaseFeature {
     version = '0.1.0';
     name = 'secrets';
     _client;
+    _declared = false;
+    _basic = false;
     _sekreto;
     _secretname = 'apikey';
     _resolving;
@@ -24,6 +48,11 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
         const client = ctx.client;
         const options = ctx.options;
         this._client = client;
+        // What PrepareAuth was generated from: the config declares auth only
+        // where it places a credential, and Basic only where it composes one.
+        const declared = ctx.config?.options?.auth;
+        this._declared = null != declared;
+        this._basic = true === declared?.basic;
         this._secretname = 'string' === typeof fopts.name &&
             '' !== fopts.name ? fopts.name : 'apikey';
         const xopts = fopts.exchange;
@@ -34,6 +63,7 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
             response: 'string' === typeof xopts.response ? xopts.response : 'access_token',
             statuses: Array.isArray(xopts.statuses) ? xopts.statuses : [401],
             retries: 'number' === typeof xopts.retries ? xopts.retries : 1,
+            redirect: 'same-origin' === xopts.redirect ? 'same-origin' : 'refuse',
         } : null;
         const providers = [];
         const explicit = null == this._exchange ?
@@ -69,6 +99,10 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
     sekreto() {
         return this._sekreto;
     }
+    // PrepareAuth's decision: auth the config declares, not suppressed by `auth: null`.
+    _authon() {
+        return this._declared && null != this._client._options.auth;
+    }
     _register(value) {
         const ctx = this._client._rootctx;
         if (null != ctx && null != ctx.utility && 'function' === typeof ctx.utility.cleanAdd) {
@@ -97,7 +131,7 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
     // boolean is the whole of what resolve() needs to tell a cacheable HIT
     // from a miss it must not retain.
     async _resolveonce() {
-        if (null == this._sekreto) {
+        if (null == this._sekreto || !this._authon()) {
             return false;
         }
         const found = await this._sekreto.try(this._secretname);
@@ -122,9 +156,6 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
             // API answers 401 and the transport wrapper buys another, which is
             // the same path expiry takes anyway.
             return true;
-        }
-        if (null == this._client.options().auth) {
-            return false;
         }
         this._client._options.apikey = await this._buy();
         return true;
@@ -160,11 +191,24 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
         if ("function" !== typeof fetch) {
             throw new Error("secrets: no fetch implementation for the token exchange");
         }
-        const res = await fetch(url, {
+        const fetchdef = {
             method: x.method,
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ [x.request]: this._refresh }),
-        });
+            // Never followed by the client: a redirect would carry the refresh token on.
+            redirect: 'manual',
+        };
+        let res = await fetch(url, fetchdef);
+        // By option alone, and only while the exchange stays on its own origin.
+        let at = url;
+        for (let hops = 0; 'same-origin' === x.redirect && hops < REDIRECT_MAX; hops++) {
+            const next = moved(url, at, res);
+            if (null == next) {
+                break;
+            }
+            at = next;
+            res = await fetch(at, fetchdef);
+        }
         const status = null == res ? 0 : res.status;
         if (200 > status || 300 <= status) {
             throw new Error("secrets: token exchange failed: " + status + " from " + url);
@@ -180,7 +224,7 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
     async _withRefresh(ctx, url, fetchdef, inner) {
         const x = this._exchange;
         const max = null == x ? 0 : x.retries;
-        if (null == this._client.options().auth) {
+        if (!this._authon()) {
             return inner(ctx, url, fetchdef);
         }
         let attempt = 0;
@@ -222,20 +266,24 @@ class SecretsFeature extends BaseFeature_1.BaseFeature {
         if (null == fetchdef || null == fetchdef.headers) {
             return;
         }
-        const auth = this._client.options().auth;
-        // Suppressed auth means NO header, the same answer prepareAuth gives.
-        // Reached defensively - _withRefresh does not retry at all when auth
-        // is null - but this is the function that writes the credential, so
-        // it is where the rule has to hold.
-        if (null == auth) {
+        if (!this._authon()) {
             delete fetchdef.headers.authorization;
             return;
         }
+        const auth = this._client._options.auth;
         // The header prepareAuth wrote: auth.name, lower-cased.
         const name = "string" === typeof auth.name && "" !== auth.name ?
             auth.name.toLowerCase() : "authorization";
+        const value = this._basic && true === auth.basic ? this._pair(token) : token;
         const prefix = auth.prefix;
-        fetchdef.headers[name] = prefix ? prefix + " " + token : token;
+        fetchdef.headers[name] = prefix ? prefix + " " + value : value;
+    }
+    // Under Basic the token is the key half, as apikey is: prepareAuth's pair.
+    _pair(token) {
+        const secret = this._client._options.secret;
+        const pair = Buffer.from(token + ":" + (null == secret ? "" : secret)).toString("base64");
+        this._register(pair);
+        return pair;
     }
 }
 exports.SecretsFeature = SecretsFeature;

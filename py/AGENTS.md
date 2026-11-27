@@ -1,6 +1,6 @@
 # Elementdemo Python — Agent Guide
 
-The Python client for the Elementdemo API. This directory is **generated** — do not edit it by hand; change the model/template/component in `.sdk/` and regenerate. See the [project guide](../AGENTS.md) for the full workflow and the aontu model language.
+The Python client for the Periodic Table API. This directory is **generated** — do not edit it by hand; change the model/template/component in `.sdk/` and regenerate. See the [project guide](../AGENTS.md) for the full workflow and the aontu model language.
 
 > Paths below (`.sdk/…`) are relative to the **project root** — one level up
 > from this `py/` directory.
@@ -12,6 +12,10 @@ cd ../.sdk
 npm run build        # only if you changed a component
 npm run generate     # refreshes this py/ directory
 ```
+
+Each `npm run generate` rewrites every file it generates, so an edit
+made to generated output is lost, and deletes the files it generated before
+and no longer emits. A target or a phase switched off is left as it was.
 
 Then build and test the generated output:
 
@@ -34,25 +38,28 @@ make test
 Decision rule: *same for every API → template; depends on the API →
 component.* After editing a component run `npm run build` before
 `npm run generate`; template-only edits just need `npm run generate`.
+`target add` and `feature add` copy templates and components into
+`.sdk/`, and merge toolchain updates into the copies this project has
+edited.
 
 ## Features in this target
 
-Each feature is a flat file in the `feature/` package. Its hooks and
-default activation come from `.sdk/model/feature/<name>.aontu`; customise
-the runtime under `.sdk/tm/py/feature/` and regenerate.
+Each feature's hooks and default activation come from
+`.sdk/model/feature/<name>.aontu`. Its runtime is generated from the template
+listed here: customise that and regenerate.
 
-| Feature | Runtime file | Active hooks |
+| Feature | Template | Active hooks |
 | --- | --- | --- |
-| **debug** — Debug capture | `feature/debug_feature.py` | `PreDone`, `PreRequest`, `PreResponse`, `PreUnexpected` |
-| **elementcard** — ASCII periodic-table tile for element-shaped results | `feature/elementcard_feature.py` | `PreResult` |
-| **idempotency** — Idempotency | `feature/idempotency_feature.py` | `PreRequest` |
-| **metrics** — Metrics | `feature/metrics_feature.py` | `PreDone`, `PrePoint`, `PreUnexpected` |
-| **paging** — Paging | `feature/paging_feature.py` | `PreRequest`, `PreResult` |
-| **ratelimit** — Rate limiting | `feature/ratelimit_feature.py` | — |
-| **retry** — Retry | `feature/retry_feature.py` | — |
-| **secrets** — Secrets | `feature/secrets_feature.py` | `PreSpec` |
-| **test** — Test transport | `feature/test_feature.py` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
-| **timeout** — Timeout | `feature/timeout_feature.py` | — |
+| **debug** — Debug capture | `.sdk/tm/py/pkg/feature/debug_feature.py` | `PreDone`, `PreRequest`, `PreResponse`, `PreUnexpected` |
+| **elementcard** — ASCII periodic-table tile for element-shaped results | `.sdk/tm/py/pkg/feature/elementcard_feature.py` | `PreResult` |
+| **idempotency** — Idempotency | `.sdk/tm/py/pkg/feature/idempotency_feature.py` | `PreRequest` |
+| **metrics** — Metrics | `.sdk/tm/py/pkg/feature/metrics_feature.py` | `PreDone`, `PrePoint`, `PreUnexpected` |
+| **paging** — Paging | `.sdk/tm/py/pkg/feature/paging_feature.py` | `PreRequest`, `PreResult` |
+| **ratelimit** — Rate limiting | `.sdk/tm/py/pkg/feature/ratelimit_feature.py` | — |
+| **retry** — Retry | `.sdk/tm/py/pkg/feature/retry_feature.py` | — |
+| **secrets** — Secrets | `.sdk/tm/py/pkg/feature/secrets/` | `PreSpec` |
+| **test** — Test transport | `.sdk/tm/py/pkg/feature/test_feature.py` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
+| **timeout** — Timeout | `.sdk/tm/py/pkg/feature/timeout_feature.py` | — |
 
 ---
 

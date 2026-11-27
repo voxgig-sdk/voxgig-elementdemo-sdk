@@ -16,7 +16,7 @@ type ElementdemoSDK struct {
 	rootctx  *Context
 }
 
-func NewElementdemoSDK(options map[string]any) *ElementdemoSDK {
+func NewElementdemoSDK(options map[string]any) (*ElementdemoSDK, error) {
 	sdk := &ElementdemoSDK{
 		Mode:     "live",
 		Features: []Feature{},
@@ -34,7 +34,11 @@ func NewElementdemoSDK(options map[string]any) *ElementdemoSDK {
 		"shared":  map[string]any{},
 	}, nil)
 
-	sdk.options = sdk.utility.MakeOptions(sdk.rootctx)
+	opts, err := sdk.utility.MakeOptions(sdk.rootctx)
+	if err != nil {
+		return nil, err
+	}
+	sdk.options = opts
 
 	if vs.GetPath(sdk.options, []any{"feature", "test", "active"}) == true {
 		sdk.Mode = "test"
@@ -44,8 +48,8 @@ func NewElementdemoSDK(options map[string]any) *ElementdemoSDK {
 
 	// Add features in the resolved order (MakeOptions puts an explicit array
 	// order first, else defaults to test-first). Ordering matters: the `test`
-	// feature installs the base mock transport and the transport features
-	// (retry/cache/netsim/proxy/ratelimit) wrap whatever is current, so `test`
+	// feature installs the base mock transport and the features whose model
+	// declares `transport: 'wrap'` wrap whatever is current, so `test`
 	// must be added before them to sit at the base of the chain.
 	featureOpts := ToMapAny(vs.GetProp(sdk.options, "feature"))
 	if featureOpts != nil {
@@ -82,7 +86,7 @@ func NewElementdemoSDK(options map[string]any) *ElementdemoSDK {
 
 	sdk.utility.FeatureHook(sdk.rootctx, "PostConstruct")
 
-	return sdk
+	return sdk, nil
 }
 
 // The client holds the credential in its options, so a print or a JSON dump
@@ -433,7 +437,11 @@ func TestSDK(testopts map[string]any, sdkopts map[string]any) *ElementdemoSDK {
 
 	vs.SetPath(sdkopts, []any{"feature", "test"}, testopts)
 
-	sdk := NewElementdemoSDK(sdkopts)
+	sdk, err := NewElementdemoSDK(sdkopts)
+	if err != nil {
+		// Test mode fills every server variable, so only a custom makeOptions refuses.
+		panic(err)
+	}
 	sdk.Mode = "test"
 
 	return sdk

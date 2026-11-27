@@ -1,11 +1,20 @@
 
-import { test, describe, beforeEach } from 'node:test'
+import { test, describe, beforeEach, after } from 'node:test'
 import assert from 'node:assert'
+import Http from 'node:http'
 
 import { SDK } from '../../utility/index'
 
+import { config } from '../../..'
+
 
 const ENVPREFIX = 'ELEMENTDEMO_TEST_SECRETS_'
+
+
+// Read from the config, never from a probe: an SDK whose config declares no
+// auth places no credential, and these tests assert on the one it places.
+const NOAUTH = null == (config as any).options?.auth ?
+  "this SDK's config declares no auth, so it places no credential" : false
 
 
 // The header the credential travels in: the DEFAULT client's auth.name,
@@ -30,10 +39,67 @@ async function prepared(sdkopts: any): Promise<any> {
 }
 
 
-function credentialIs(header: any, token: string) {
-  const got = String(null == header ? '' : header)
-  assert.ok(got === token || got.endsWith(' ' + token),
-    'expected the ' + CREDHEADER + ' header to carry ' + token + ', got: ' + got)
+// The form prepareAuth writes, from the DEFAULT client's auth: under Basic the
+// token is the key half of the encoded pair, and a prefix is space-joined.
+const CREDFORM = (() => {
+  const auth = (SDK as any).test({}, {}).options().auth || {}
+  return { prefix: 'string' === typeof auth.prefix ? auth.prefix : '', basic: true === auth.basic }
+})()
+
+
+function credentialIs(header: any, token: string, secret?: string) {
+  const value = CREDFORM.basic ?
+    Buffer.from(token + ':' + (secret || '')).toString('base64') : token
+  assert.equal(header, '' === CREDFORM.prefix ? value : CREDFORM.prefix + ' ' + value,
+    'expected the ' + CREDHEADER + ' header to carry ' + token)
+}
+
+
+// A stub standing in for both endpoints the flow touches: the token
+// endpoint, and everything else.
+//
+// `apiStatus` is a SCRIPT — one status per API call, the last repeating —
+// so a case can say "401 then 200" without counting calls itself.
+function stubfetch(opts?: any) {
+  const o = opts || {}
+  const tokens: string[] = o.tokens || ['ACCESS01', 'ACCESS02', 'ACCESS03']
+  const apiStatus: number[] = o.apiStatus || [200]
+
+  const calls: any[] = []
+  let issued = 0
+  let apicall = -1
+
+  const fetch = async (url: string, init: any) => {
+    calls.push({ url, init, auth: (init.headers || {})[CREDHEADER] })
+
+    if (url.endsWith('/' + (o.path || 'auth/token'))) {
+      if (true === o.tokenfails) {
+        return { status: 401, json: async () => ({ error: 'nope' }), headers: {} }
+      }
+      const body: any = {}
+      body[o.response || 'access_token'] = tokens[Math.min(issued, tokens.length - 1)]
+      issued++
+      return { status: 200, json: async () => body, headers: {} }
+    }
+
+    apicall++
+    const status = apiStatus[Math.min(apicall, apiStatus.length - 1)]
+    return { status, json: async () => ({ ok: status < 400 }), headers: {} }
+  }
+
+  return {
+    fetch,
+    calls,
+    // Only the calls that went to the API, in order.
+    api: () => calls.filter((c: any) => !c.url.endsWith('/' + (o.path || 'auth/token'))),
+    token: () => calls.filter((c: any) => c.url.endsWith('/' + (o.path || 'auth/token'))),
+  }
+}
+
+
+// Same rule as credentialIs, reading the header off a recorded call.
+function authIs(call: any, token: string, secret?: string) {
+  credentialIs(null == call ? undefined : call.auth, token, secret)
 }
 
 
@@ -50,7 +116,7 @@ function envchain(extra?: any): any {
 }
 
 
-describe('secrets', () => {
+describe('secrets', { skip: NOAUTH }, () => {
 
   beforeEach(() => {
     delete process.env[ENVPREFIX + 'APIKEY']
@@ -90,6 +156,13 @@ describe('secrets', () => {
     process.env[ENVPREFIX + 'APIKEY'] = 'ENVKEY01'
     const { fetchdef } = await prepared(envchain())
     credentialIs(fetchdef.headers[CREDHEADER], 'ENVKEY01')
+  })
+
+
+  test('active: a resolved key is placed as prepareAuth places it, the secret kept', async () => {
+    process.env[ENVPREFIX + 'APIKEY'] = 'ENVKEY03'
+    const { fetchdef } = await prepared(Object.assign({ secret: 'PASS01' }, envchain()))
+    credentialIs(fetchdef.headers[CREDHEADER], 'ENVKEY03', 'PASS01')
   })
 
 
@@ -359,7 +432,7 @@ describe('secrets', () => {
 })
 
 
-describe('secrets exchange', () => {
+describe('secrets exchange', { skip: NOAUTH }, () => {
 
   const BASE = 'http://exchange.test/api'
   const REFRESH = 'REFRESH01'
@@ -370,56 +443,9 @@ describe('secrets exchange', () => {
   })
 
 
-  // A stub standing in for both endpoints the flow touches: the token
-  // endpoint, and everything else.
-  //
-  // `apiStatus` is a SCRIPT — one status per API call, the last repeating —
-  // so a case can say "401 then 200" without counting calls itself.
-  function stubfetch(opts?: any) {
-    const o = opts || {}
-    const tokens: string[] = o.tokens || ['ACCESS01', 'ACCESS02', 'ACCESS03']
-    const apiStatus: number[] = o.apiStatus || [200]
-
-    const calls: any[] = []
-    let issued = 0
-    let apicall = -1
-
-    const fetch = async (url: string, init: any) => {
-      calls.push({ url, init, auth: (init.headers || {})[CREDHEADER] })
-
-      if (url.endsWith('/' + (o.path || 'auth/token'))) {
-        if (true === o.tokenfails) {
-          return { status: 401, json: async () => ({ error: 'nope' }), headers: {} }
-        }
-        const body: any = {}
-        body[o.response || 'access_token'] = tokens[Math.min(issued, tokens.length - 1)]
-        issued++
-        return { status: 200, json: async () => body, headers: {} }
-      }
-
-      apicall++
-      const status = apiStatus[Math.min(apicall, apiStatus.length - 1)]
-      return { status, json: async () => ({ ok: status < 400 }), headers: {} }
-    }
-
-    return {
-      fetch,
-      calls,
-      // Only the calls that went to the API, in order.
-      api: () => calls.filter((c: any) => !c.url.endsWith('/' + (o.path || 'auth/token'))),
-      token: () => calls.filter((c: any) => c.url.endsWith('/' + (o.path || 'auth/token'))),
-    }
-  }
-
-
-  // Same rule as credentialIs, reading the header off a recorded call.
-  function authIs(call: any, token: string) {
-    credentialIs(null == call ? undefined : call.auth, token)
-  }
-
-
-  function exchangeSdk(stub: any, extra?: any): any {
+  function exchangeSdk(stub: any, extra?: any, sdkopts?: any): any {
     return new (SDK as any)({
+      ...(sdkopts || {}),
       base: BASE,
       system: { fetch: stub.fetch },
       feature: {
@@ -446,6 +472,8 @@ describe('secrets exchange', () => {
     assert.deepEqual(
       JSON.parse(stub.token()[0].init.body), { refresh_token: REFRESH },
       'the refresh token is sent in the request field')
+    assert.equal(stub.token()[0].init.redirect, 'manual',
+      'a supplied fetch is asked not to follow the exchange')
 
     assert.equal(stub.api().length, 1)
     authIs(stub.api()[0], 'ACCESS01')
@@ -515,6 +543,21 @@ describe('secrets exchange', () => {
 
     assert.equal(res.ok, true, 'the caller sees the successful retry')
   })
+
+
+  test('a token bought on a refusal is placed as prepareAuth places it, the secret kept',
+    async () => {
+      process.env[ENVPREFIX + 'REFRESH_TOKEN'] = REFRESH
+
+      const stub = stubfetch({ apiStatus: [401, 200] })
+      const sdk = exchangeSdk(stub, {}, { secret: 'PASS01' })
+
+      await sdk.direct({ path: '/thing' })
+
+      assert.equal(stub.api().length, 2, 'expected the request to be retried')
+      authIs(stub.api()[0], 'ACCESS01', 'PASS01')
+      authIs(stub.api()[1], 'ACCESS02', 'PASS01')
+    })
 
 
   test('the retry happens once, not in a loop', async () => {
@@ -766,6 +809,249 @@ describe('secrets exchange', () => {
     assert.equal(stub.calls.length, 0, 'test mode must not do IO')
     // A deterministic placeholder, so offline suites need no configuration.
     credentialIs(fetchdef.headers[CREDHEADER], 'test-access_token')
+  })
+
+
+  // Real listeners and the platform fetch: a stub follows nothing. The
+  // origin answers the exchange as `answer` says and records what else it gets.
+  async function withOrigins(run: (o: any) => Promise<void>) {
+    const o: any = { elsewhere: [], followed: [], exchanged: 0, answer: [307, ''] }
+
+    const other = Http.createServer((req: any, res: any) => {
+      let body = ''
+      req.on('data', (chunk: any) => body += chunk)
+      req.on('end', () => {
+        o.elsewhere.push({ method: req.method, url: req.url, body })
+        res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
+        res.end('{"access_token":"ELSEWHERE01"}')
+      })
+    })
+    const origin = Http.createServer((req: any, res: any) => {
+      let body = ''
+      req.on('data', (chunk: any) => body += chunk)
+      req.on('end', () => {
+        if ('/api/auth/token' === req.url) {
+          o.exchanged++
+          res.writeHead(o.answer[0], { location: o.answer[1], connection: 'close' })
+          res.end()
+          return
+        }
+        o.followed.push((req.method + ' ' + req.url + ' ' + body).trim())
+        res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
+        res.end('{"access_token":"MOVED01"}')
+      })
+    })
+
+    const listen = (server: any) => new Promise<number>((resolve) =>
+      server.listen(0, '127.0.0.1', () => resolve(server.address().port)))
+    o.origin = 'http://127.0.0.1:' + (await listen(origin))
+    o.base = o.origin + '/api'
+    o.away = 'http://127.0.0.1:' + (await listen(other)) + '/api/auth/token'
+
+    try {
+      await run(o)
+    }
+    finally {
+      origin.close()
+      other.close()
+    }
+  }
+
+
+  function redirectSdk(o: any, exchange?: any): any {
+    return new (SDK as any)({
+      base: o.base,
+      feature: {
+        secrets: {
+          active: true,
+          name: 'refresh_token',
+          exchange: Object.assign({ active: true, refresh: REFRESH }, exchange || {}),
+        },
+      },
+    })
+  }
+
+
+  test('a redirect answering the exchange is a failure, and nothing follows it', async () => {
+    await withOrigins(async (o: any) => {
+      const answers: [number, string][] =
+        [[307, o.away], [308, o.away], [302, o.away], [307, '/api/moved/token']]
+
+      const allowed: string[] = []
+      let refused = 0
+
+      for (const answer of answers) {
+        o.answer = answer
+
+        const res = await redirectSdk(o).direct({ path: '/thing' })
+        const message = String(null == res || null == res.err ? res : res.err.message)
+
+        if (message.includes(
+          'token exchange failed: ' + answer[0] + ' from ' + o.base + '/auth/token')) {
+          refused++
+        }
+        else {
+          allowed.push(answer[0] + ' to ' + answer[1] + ': ' + message)
+        }
+      }
+
+      console.log('secrets: exchange refused ' + refused + ' redirect(s), ' +
+        (o.elsewhere.length + o.followed.length) + ' followed')
+
+      assert.deepEqual(o.elsewhere, [], 'the exchange reached another origin')
+      assert.deepEqual(o.followed, [], 'a request followed a refused exchange')
+      assert.deepEqual(allowed, [], 'a redirect was not a failed exchange')
+      assert.equal(refused, answers.length)
+    })
+  })
+
+
+  test('with the option, a redirect on the exchange\'s own origin is followed, and no other', async () => {
+    await withOrigins(async (o: any) => {
+      const sent = ' {"refresh_token":"' + REFRESH + '"}'
+      // Each case: the status, the Location, and the path the exchange is
+      // asked again at, or null where the redirect is refused.
+      const cases: [number, string, string | null][] = [
+        [307, '/api/moved/token', '/api/moved/token'],
+        [308, o.origin + '/api/moved/token', '/api/moved/token'],
+        // A Location of a query alone keeps the path that answered.
+        [307, '?step=2', '/api/auth/token?step=2'],
+        [307, o.away, null],
+        [302, '/api/moved/token', null],
+        [307, '/api/auth/token', null],
+      ]
+
+      const wrong: string[] = []
+      let followed = 0
+      let refused = 0
+      let looped = 0
+
+      for (const [status, location, path] of cases) {
+        o.answer = [status, location]
+        o.followed.length = 0
+        o.exchanged = 0
+
+        const res = await redirectSdk(o, { redirect: 'same-origin' }).direct({ path: '/thing' })
+        const message = String(null == res || null == res.err ? res : res.err.message)
+        const seen = status + ' to ' + location + ': ' + message + ' ' + JSON.stringify(o.followed)
+
+        if (null != path) {
+          if (true === res.ok && 'POST ' + path + sent === o.followed[0] &&
+            2 === o.followed.length) followed++
+          else wrong.push(seen)
+        }
+        else if (0 === o.followed.length && message.includes(
+          'token exchange failed: ' + status + ' from ' + o.base + '/auth/token')) {
+          refused++
+        }
+        else {
+          wrong.push(seen)
+        }
+
+        if ('/api/auth/token' === location) looped = o.exchanged
+      }
+
+      console.log('secrets: exchange opt-in followed ' + followed +
+        ' redirect(s) on its own origin, refused ' + refused + ', ' +
+        o.elsewhere.length + ' elsewhere')
+
+      assert.deepEqual(o.elsewhere, [], 'the exchange reached another origin')
+      assert.deepEqual(wrong, [])
+      assert.equal(followed, 3)
+      assert.equal(refused, 3)
+      // A redirect to itself stops at the hop limit.
+      assert.equal(looped, 6)
+    })
+  })
+
+})
+
+
+// Off by the config where it declares no auth, else by `auth: null`: either
+// way the feature places no credential, buys no token and retries nothing.
+const AUTHOFF: { by: string, opts: any } =
+  NOAUTH ? { by: 'config', opts: {} } : { by: 'option', opts: { auth: null } }
+
+
+describe('secrets with auth off', () => {
+
+  const BASE = 'http://authoff.test/api'
+  const SECRETS = ['OFFKEY01', 'OFFKEY02', 'OFFREFRESH01', 'ACCESS01']
+  const sent: any[] = []
+  let bought = 0
+
+
+  beforeEach(() => {
+    delete process.env[ENVPREFIX + 'APIKEY']
+    delete process.env[ENVPREFIX + 'REFRESH_TOKEN']
+  })
+
+
+  after(() => {
+    console.log('secrets: auth off by ' + AUTHOFF.by + ': ' + sent.length + ' request(s), ' +
+      sent.filter(carries).length + ' credential(s), ' + bought + ' token(s)')
+  })
+
+
+  // The header prepareAuth writes, or any header holding one of the secrets.
+  function carries(call: any): boolean {
+    const headers = call.init.headers || {}
+    return undefined !== headers[CREDHEADER] || Object.values(headers)
+      .some((v: any) => SECRETS.some((secret: string) => String(v).includes(secret)))
+  }
+
+
+  async function offsdk(stub: any, sdkopts: any, fopts: any): Promise<any> {
+    const sdk = new (SDK as any)({
+      ...sdkopts,
+      ...AUTHOFF.opts,
+      base: BASE,
+      system: { fetch: stub.fetch },
+      feature: {
+        secrets: {
+          active: true,
+          providers: [{ kind: 'env', prefix: ENVPREFIX }],
+          ...fopts,
+        },
+      },
+    })
+    await sdk.direct({ path: '/thing' })
+    sent.push(...stub.api())
+    bought += stub.token().length
+    return sdk
+  }
+
+
+  test('a key the chain resolves is not placed', async () => {
+    process.env[ENVPREFIX + 'APIKEY'] = 'OFFKEY01'
+
+    const stub = stubfetch()
+    const sdk = await offsdk(stub, {}, {})
+
+    assert.equal(stub.api().length, 1)
+    assert.ok(!carries(stub.api()[0]), 'a credential was sent with auth off')
+    assert.equal(sdk.options().apikey, '', 'the resolved key was placed where prepareAuth reads it')
+  })
+
+
+  test('an explicit apikey is not placed', async () => {
+    const stub = stubfetch()
+    await offsdk(stub, { apikey: 'OFFKEY02' }, {})
+
+    assert.equal(stub.api().length, 1)
+    assert.ok(!carries(stub.api()[0]), 'a credential was sent with auth off')
+  })
+
+
+  test('a refusal buys no token and is not retried', async () => {
+    process.env[ENVPREFIX + 'REFRESH_TOKEN'] = 'OFFREFRESH01'
+
+    const stub = stubfetch({ apiStatus: [401] })
+    await offsdk(stub, {}, { name: 'refresh_token', exchange: { active: true } })
+
+    assert.equal(stub.token().length, 0, 'a token was bought with auth off')
+    assert.equal(stub.api().length, 1, 'a refusal was retried with auth off')
+    assert.ok(!carries(stub.api()[0]), 'a credential was sent with auth off')
   })
 
 })

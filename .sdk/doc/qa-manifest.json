@@ -4,6 +4,12 @@
   ],
   "config": ".sdk/doc/qa/vale.ini",
   "routes": {},
+  "identifiers": [
+    "Element",
+    "Group",
+    "Isotope",
+    "Series"
+  ],
   "quoted": {
     "SUMMARY.md": [
       "A short-lived access token, sent as `Authorization: Bearer &lt;token&gt;`. Obtain one from POST /auth/token, which every client must be able to call again: the token expires after a fixed number of REQUESTS rather than after an interval, so `expires_in_requests` on the token response, not a clock, says when the next exchange is due.",

@@ -44,7 +44,7 @@ func TestGroupEntity(t *testing.T) {
 		}
 	})
 
-	// Feature #4: the entity Stream(action, ...) method runs the op pipeline and
+	// The entity Stream(action, ...) method runs the op pipeline and
 	// returns a channel over result items. With the streaming feature active it
 	// yields the feature's incremental output; otherwise it falls back to the
 	// materialised list so Stream always yields.
@@ -335,7 +335,7 @@ func groupBasicSetup(extra map[string]any) *entityTestSetup {
 			},
 			extraOpts,
 		})
-		client = sdk.NewElementdemoSDK(core.ToMapAny(mergedOpts))
+		client = newClient(core.ToMapAny(mergedOpts))
 	}
 
 	live := env["ELEMENTDEMO_TEST_LIVE"] == "TRUE"

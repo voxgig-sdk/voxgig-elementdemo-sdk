@@ -1,8 +1,10 @@
 # Elementdemo SDK secrets feature
 
 from __future__ import annotations
+import base64
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from elementdemo_sdk.utility.voxgig_struct import voxgig_struct as vs
@@ -90,6 +92,8 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
         self.active = True
 
         self._client = None
+        self._declared = False
+        self._basic = False
         self._sekreto = None
         self._secretname = "apikey"
         self._resolved = False
@@ -108,6 +112,13 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
         fopts = fopts if isinstance(fopts, dict) else {}
 
         self._client = client
+
+        # What prepare_auth was generated from: the config declares auth only
+        # where it places a credential, and Basic only where it composes one.
+        configopts = vs.getprop(ctx.config, "options")
+        declared = vs.getprop(configopts, "auth") if isinstance(configopts, dict) else None
+        self._declared = isinstance(declared, dict)
+        self._basic = self._declared and declared.get("basic") is True
 
         name = fopts.get("name")
         self._secretname = name if isinstance(name, str) and "" != name \
@@ -131,6 +142,8 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
                 "retries": xopts.get("retries")
                 if isinstance(xopts.get("retries"), (int, float))
                 and not isinstance(xopts.get("retries"), bool) else 1,
+                "redirect": "same-origin"
+                if "same-origin" == xopts.get("redirect") else "refuse",
             }
         else:
             self._exchange = None
@@ -199,6 +212,11 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
     def sekreto(self):
         return self._sekreto
 
+    # prepare_auth's decision: auth the config declares, not suppressed by
+    # `auth: None`.
+    def _authon(self):
+        return self._declared and self._client.options.get("auth") is not None
+
     # Every value this feature resolves or buys is a secret the SDK handles,
     # and none arrives under an option key the intake registration saw.
     def _register(self, value):
@@ -233,7 +251,7 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
     # bool is the whole of what resolve() needs to tell a cacheable HIT
     # from a miss it must not retain.
     def _resolve_once(self):
-        if self._sekreto is None:
+        if self._sekreto is None or not self._authon():
             return False
 
         # Miss-vs-error: `try_` answers None for "no store has it" and
@@ -276,16 +294,6 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
             # stale the API answers 401 and the transport wrapper buys
             # another, which is the same path expiry takes anyway.
             return True
-
-        # `auth: None` is the documented way to send NO credential, and a
-        # purchase is a credential-bearing call: the refresh token goes to
-        # the token endpoint in the request body. _with_refresh honours
-        # suppression for the RETRY, but it runs after this - by then the
-        # refresh token has already left the process, and no later check
-        # can call it back. The suppression has to be honoured here, before
-        # the first purchase, or it only ever half-held.
-        if self._client.options_map().get("auth") is None:
-            return False
 
         self._client.options["apikey"] = self._buy()
 
@@ -342,11 +350,28 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
         # feature wraps, and sending the token request back through it
         # would recurse on the first 401 - and would route the exchange
         # through the test mock, which knows nothing about it.
-        res, err = fetch(url, {
+        fetchdef = {
             "method": x["method"],
             "headers": {"content-type": "application/json"},
             "body": json.dumps({x["request"]: self._refresh}),
-        })
+            # Never followed by the client: a redirect would carry the
+            # refresh token on.
+            "redirect": "manual",
+        }
+
+        res, err = fetch(url, fetchdef)
+
+        # By option alone, and only while the exchange stays on its own origin.
+        at = url
+        hops = 0
+        while "same-origin" == x["redirect"] and hops < _REDIRECT_MAX \
+                and err is None:
+            nxt = _moved(url, at, res)
+            if nxt is None:
+                break
+            at = nxt
+            res, err = fetch(at, fetchdef)
+            hops += 1
 
         if err is not None:
             raise Exception(
@@ -393,12 +418,9 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
         x = self._exchange
         max_retries = 0 if x is None else x["retries"]
 
-        # `auth: None` is the documented way to send NO credential, and
-        # prepare_auth honours it by removing the header. A refusal of a
-        # deliberately unauthenticated request is not an expired token and
-        # cannot be fixed by buying one - retrying would transmit exactly
-        # the credential the caller suppressed.
-        if self._client.options_map().get("auth") is None:
+        # A refusal of an unauthenticated request is not an expired token,
+        # and retrying would transmit the credential that auth off withholds.
+        if not self._authon():
             return inner(ctx, url, fetchdef)
 
         attempt = 0
@@ -449,13 +471,9 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
                 not isinstance(fetchdef.get("headers"), dict):
             return
 
-        auth = self._client.options_map().get("auth")
+        auth = self._client.options.get("auth")
 
-        # Suppressed auth means NO header, the same answer prepare_auth
-        # gives. Reached defensively - _with_refresh does not retry at all
-        # when auth is None - but this is the function that writes the
-        # credential, so it is where the rule has to hold.
-        if auth is None:
+        if not self._authon():
             fetchdef["headers"].pop("authorization", None)
             return
 
@@ -464,9 +482,60 @@ class ElementdemoSecretsFeature(ElementdemoBaseFeature):
         name = name.lower() if isinstance(name, str) and "" != name \
             else "authorization"
 
+        value = token
+        if self._basic and isinstance(auth, dict) and auth.get("basic") is True:
+            value = self._pair(token)
+
         prefix = auth.get("prefix") if isinstance(auth, dict) else None
         fetchdef["headers"][name] = \
-            prefix + " " + token if prefix else token
+            prefix + " " + value if prefix else value
+
+    # Under Basic the token is the key half, as apikey is: prepare_auth's pair.
+    def _pair(self, token):
+        secret = self._client.options.get("secret")
+        pair = base64.b64encode(
+            (str(token) + ":" + ("" if secret is None else str(secret))).encode("utf-8")
+        ).decode("ascii")
+        self._register(pair)
+        return pair
+
+
+_REDIRECT_MAX = 5
+
+
+def _origin(parts):
+    port = parts.port or {"http": 80, "https": 443}.get(parts.scheme)
+    return (parts.scheme, parts.hostname, port)
+
+
+def _moved(url, at, res):
+    """Where a 307 or 308 points, when that is on the exchange's own
+    origin. Any other redirect would drop the body or leave the origin."""
+    status = res.get("status") if isinstance(res, dict) else None
+    if status not in (307, 308):
+        return None
+
+    headers = res.get("headers")
+    location = headers.get("location") if isinstance(headers, dict) else None
+    if not isinstance(location, str) or "" == location:
+        return None
+
+    try:
+        nxt = urllib.parse.urljoin(at, location)
+        same = _origin(urllib.parse.urlsplit(nxt)) == \
+            _origin(urllib.parse.urlsplit(url))
+    except ValueError:
+        return None
+    return nxt if same else None
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# A 3xx then surfaces as HTTPError, the exchange's own failed answer.
+_NO_REDIRECT = urllib.request.build_opener(_NoRedirect)
 
 
 def _raw_exchange_fetch(fullurl, fetchdef):
@@ -486,9 +555,10 @@ def _raw_exchange_fetch(fullurl, fetchdef):
         for k, v in (fetchdef.get("headers") or {}).items():
             if isinstance(v, str):
                 req.add_header(k, v)
-        with urllib.request.urlopen(req, timeout=30) as res:
+        with _NO_REDIRECT.open(req, timeout=30) as res:
             raw = res.read()
             status = res.status
+            headers = {k.lower(): v for k, v in res.headers.items()}
 
         def _json():
             try:
@@ -496,11 +566,13 @@ def _raw_exchange_fetch(fullurl, fetchdef):
             except Exception:
                 return None
 
-        return {"status": status, "json": _json}, None
+        return {"status": status, "headers": headers, "json": _json}, None
     except urllib.error.HTTPError as e:
         # A non-2xx answer IS a response: hand back its status so the
         # caller reports "token exchange failed: <status>" rather than a
         # transport error.
-        return {"status": e.code, "json": lambda: None}, None
+        headers = {k.lower(): v for k, v in (e.headers or {}).items()}
+        return {"status": e.code, "headers": headers,
+                "json": lambda: None}, None
     except Exception as e:
         return None, e

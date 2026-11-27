@@ -4,15 +4,19 @@ exports.clean = clean;
 exports.cleanAdd = cleanAdd;
 exports.cleanAddSensitive = cleanAddSensitive;
 exports.cleanKey = cleanKey;
+exports.cleanSecret = cleanSecret;
 exports.makeCleanConfig = makeCleanConfig;
 exports.setMessage = setMessage;
 exports.splitvalues = splitvalues;
 const Schema_1 = require("../Schema");
+const MediaUtility_1 = require("./MediaUtility");
 // Everything that leaves the pipeline passes through clean; inside it data
 // stays raw, so a hook can still read the header it must add to. See
 // docs/explanation/secret-redaction.md.
 const MAXDEPTH = 32;
 const CIRCULAR = '[circular]';
+// The key of what stands in for a body of bytes; its value is the kind.
+const BINARY = 'binary$';
 function normkey(key) {
     return String(key).toLowerCase().replace(/[-_]/g, '');
 }
@@ -116,15 +120,72 @@ function sensitiveKey(cfg, key) {
     }
     return false;
 }
+// A string sent as a body goes as UTF-8.
+function utf8Length(text) {
+    return 'undefined' !== typeof Buffer ? Buffer.byteLength(text, 'utf8') :
+        new TextEncoder().encode(text).length;
+}
+// The request body of a point the model marks binary, and a response body
+// that is bytes. A string shorter than the registry accepts is not told
+// from ordinary text.
+function binaryBodies(ctx, cfg) {
+    const known = (v) => null != v && ('string' !== typeof v || cfg.min <= v.length);
+    const bodies = [];
+    const body = ctx?.point?.body;
+    if ('raw' === body?.kind && true === body.binary) {
+        bodies.push({
+            live: [ctx.spec?.body, ctx.reqdata?.[MediaUtility_1.RAW_BODY]].filter(known),
+            type: 'string' === typeof body.media ? body.media : undefined,
+            sized: true,
+        });
+    }
+    const response = ctx?.response;
+    const type = (0, MediaUtility_1.headerValue)(response?.headers, 'content-type');
+    if (null != response && (0, MediaUtility_1.isBinaryResponse)(ctx.point, type)) {
+        bodies.push({ live: [response.body].filter(known), type: '' === type ? undefined : type, sized: false });
+    }
+    return bodies.filter((bin) => 0 < bin.live.length);
+}
+// Bytes are described, never copied (ADR-006): the kind, and the size and
+// media type where they are known. A string is bytes only as a live body.
+function describeBinary(val, bins) {
+    const bin = bins.find((b) => b.live.includes(val));
+    let desc = undefined;
+    if ('string' === typeof val) {
+        if (null != bin) {
+            desc = bin.sized ? { [BINARY]: 'bytes', size: utf8Length(val) } : { [BINARY]: 'bytes' };
+        }
+    }
+    else if (val instanceof ArrayBuffer || ArrayBuffer.isView(val) ||
+        ('undefined' !== typeof SharedArrayBuffer && val instanceof SharedArrayBuffer)) {
+        desc = { [BINARY]: 'bytes', size: val.byteLength };
+    }
+    else if ('undefined' !== typeof Blob && val instanceof Blob) {
+        desc = { [BINARY]: 'bytes', size: val.size };
+        if ('' !== val.type) {
+            desc.type = val.type;
+        }
+    }
+    else if ((0, MediaUtility_1.isStream)(val)) {
+        desc = { [BINARY]: 'stream' };
+    }
+    if (null != desc && null == desc.type && null != bin?.type) {
+        desc.type = bin.type;
+    }
+    return desc;
+}
 // A masked plain-data copy: toJSON honoured, functions dropped, cycles cut,
 // and nothing shared with the live value, whose spec must stay raw.
-function snapshot(cfg, val, key, depth, seen) {
+function snapshot(cfg, bin, val, key, depth, seen) {
     if (null == val) {
         return val;
     }
     const t = typeof val;
     if ('string' === t) {
-        return sensitiveKey(cfg, key) ? maskValue(cfg, val) : cleanString(cfg, val);
+        if (sensitiveKey(cfg, key)) {
+            return maskValue(cfg, val);
+        }
+        return describeBinary(val, bin) ?? cleanString(cfg, val);
     }
     if ('function' === t) {
         return undefined;
@@ -138,12 +199,16 @@ function snapshot(cfg, val, key, depth, seen) {
     if (sensitiveKey(cfg, key)) {
         return cfg.mask;
     }
+    const desc = describeBinary(val, bin);
+    if (undefined !== desc) {
+        return desc;
+    }
     seen.push(val);
     try {
         if (Array.isArray(val)) {
             const out = [];
             for (let i = 0; i < val.length; i++) {
-                out.push(snapshot(cfg, val[i], i, depth + 1, seen));
+                out.push(snapshot(cfg, bin, val[i], i, depth + 1, seen));
             }
             return out;
         }
@@ -153,7 +218,7 @@ function snapshot(cfg, val, key, depth, seen) {
                 stack: cleanString(cfg, String(val.stack || '')),
             };
             for (const k of Object.keys(val)) {
-                const v = snapshot(cfg, val[k], k, depth + 1, seen);
+                const v = snapshot(cfg, bin, val[k], k, depth + 1, seen);
                 if (undefined !== v)
                     out[k] = v;
             }
@@ -161,18 +226,19 @@ function snapshot(cfg, val, key, depth, seen) {
         }
         if ('function' === typeof val.toJSON) {
             const json = val.toJSON();
-            return json === val ? plain(cfg, val, depth, seen) : snapshot(cfg, json, key, depth + 1, seen);
+            return json === val ? plain(cfg, bin, val, depth, seen) :
+                snapshot(cfg, bin, json, key, depth + 1, seen);
         }
-        return plain(cfg, val, depth, seen);
+        return plain(cfg, bin, val, depth, seen);
     }
     finally {
         seen.pop();
     }
 }
-function plain(cfg, val, depth, seen) {
+function plain(cfg, bin, val, depth, seen) {
     const out = {};
     for (const k of Object.keys(val)) {
-        const v = snapshot(cfg, val[k], k, depth + 1, seen);
+        const v = snapshot(cfg, bin, val[k], k, depth + 1, seen);
         if (undefined !== v)
             out[cleanName(cfg, out, k)] = v;
     }
@@ -199,6 +265,7 @@ function clean(ctx, val) {
     if ('string' === typeof val) {
         return cleanString(cfg, val);
     }
+    const bin = binaryBodies(ctx, cfg);
     if (val instanceof Error) {
         setMessage(val, cleanString(cfg, String(val.message)));
         if ('string' === typeof val.stack) {
@@ -210,7 +277,7 @@ function clean(ctx, val) {
                 v = sensitiveKey(cfg, k) ? maskValue(cfg, v) : cleanString(cfg, v);
             }
             else if (null != v && 'object' === typeof v) {
-                v = snapshot(cfg, v, k, 1, []);
+                v = snapshot(cfg, bin, v, k, 1, []);
             }
             const name = cleanString(cfg, k);
             if (name !== k) {
@@ -220,7 +287,7 @@ function clean(ctx, val) {
         }
         return val;
     }
-    return snapshot(cfg, val, undefined, 0, []);
+    return snapshot(cfg, bin, val, undefined, 0, []);
 }
 // Assigned where assignment works. A DOMException's message is an inherited
 // getter with no setter, which strict code cannot assign, so it is defined
@@ -245,6 +312,13 @@ function setMessage(err, text) {
 }
 function cleanKey(ctx, key) {
     return sensitiveKey(cleanConfig(ctx), key);
+}
+// Whether a named value is a secret: by its name, or by a registered value
+// it holds. Answered with clean off too: a redirect asks, not a diagnostic.
+function cleanSecret(ctx, key, value) {
+    const cfg = cleanConfig(ctx);
+    return sensitiveKey(cfg, key) ||
+        ('string' === typeof value && cfg.values.some((v) => value.includes(v)));
 }
 // Every scalar under a sensitive name, at any depth and of any shape: a
 // credential mistyped as an object or a number is still a credential, and

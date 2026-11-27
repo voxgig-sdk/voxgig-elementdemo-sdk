@@ -19,6 +19,8 @@ class Point {
     relations;
     alias;
     transform;
+    // The fields a list, load or remove sends in a request body.
+    fields;
     constructor(altmap) {
         this.args = (0, StructUtility_1.getprop)(altmap, 'args', { params: [] });
         this.kind = (0, StructUtility_1.getprop)(altmap, 'kind', 'http');
@@ -35,6 +37,7 @@ class Point {
         this.relations = (0, StructUtility_1.getprop)(altmap, 'relations', []);
         this.alias = (0, StructUtility_1.getprop)(altmap, 'alias', {});
         this.transform = (0, StructUtility_1.getprop)(altmap, 'transform', { req: undefined, res: undefined });
+        this.fields = (0, StructUtility_1.getprop)(altmap, 'fields');
     }
 }
 exports.Point = Point;

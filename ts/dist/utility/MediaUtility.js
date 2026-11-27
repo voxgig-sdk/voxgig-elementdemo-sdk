@@ -4,11 +4,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RAW_BODY = void 0;
 exports.acceptOf = acceptOf;
+exports.headerValue = headerValue;
+exports.isBinaryResponse = isBinaryResponse;
 exports.isJsonMedia = isJsonMedia;
 exports.isJsonRequest = isJsonRequest;
 exports.isRawRequest = isRawRequest;
 exports.isRawValue = isRawValue;
 exports.isStream = isStream;
+exports.isTextMedia = isTextMedia;
 exports.mediaHeaders = mediaHeaders;
 exports.rawBody = rawBody;
 exports.readStream = readStream;
@@ -19,7 +22,30 @@ function isJsonMedia(type) {
     const media = String(null == type ? '' : type).split(';')[0].trim().toLowerCase();
     return 'application/json' === media || 'text/json' === media || media.endsWith('+json');
 }
+// A type whose body is text: none declared, text/*, or a structured text
+// format. A body of any other type is bytes, which no message quotes.
+function isTextMedia(type) {
+    const media = String(null == type ? '' : type).split(';')[0].trim().toLowerCase();
+    return '' === media || media.startsWith('text/') ||
+        /json|xml|html|javascript|ecmascript|yaml|urlencoded|graphql/.test(media);
+}
 // The declared JSON type alone, else every declared type in model order; nothing without a body.
+// A response whose body is bytes: by the model, or by the type it declares.
+function isBinaryResponse(point, type) {
+    return true === point?.response?.binary || !isTextMedia(type);
+}
+// A header's value, from a map in any spelling or from a Headers object.
+function headerValue(headers, name) {
+    if ('function' === typeof headers?.get) {
+        return String(headers.get(name) ?? '');
+    }
+    for (const key of Object.keys(headers || {})) {
+        if (name === key.toLowerCase()) {
+            return String(headers[key]);
+        }
+    }
+    return '';
+}
 function acceptOf(point) {
     const res = point?.response;
     if (null == res || 'string' !== typeof res.media || '' === res.media) {

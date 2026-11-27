@@ -97,7 +97,7 @@ func fcClient(kase map[string]any) *sdk.ElementdemoSDK {
 	if f, ok := kase["feature"]; ok {
 		opts["feature"] = f
 	}
-	return sdk.NewElementdemoSDK(opts)
+	return newClient(opts)
 }
 
 // fcCandidates lists the operations this SDK declares, in a stable order.

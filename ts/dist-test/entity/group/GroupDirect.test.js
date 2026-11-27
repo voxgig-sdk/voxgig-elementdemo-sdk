@@ -8,7 +8,7 @@ const node_assert_1 = __importDefault(require("node:assert"));
 const live_runner_1 = require("../../live-runner");
 const __1 = require("../../..");
 const utility_1 = require("../../utility");
-(0, utility_1.loadEnvLocal)(__dirname + '/../../../.env.local');
+(0, utility_1.loadEnvLocal)(__dirname + '/../../../../.env.local');
 (0, node_test_1.describe)('GroupDirect', async () => {
     // Per-test live pacing. Delay is read from sdk-test-control.json's
     // `test.live.delayMs`; only sleeps when ELEMENTDEMO_TEST_LIVE=TRUE.

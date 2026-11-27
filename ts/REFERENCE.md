@@ -18,13 +18,15 @@ Create a new SDK client instance.
 | Name | Type | Description |
 | --- | --- | --- |
 | `options` | `object` | SDK configuration options. |
+| `options.server` | `object` | **Required.** Values for the server-URL variables: `account_id`. The API base URL is a template over them. |
 | `options.apikey` | `string` | API key for authentication. |
-| `options.base` | `string` | Base URL for API requests. |
-| `options.prefix` | `string` | URL prefix appended after base. |
-| `options.suffix` | `string` | URL suffix appended after path. |
-| `options.headers` | `object` | Custom headers for all requests. |
-| `options.feature` | `object` | Feature configuration. |
-| `options.system` | `object` | System overrides (e.g. custom fetch). |
+| `options.base` | `string` | Base URL of the API server. |
+| `options.prefix` | `string` | URL path prefix prepended to all requests. |
+| `options.suffix` | `string` | URL path suffix appended to all requests. |
+| `options.headers` | `object` | Headers sent with every request. |
+| `options.feature` | `object` | Feature activation flags. |
+| `options.extend` | `Feature[]` | Additional feature instances to load. |
+| `options.system` | `object` | System overrides, such as a custom fetch function. |
 
 
 ### Static Methods
@@ -198,6 +200,22 @@ const result = await client.Element().create({
 
 ### Operations
 
+#### `list(match: object, ctrl?: object)`
+
+List entities matching the given criteria. Resolves to an array of entities, one per record.
+
+```ts
+const results = await client.Element().list()
+```
+
+#### `load(match: object, ctrl?: object)`
+
+Load a single entity matching the given criteria. Resolves to the entity, whose record `data()` reads.
+
+```ts
+const result = await client.Element().load({ id: 'element_id' })
+```
+
 #### `create(data: object, ctrl?: object)`
 
 Create a new entity with the given data. Resolves to the created entity.
@@ -215,30 +233,6 @@ const result = await client.Element().create({
 })
 ```
 
-#### `list(match: object, ctrl?: object)`
-
-List entities matching the given criteria. Resolves to an array of entities, one per record.
-
-```ts
-const results = await client.Element().list()
-```
-
-#### `load(match: object, ctrl?: object)`
-
-Load a single entity matching the given criteria. Resolves to the entity, whose record `data()` reads.
-
-```ts
-const result = await client.Element().load({ id: 'element_id' })
-```
-
-#### `remove(match: object, ctrl?: object)`
-
-Remove the entity matching the given criteria. Resolves to the entity, marked as deleted.
-
-```ts
-const result = await client.Element().remove({ id: 'element_id' })
-```
-
 #### `update(data: object, ctrl?: object)`
 
 Update an existing entity. The data must include the entity `id`. Resolves to the updated entity.
@@ -248,6 +242,14 @@ const result = await client.Element().update({
   id: 'element_id',
   // Fields to update
 })
+```
+
+#### `remove(match: object, ctrl?: object)`
+
+Remove the entity matching the given criteria. Resolves to the entity, marked as deleted.
+
+```ts
+const result = await client.Element().remove({ id: 'element_id' })
 ```
 
 ### Common Methods
@@ -382,21 +384,6 @@ const result = await client.Isotope().create({
 
 ### Operations
 
-#### `create(data: object, ctrl?: object)`
-
-Create a new entity with the given data. Resolves to the created entity.
-
-```ts
-const result = await client.Isotope().create({
-  element_id: 'example_element_id',
-  id: 'example_id',
-  mass: 1,
-  mass_number: 1,
-  name: 'example_name',
-  stable: true,
-})
-```
-
 #### `list(match: object, ctrl?: object)`
 
 List entities matching the given criteria. Resolves to an array of entities, one per record.
@@ -413,12 +400,19 @@ Load a single entity matching the given criteria. Resolves to the entity, whose 
 const result = await client.Isotope().load({ id: 'isotope_id', element_id: 'element_id' })
 ```
 
-#### `remove(match: object, ctrl?: object)`
+#### `create(data: object, ctrl?: object)`
 
-Remove the entity matching the given criteria. Resolves to the entity, marked as deleted.
+Create a new entity with the given data. Resolves to the created entity.
 
 ```ts
-const result = await client.Isotope().remove({ id: 'isotope_id', element_id: 'element_id' })
+const result = await client.Isotope().create({
+  element_id: 'example_element_id',
+  id: 'example_id',
+  mass: 1,
+  mass_number: 1,
+  name: 'example_name',
+  stable: true,
+})
 ```
 
 #### `update(data: object, ctrl?: object)`
@@ -431,6 +425,14 @@ const result = await client.Isotope().update({
   element_id: 'element_id',
   // Fields to update
 })
+```
+
+#### `remove(match: object, ctrl?: object)`
+
+Remove the entity matching the given criteria. Resolves to the entity, marked as deleted.
+
+```ts
+const result = await client.Isotope().remove({ id: 'isotope_id', element_id: 'element_id' })
 ```
 
 ### Common Methods
@@ -561,10 +563,10 @@ const client = new ElementdemoSDK({
 ### Configuring features
 
 Each feature is inactive until switched on, and an SDK with no feature
-configured does no feature work at all. Every option below keeps its default
-unless you name it.
+configured does no feature work at all.
+Every option below keeps its default unless you name it.
 
-The array form of \`feature\` is significant: several features wrap the
+The array form of `feature` is significant: several features wrap the
 transport, and the order you list them in is the order they nest.
 
 #### Ordering
@@ -575,10 +577,10 @@ a feature activated later sits OUTSIDE one activated earlier, and sees the call
 first.
 
 That decides behaviour, not just sequence: a feature that short-circuits the
-call, such as a cache serving a hit, stops every feature nested inside it from
+call stops every feature nested inside it from
 ever seeing that call.
 
-`debug`, `elementcard`, `idempotency`, `metrics`, `paging`, `test` attach to pipeline hooks
+`debug`, `elementcard`, `idempotency`, `metrics`, `paging` attach to pipeline hooks
 rather than the transport, so their order does not affect what they observe.
 
 #### `debug`
@@ -803,7 +805,7 @@ Secrets.
 |---|---|
 | `active` | `false` |
 | `cache` | `true` |
-| `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
+| `exchange` | `{active: false, method: 'POST', path: 'auth/token', redirect: 'refuse', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
 | `name` | `'apikey'` |
 | `providers` | `[]` |
 
@@ -816,6 +818,7 @@ its default unless you name it.
 
 - Wraps the transport: its place in the activation order decides what it
   sees. See [Ordering](#ordering) above.
+- Also attaches to pipeline hooks.
 - Inactive by default: leaving it out costs nothing at runtime.
 
 #### `test`
@@ -843,10 +846,9 @@ its default unless you name it.
 
 **Considerations**
 
-- Attaches to pipeline hooks, not the transport, so activation order does
-  not change what it observes.
 - Installs the BASE transport that the wrapping features wrap, so it must be
   activated before them.
+- Also attaches to pipeline hooks.
 - Inactive by default: leaving it out costs nothing at runtime.
 
 #### `timeout`

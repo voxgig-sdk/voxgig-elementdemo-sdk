@@ -50,17 +50,35 @@ function findFirstTsBlock(md, sectionHeading) {
 }
 function transformForTestMode(code, name) {
     // Strip import lines — symbols come from the test's outer scope.
-    let out = code.replace(/^\s*import\s+[^;\n]+;?\s*$/gm, '');
-    // Swap real client construction for test mode (no network, no auth).
-    out = out.replace(new RegExp('new\\s+' + name + 'SDK\\([^)]*\\)', 'g'), name + 'SDK.test()');
-    return out;
+    const src = code.replace(/^\s*import\s+[^;\n]+;?\s*$/gm, '');
+    // Swap real client construction for test mode (no network, no auth), reading
+    // the arguments to the parenthesis that balances the opening one.
+    const head = new RegExp('new\\s+' + name + 'SDK\\(', 'g');
+    let out = '';
+    let at = 0;
+    let m;
+    while (null != (m = head.exec(src))) {
+        let depth = 0;
+        let end = m.index + m[0].length - 1;
+        for (; end < src.length; end++) {
+            if ('(' === src[end])
+                depth++;
+            else if (')' === src[end] && 0 === --depth)
+                break;
+        }
+        if (end === src.length)
+            break;
+        out += src.slice(at, m.index) + name + 'SDK.test()';
+        at = head.lastIndex = end + 1;
+    }
+    return out + src.slice(at);
 }
 (0, node_test_1.describe)('README example', () => {
     (0, node_test_1.it)('lead-language quickstart runs in test mode', async () => {
-        const readmePath = Path.join(__dirname, '..', '..', 'README.md');
+        const readmePath = Path.join(__dirname, '..', '../README.md');
         const md = Fs.readFileSync(readmePath, 'utf8');
         const block = findFirstTsBlock(md, 'Quickstart');
-        (0, node_assert_1.default)(block, 'No TypeScript code block found under "## Quickstart" in README.md');
+        (0, node_assert_1.default)(block, 'No TypeScript code block found under "## Quickstart" in ../README.md');
         const code = transformForTestMode(block, 'Elementdemo');
         // Run the (transformed) example. Async, so wrap in AsyncFunction.
         const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;

@@ -23,18 +23,30 @@
 # trims it, along with the feature source and the vendored library, for a
 # project whose model does not select `secrets`.
 
+import base64
+import contextlib
 import json
 import os
 import http.server
 import threading
 import unittest
 
+import pytest
+
 from elementdemo_sdk import ElementdemoSDK
+from elementdemo_sdk.config import shared_config
 from elementdemo_sdk.features import _has_feature
 from elementdemo_sdk.feature.secrets_feature import ElementdemoSecretsFeature
 
 
 ENVPREFIX = "ELEMENTDEMO_TEST_SECRETS_"
+
+
+# Read from the config, never from a probe: an SDK whose config declares no
+# auth places no credential, and these tests assert on the one it places.
+NOAUTH = "auth" not in shared_config().get("options", {})
+placing = pytest.mark.skipif(
+    NOAUTH, reason="this SDK's config declares no auth, so it places no credential")
 
 
 def cred_header():
@@ -51,6 +63,27 @@ def cred_header():
 CREDHEADER = cred_header()
 
 
+def cred_form():
+    """The form prepare_auth writes, from the DEFAULT client's auth: under
+    Basic the token is the key half of the encoded pair, and a prefix is
+    space-joined."""
+    sdk = ElementdemoSDK({"base": "http://localhost:8080"})
+    auth = sdk.options_map().get("auth") or {}
+    prefix = auth.get("prefix")
+    return (prefix if isinstance(prefix, str) else "", auth.get("basic") is True)
+
+
+CREDFORM = cred_form()
+
+
+def credential(token, secret=""):
+    """The header value prepare_auth writes for a token."""
+    value = token
+    if CREDFORM[1]:
+        value = base64.b64encode((token + ":" + secret).encode("utf-8")).decode("ascii")
+    return value if "" == CREDFORM[0] else CREDFORM[0] + " " + value
+
+
 def secrets_sdk(sdkopts):
     """An SDK with the secrets feature ACTIVE.
 
@@ -63,6 +96,74 @@ def secrets_sdk(sdkopts):
         sdkopts = dict(sdkopts)
         sdkopts["extend"] = [ElementdemoSecretsFeature()]
     return ElementdemoSDK(sdkopts)
+
+
+# Two real listeners: the origin answers the exchange as `answer` says and
+# records what else it gets.
+@contextlib.contextmanager
+def _origins():
+    o = {"elsewhere": [], "followed": [], "exchanged": [0], "answer": [307, ""]}
+
+    def _recorder(log, respond, token):
+        class _Handler(http.server.BaseHTTPRequestHandler):
+            def _any(self):
+                raw = self.rfile.read(
+                    int(self.headers.get("content-length") or 0))
+                if respond(self):
+                    return
+                log.append((self.command, self.path, raw.decode("utf-8")))
+                out = json.dumps({"access_token": token}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("content-type", "application/json")
+                self.send_header("content-length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+            do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = _any
+
+            def log_message(self, *args):
+                pass
+        return _Handler
+
+    def _exchange(handler):
+        if "/api/auth/token" != handler.path:
+            return False
+        o["exchanged"][0] += 1
+        handler.send_response(o["answer"][0])
+        handler.send_header("location", o["answer"][1])
+        handler.send_header("content-length", "0")
+        handler.end_headers()
+        return True
+
+    origin = http.server.HTTPServer(
+        ("127.0.0.1", 0), _recorder(o["followed"], _exchange, "MOVED01"))
+    other = http.server.HTTPServer(
+        ("127.0.0.1", 0), _recorder(o["elsewhere"], lambda h: False, "ELSEWHERE01"))
+    for srv in (origin, other):
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    o["origin"] = "http://127.0.0.1:%d" % origin.server_port
+    o["base"] = o["origin"] + "/api"
+    o["away"] = "http://127.0.0.1:%d/api/auth/token" % other.server_port
+
+    try:
+        yield o
+    finally:
+        for srv in (origin, other):
+            srv.shutdown()
+            srv.server_close()
+
+
+def _redirect_sdk(o, exchange=None):
+    return secrets_sdk({
+        "base": o["base"],
+        "feature": {"secrets": {
+            "active": True,
+            "name": "refresh_token",
+            "exchange": dict({"active": True, "refresh": "REFRESH01"},
+                             **(exchange or {})),
+        }},
+    })
 
 
 def envchain(extra=None):
@@ -88,6 +189,38 @@ class RecordingTransport:
                 "json": lambda: {}, "body": "{}"}, None
 
 
+class StubFetch:
+    """A live-mode system.fetch answering the token endpoint and the API, the
+    API by a script of statuses whose last repeats. Each call keeps a copy
+    of its headers, since a retry rewrites them in place."""
+
+    def __init__(self, statuses=None):
+        self.calls = []
+        self.statuses = statuses or [200]
+        self.tokens = ["ACCESS01", "ACCESS02", "ACCESS03"]
+        self.issued = 0
+        self.apicalls = 0
+
+    def __call__(self, url, fetchdef):
+        self.calls.append({"url": url, "headers": dict(fetchdef.get("headers") or {})})
+        if url.endswith("/auth/token"):
+            token = self.tokens[min(self.issued, len(self.tokens) - 1)]
+            self.issued += 1
+            return {"status": 200, "statusText": "OK", "headers": {},
+                    "json": lambda: {"access_token": token}, "body": ""}, None
+        status = self.statuses[min(self.apicalls, len(self.statuses) - 1)]
+        self.apicalls += 1
+        return {"status": status, "statusText": "X", "headers": {},
+                "json": lambda: {"ok": status < 400}, "body": "{}"}, None
+
+    def api(self):
+        return [c for c in self.calls if not c["url"].endswith("/auth/token")]
+
+    def token(self):
+        return [c for c in self.calls if c["url"].endswith("/auth/token")]
+
+
+@placing
 class TestSecrets(unittest.TestCase):
 
     def setUp(self):
@@ -133,15 +266,9 @@ class TestSecrets(unittest.TestCase):
         self.assertIsNone(err)
         return transport.calls[-1]["fetchdef"].get("headers") or {}
 
-    def assert_credential(self, headers, token):
-        # The credential header carries the SPEC's credential prefix (if
-        # any), which a TEMPLATE cannot know - assert on the CREDENTIAL and
-        # let the prefix be whatever this SDK's API declares.
-        got = str(headers.get(CREDHEADER) or "")
-        self.assertTrue(
-            got == token or got.endswith(" " + token),
-            "expected the %s header to carry %s, got: %r"
-            % (CREDHEADER, token, got))
+    def assert_credential(self, headers, token, secret=""):
+        self.assertEqual(credential(token, secret), headers.get(CREDHEADER),
+                         "expected the %s header to carry %s" % (CREDHEADER, token))
 
     # --- the chain ---
 
@@ -165,6 +292,15 @@ class TestSecrets(unittest.TestCase):
 
         headers = self._send(sdk, transport)
         self.assert_credential(headers, "ENVKEY01")
+
+    def test_a_resolved_key_is_placed_as_prepare_auth_places_it(self):
+        os.environ[ENVPREFIX + "APIKEY"] = "ENVKEY03"
+        opts = {"secret": "PASS01"}
+        opts.update(envchain())
+        sdk, transport = self._sdk(opts)
+
+        headers = self._send(sdk, transport)
+        self.assert_credential(headers, "ENVKEY03", "PASS01")
 
     def test_custom_provider_supplies_the_credential(self):
         # A custom provider is a MAP of callables (the exact parallel of
@@ -337,6 +473,7 @@ class _TokenEndpoint(http.server.BaseHTTPRequestHandler):
         pass
 
 
+@placing
 class TestSecretsReviewPins(unittest.TestCase):
 
     def test_exchange_uses_the_raw_fallback_and_marshals_the_body(self):
@@ -411,6 +548,159 @@ class TestSecretsReviewPins(unittest.TestCase):
             srv.shutdown()
             srv.server_close()
 
+    # Real listeners and the raw fallback transport: a stub follows nothing.
+    def test_a_redirect_answering_the_exchange_is_a_failure(self):
+        with _origins() as o:
+            answers = [[307, o["away"]], [308, o["away"]], [302, o["away"]],
+                       [307, "/api/moved/token"]]
+            allowed = []
+            refused = 0
+
+            for case in answers:
+                o["answer"][:] = case
+
+                res = _redirect_sdk(o).direct({"path": "/thing"})
+                err = res.get("err") if isinstance(res, dict) else None
+                message = str(res if err is None else err)
+
+                if ("token exchange failed: %d from %s/auth/token"
+                        % (case[0], o["base"])) in message:
+                    refused += 1
+                else:
+                    allowed.append("%d to %s: %s" % (case[0], case[1], message))
+
+            print("secrets: exchange refused %d redirect(s), %d followed"
+                  % (refused, len(o["elsewhere"]) + len(o["followed"])))
+
+            self.assertEqual([], o["elsewhere"], "the exchange reached another origin")
+            self.assertEqual([], o["followed"], "a request followed a refused exchange")
+            self.assertEqual([], allowed, "a redirect was not a failed exchange")
+            self.assertEqual(len(answers), refused)
+
+    def test_with_the_option_a_redirect_on_the_exchange_s_own_origin_is_followed(self):
+        with _origins() as o:
+            # Each case: the status, the Location, and the path the exchange is
+            # asked again at, or None where the redirect is refused.
+            cases = [
+                (307, "/api/moved/token", "/api/moved/token"),
+                (308, o["origin"] + "/api/moved/token", "/api/moved/token"),
+                # A Location of a query alone keeps the path that answered.
+                (307, "?step=2", "/api/auth/token?step=2"),
+                (307, o["away"], None),
+                (302, "/api/moved/token", None),
+                (307, "/api/auth/token", None),
+            ]
+
+            # The call after the exchange goes through the SDK's own transport,
+            # which imports requests. Where that is missing, the token the
+            # client holds shows the exchange was answered.
+            try:
+                import requests  # noqa: F401
+                transport = True
+            except ImportError:
+                transport = False
+
+            wrong = []
+            followed = refused = looped = 0
+
+            for status, location, path in cases:
+                o["answer"][:] = [status, location]
+                o["followed"].clear()
+                o["exchanged"][0] = 0
+
+                sdk = _redirect_sdk(o, {"redirect": "same-origin"})
+                res = sdk.direct({"path": "/thing"})
+                err = res.get("err") if isinstance(res, dict) else None
+                message = str(res if err is None else err)
+                seen = "%d to %s: %s %s" % (status, location, message, o["followed"])
+
+                if path is not None:
+                    first = o["followed"][0] if o["followed"] else None
+                    called = (isinstance(res, dict) and res.get("ok") is True
+                              and 2 == len(o["followed"]))
+                    if (first is not None
+                            and ("POST", path) == first[:2]
+                            and {"refresh_token": "REFRESH01"} == json.loads(first[2])
+                            and "MOVED01" == sdk.options.get("apikey")
+                            and (called or (not transport and 1 == len(o["followed"])))):
+                        followed += 1
+                    else:
+                        wrong.append(seen)
+                elif 0 == len(o["followed"]) and (
+                        "token exchange failed: %d from %s/auth/token"
+                        % (status, o["base"])) in message:
+                    refused += 1
+                else:
+                    wrong.append(seen)
+
+                if "/api/auth/token" == location:
+                    looped = o["exchanged"][0]
+
+            print("secrets: exchange opt-in followed %d redirect(s) on its own "
+                  "origin, refused %d, %d elsewhere"
+                  % (followed, refused, len(o["elsewhere"])))
+
+            self.assertEqual([], o["elsewhere"], "the exchange reached another origin")
+            self.assertEqual([], wrong)
+            self.assertEqual(3, followed)
+            self.assertEqual(3, refused)
+            # A redirect to itself is followed five times and no more.
+            self.assertEqual(6, looped)
+
+    def test_a_token_bought_on_a_refusal_is_placed_as_prepare_auth_places_it(self):
+        os.environ[ENVPREFIX + "REFRESH_TOKEN"] = "REFRESH01"
+        try:
+            stub = StubFetch([401, 200])
+            sdk = secrets_sdk({
+                "base": "http://exchange.test/api",
+                "secret": "PASS01",
+                "system": {"fetch": stub},
+                "feature": {"secrets": {
+                    "active": True,
+                    "name": "refresh_token",
+                    "providers": [{"kind": "env", "prefix": ENVPREFIX}],
+                    "exchange": {"active": True},
+                }},
+            })
+
+            sdk.direct({"path": "/thing"})
+
+            api = stub.api()
+            self.assertEqual(2, len(api), "expected the request to be retried")
+            self.assertEqual(credential("ACCESS01", "PASS01"), api[0]["headers"].get(CREDHEADER))
+            self.assertEqual(credential("ACCESS02", "PASS01"), api[1]["headers"].get(CREDHEADER))
+        finally:
+            os.environ.pop(ENVPREFIX + "REFRESH_TOKEN", None)
+
+    def test_a_supplied_fetch_is_asked_not_to_follow_the_exchange(self):
+        calls = []
+
+        def fetch(url, fetchdef):
+            calls.append({"url": url, "fetchdef": dict(fetchdef)})
+            return {"status": 307, "statusText": "Temporary Redirect",
+                    "headers": {"location": "http://other.test/api/auth/token"},
+                    "json": lambda: {}, "body": ""}, None
+
+        sdk = secrets_sdk({
+            "base": "http://exchange.test/api",
+            "system": {"fetch": fetch},
+            "feature": {"secrets": {
+                "active": True,
+                "name": "refresh_token",
+                "exchange": {"active": True, "refresh": "REFRESH01"},
+            }},
+        })
+
+        res = sdk.direct({"path": "/thing"})
+        err = res.get("err") if isinstance(res, dict) else None
+
+        self.assertEqual(1, len(calls), "a redirect was followed through system.fetch")
+        self.assertEqual("http://exchange.test/api/auth/token", calls[0]["url"])
+        self.assertEqual("manual", calls[0]["fetchdef"].get("redirect"))
+        self.assertIn(
+            "token exchange failed: 307 from http://exchange.test/api/auth/token",
+            str(err))
+
     def test_uncached_miss_retracts_the_credential(self):
         # `cache: False` re-asks the chain per operation; when a provider
         # that answered once reports a MISS (a revoked secret), the value
@@ -458,8 +748,75 @@ class TestSecretsReviewPins(unittest.TestCase):
         return transport.calls[-1]["fetchdef"].get("headers") or {}
 
     def assert_credential(self, headers, token):
-        got = str(headers.get(CREDHEADER) or "")
-        self.assertTrue(
-            got == token or got.endswith(" " + token),
-            "expected the %s header to carry %s, got: %r"
-            % (CREDHEADER, token, got))
+        self.assertEqual(credential(token), headers.get(CREDHEADER),
+                         "expected the %s header to carry %s" % (CREDHEADER, token))
+
+
+# Off by the config where it declares no auth, else by `auth: None`: either
+# way the feature places no credential, buys no token and retries nothing.
+AUTHOFF = ("config", {}) if NOAUTH else ("option", {"auth": None})
+
+
+class TestSecretsAuthOff(unittest.TestCase):
+
+    SECRETS = ["OFFKEY01", "OFFKEY02", "OFFREFRESH01", "ACCESS01"]
+    sent = []
+    bought = 0
+
+    def setUp(self):
+        os.environ.pop(ENVPREFIX + "APIKEY", None)
+        os.environ.pop(ENVPREFIX + "REFRESH_TOKEN", None)
+
+    tearDown = setUp
+
+    @classmethod
+    def tearDownClass(cls):
+        print("secrets: auth off by %s: %d request(s), %d credential(s), %d token(s)"
+              % (AUTHOFF[0], len(cls.sent),
+                 len([c for c in cls.sent if cls.carries(c)]), cls.bought))
+
+    @classmethod
+    def carries(cls, call):
+        """The header prepare_auth writes, or any header holding a secret."""
+        headers = call["headers"]
+        return CREDHEADER in headers or any(
+            secret in str(value) for value in headers.values() for secret in cls.SECRETS)
+
+    def _offsdk(self, stub, sdkopts, fopts):
+        opts = {"base": "http://authoff.test/api", "system": {"fetch": stub}}
+        opts.update(sdkopts)
+        opts.update(AUTHOFF[1])
+        secrets = {"active": True, "providers": [{"kind": "env", "prefix": ENVPREFIX}]}
+        secrets.update(fopts)
+        opts["feature"] = {"secrets": secrets}
+        sdk = secrets_sdk(opts)
+        sdk.direct({"path": "/thing"})
+        TestSecretsAuthOff.sent.extend(stub.api())
+        TestSecretsAuthOff.bought += len(stub.token())
+        return sdk
+
+    def test_a_key_the_chain_resolves_is_not_placed(self):
+        os.environ[ENVPREFIX + "APIKEY"] = "OFFKEY01"
+        stub = StubFetch()
+        sdk = self._offsdk(stub, {}, {})
+
+        self.assertEqual(1, len(stub.api()))
+        self.assertFalse(self.carries(stub.api()[0]), "a credential was sent with auth off")
+        self.assertEqual("", sdk.options.get("apikey"),
+                         "the resolved key was placed where prepare_auth reads it")
+
+    def test_an_explicit_apikey_is_not_placed(self):
+        stub = StubFetch()
+        self._offsdk(stub, {"apikey": "OFFKEY02"}, {})
+
+        self.assertEqual(1, len(stub.api()))
+        self.assertFalse(self.carries(stub.api()[0]), "a credential was sent with auth off")
+
+    def test_a_refusal_buys_no_token_and_is_not_retried(self):
+        os.environ[ENVPREFIX + "REFRESH_TOKEN"] = "OFFREFRESH01"
+        stub = StubFetch([401])
+        self._offsdk(stub, {}, {"name": "refresh_token", "exchange": {"active": True}})
+
+        self.assertEqual(0, len(stub.token()), "a token was bought with auth off")
+        self.assertEqual(1, len(stub.api()), "a refusal was retried with auth off")
+        self.assertFalse(self.carries(stub.api()[0]), "a credential was sent with auth off")
