@@ -114,7 +114,7 @@ Choose the language already used by your application or service. The clients rep
 | Client | Repository directory | Distribution |
 | --- | --- | --- |
 | Bash | `bash/` | Build from source |
-| Golang | `go/` | Build from source |
+| Go | `go/` | Build from source |
 | Java | `java/` | Build from source |
 | Python | `py/` | Build from source |
 | TypeScript | `ts/` | Build from source |

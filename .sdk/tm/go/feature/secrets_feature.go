@@ -1,10 +1,12 @@
 package feature
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +23,8 @@ type SecretsFeature struct {
 	options map[string]any
 
 	liveopts map[string]any
+	declared bool
+	basic    bool
 
 	secretname string
 	cache      bool
@@ -44,6 +48,7 @@ type secretsExchange struct {
 	response string
 	statuses []int
 	retries  int
+	redirect string
 }
 
 type secretsCall struct {
@@ -81,6 +86,12 @@ func (f *SecretsFeature) Init(ctx *core.Context, options map[string]any) {
 	f.liveopts = ctx.Options
 	f.Active = foptBool(options, "active", false)
 
+	// PrepareAuth's generation inputs: auth where it places, Basic where it composes.
+	configopts, _ := ctx.Config["options"].(map[string]any)
+	declared, _ := configopts["auth"].(map[string]any)
+	f.declared = nil != declared
+	f.basic, _ = declared["basic"].(bool)
+
 	if !f.Active {
 		return
 	}
@@ -107,6 +118,10 @@ func (f *SecretsFeature) Init(ctx *core.Context, options map[string]any) {
 			response: foptStr(xopts, "response", "access_token"),
 			statuses: statuses,
 			retries:  foptInt(xopts, "retries", 1),
+			redirect: "refuse",
+		}
+		if "same-origin" == foptStr(xopts, "redirect", "refuse") {
+			f.exchange.redirect = "same-origin"
 		}
 	}
 
@@ -184,6 +199,11 @@ func (f *SecretsFeature) Init(ctx *core.Context, options map[string]any) {
 	}
 }
 
+// authon is PrepareAuth's decision: declared auth, not suppressed by `auth: nil`.
+func (f *SecretsFeature) authon() bool {
+	return f.declared && nil != f.liveopts["auth"]
+}
+
 // Every value this feature resolves or buys is a secret the SDK handles,
 // and none arrives under an option key the intake registration saw.
 func (f *SecretsFeature) register(value string) {
@@ -228,7 +248,7 @@ func (f *SecretsFeature) resolve() error {
 // That bool is the whole of what resolve() needs to tell a cacheable HIT
 // from a miss it must not retain.
 func (f *SecretsFeature) resolveonce() (bool, error) {
-	if nil == f.sek {
+	if nil == f.sek || !f.authon() {
 		return false, nil
 	}
 
@@ -273,10 +293,6 @@ func (f *SecretsFeature) resolveonce() (bool, error) {
 		return true, nil
 	}
 
-	if nil == f.liveopts["auth"] {
-		return false, nil
-	}
-
 	_, err = f.buy()
 	return nil == err, err
 }
@@ -310,7 +326,7 @@ func (f *SecretsFeature) transport(ctx *core.Context, url string,
 func (f *SecretsFeature) withrefresh(ctx *core.Context, url string,
 	fetchdef map[string]any, inner core.FetcherFunc) (any, error) {
 
-	if nil == f.liveopts["auth"] {
+	if !f.authon() {
 		return inner(ctx, url, fetchdef)
 	}
 
@@ -386,9 +402,8 @@ func (f *SecretsFeature) reauth(fetchdef map[string]any, token string) {
 		return
 	}
 
-	rawauth := f.liveopts["auth"]
-	auth, _ := rawauth.(map[string]any)
-	if nil == rawauth || nil == auth {
+	auth, _ := f.liveopts["auth"].(map[string]any)
+	if !f.authon() || nil == auth {
 		delete(headers, "authorization")
 		return
 	}
@@ -400,12 +415,25 @@ func (f *SecretsFeature) reauth(fetchdef map[string]any, token string) {
 	}
 	name = strings.ToLower(name)
 
+	value := token
+	if basic, _ := auth["basic"].(bool); f.basic && basic {
+		value = f.pair(token)
+	}
+
 	prefix, _ := auth["prefix"].(string)
 	if "" == prefix {
-		headers[name] = token
+		headers[name] = value
 	} else {
-		headers[name] = prefix + " " + token
+		headers[name] = prefix + " " + value
 	}
+}
+
+// pair is prepareAuth's Basic pair, with the token as its key half.
+func (f *SecretsFeature) pair(token string) string {
+	secret, _ := f.liveopts["secret"].(string)
+	pair := base64.StdEncoding.EncodeToString([]byte(token + ":" + secret))
+	f.register(pair)
+	return pair
 }
 
 // buy an access token with the refresh token. Concurrent callers share the
@@ -476,13 +504,31 @@ func (f *SecretsFeature) buyonce() (string, error) {
 		return "", err
 	}
 
-	res, err := fetch(url, map[string]any{
+	fetchdef := map[string]any{
 		"method":  x.method,
 		"headers": map[string]any{"content-type": "application/json"},
 		"body":    string(bodybytes),
-	})
+		// Never followed by the client: a redirect would carry the refresh token on.
+		"redirect": "manual",
+	}
+
+	res, err := fetch(url, fetchdef)
 	if nil != err {
 		return "", err
+	}
+
+	// By option alone, and only while the exchange stays on its own origin.
+	at := url
+	for hops := 0; "same-origin" == x.redirect && hops < secretsRedirectMax; hops++ {
+		next := secretsMoved(url, at, res)
+		if "" == next {
+			break
+		}
+		at = next
+		res, err = fetch(at, fetchdef)
+		if nil != err {
+			return "", err
+		}
 	}
 
 	status := core.ToInt(res["status"])
@@ -513,6 +559,51 @@ func (f *SecretsFeature) buyonce() (string, error) {
 	return token, nil
 }
 
+const secretsRedirectMax = 5
+
+// secretsMoved says where a body-keeping redirect points, when that is on
+// the exchange's own origin. Any other redirect would drop the body or leave it.
+func secretsMoved(url string, at string, res map[string]any) string {
+	status := core.ToInt(res["status"])
+	if 307 != status && 308 != status {
+		return ""
+	}
+
+	headers, _ := res["headers"].(map[string]any)
+	location, _ := headers["location"].(string)
+	if "" == location {
+		return ""
+	}
+
+	from, err := neturl.Parse(at)
+	if nil != err {
+		return ""
+	}
+	loc, err := neturl.Parse(location)
+	if nil != err {
+		return ""
+	}
+	own, err := neturl.Parse(url)
+	if nil != err {
+		return ""
+	}
+
+	next := from.ResolveReference(loc)
+	if secretsOrigin(next) != secretsOrigin(own) {
+		return ""
+	}
+	return next.String()
+}
+
+func secretsOrigin(u *neturl.URL) string {
+	scheme := strings.ToLower(u.Scheme)
+	port := u.Port()
+	if "" == port {
+		port = map[string]string{"http": "80", "https": "443"}[scheme]
+	}
+	return scheme + "://" + strings.ToLower(u.Hostname()) + ":" + port
+}
+
 // rawExchangeFetch is the token-exchange transport of last resort: plain
 // net/http, same result shape the system.fetch seam promises ("status" +
 // "json"). It exists so an exchange works with ordinary SDK options -
@@ -541,7 +632,12 @@ func rawExchangeFetch(fullurl string, fetchdef map[string]any) (map[string]any, 
 		}
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	res, err := client.Do(req)
 	if nil != err {
 		return nil, err
@@ -553,8 +649,14 @@ func rawExchangeFetch(fullurl string, fetchdef map[string]any) (map[string]any, 
 		return nil, err
 	}
 
+	headers := map[string]any{}
+	for k := range res.Header {
+		headers[strings.ToLower(k)] = res.Header.Get(k)
+	}
+
 	return map[string]any{
-		"status": res.StatusCode,
+		"status":  res.StatusCode,
+		"headers": headers,
 		"json": func() any {
 			var out any
 			if nil != json.Unmarshal(raw, &out) {

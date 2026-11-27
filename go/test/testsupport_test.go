@@ -17,6 +17,16 @@ import (
 	sdk "github.com/voxgig-sdk/voxgig-elementdemo-sdk/go"
 )
 
+// newClient builds a client, and stops the run where construction refuses one,
+// as it does a live client whose server variable the environment leaves unset.
+func newClient(opts map[string]any) *sdk.ElementdemoSDK {
+	client, err := sdk.NewElementdemoSDK(opts)
+	if err != nil {
+		panic(err)
+	}
+	return client
+}
+
 var envLocalOnce sync.Once
 
 func loadEnvLocal() {
@@ -243,7 +253,7 @@ func getSpec(spec map[string]any, keys ...string) map[string]any {
 
 // entityData extracts the data map from an op result.
 //
-// Every entity operation resolves to the ENTITY (see AGENTS.md), so a flow
+// Every entity operation resolves to the ENTITY, so a flow
 // test that wants the record takes this hop. A plain map passes through
 // unchanged, so this is safe for the direct/prepare results too.
 func entityData(v any) any {

@@ -41,7 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,10 +52,14 @@ import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import JAVAPACKAGE.core.Config;
 import JAVAPACKAGE.core.Feature;
+import JAVAPACKAGE.core.Helpers;
 import JAVAPACKAGE.core.ElementdemoSDK;
 import JAVAPACKAGE.core.SdkEntity;
 import JAVAPACKAGE.feature.SecretsFeature;
@@ -77,6 +83,19 @@ public class SecretsFeatureTest {
         ? ((String) name).toLowerCase(java.util.Locale.ROOT) : "authorization";
   }
 
+  // The form prepareAuth writes, from the DEFAULT client's auth: under Basic
+  // the token is the key half of the encoded pair, and a prefix is
+  // space-joined.
+  static final Map<String, Object> CREDFORM = credform();
+
+  static Map<String, Object> credform() {
+    Object auth = ElementdemoSDK.testSDK(null, null).optionsMap().get("auth");
+    Map<String, Object> am = auth instanceof Map ? (Map<String, Object>) auth : Map.of();
+    Object prefix = am.get("prefix");
+    return Map.of("prefix", prefix instanceof String ? prefix : "",
+        "basic", Boolean.TRUE.equals(am.get("basic")));
+  }
+
   // ------------------------------------------------------------------
   // The recording transport: system.fetch for a LIVE client, scripting one
   // status per API call (the last repeating) and a token endpoint for the
@@ -86,13 +105,17 @@ public class SecretsFeatureTest {
     final String url;
     final String auth;
     final boolean has;
+    final String values;
     final String body;
+    final Object redirect;
 
-    Call(String url, String auth, boolean has, String body) {
+    Call(String url, String auth, boolean has, String values, String body, Object redirect) {
       this.url = url;
       this.auth = auth;
       this.has = has;
+      this.values = values;
       this.body = body;
+      this.redirect = redirect;
     }
   }
 
@@ -109,6 +132,7 @@ public class SecretsFeatureTest {
     public synchronized Object apply(String url, Map<String, Object> fetchdef) {
       String auth = "";
       boolean has = false;
+      List<String> values = new ArrayList<>();
       Object headers = fetchdef == null ? null : fetchdef.get("headers");
       if (headers instanceof Map) {
         Map<String, Object> hm = (Map<String, Object>) headers;
@@ -117,9 +141,14 @@ public class SecretsFeatureTest {
           Object v = hm.get(CREDHEADER);
           auth = v instanceof String ? (String) v : "";
         }
+        for (Object v : hm.values()) {
+          values.add(String.valueOf(v));
+        }
       }
       Object bodyRaw = fetchdef == null ? null : fetchdef.get("body");
-      calls.add(new Call(url, auth, has, bodyRaw instanceof String ? (String) bodyRaw : ""));
+      calls.add(new Call(url, auth, has, String.join("\n", values),
+          bodyRaw instanceof String ? (String) bodyRaw : "",
+          fetchdef == null ? null : fetchdef.get("redirect")));
 
       if (url.endsWith("/" + tokenpath)) {
         String token = tokens.get(Math.min(issued, tokens.size() - 1));
@@ -185,16 +214,22 @@ public class SecretsFeatureTest {
   // ------------------------------------------------------------------
   // Support.
 
-  // The credential header carries the SPEC's credential prefix, which a
-  // TEMPLATE cannot know: an OpenAPI `http`/`bearer` scheme gives
-  // `Bearer <token>`, an apiKey scheme the raw token. So assert on the
-  // CREDENTIAL and let the prefix be whatever this SDK's API declares -
-  // pinning the whole header value passes only for a prefix-less API, and
-  // this file ships to every project that selects the feature.
+  // The header value prepareAuth writes for a token.
+  static String credential(String token, String secret) {
+    String value = Boolean.TRUE.equals(CREDFORM.get("basic"))
+        ? Base64.getEncoder().encodeToString((token + ":" + secret).getBytes(StandardCharsets.UTF_8))
+        : token;
+    String prefix = (String) CREDFORM.get("prefix");
+    return "".equals(prefix) ? value : prefix + " " + value;
+  }
+
   static void credentialIs(String header, String token) {
-    String got = header == null ? "" : header;
-    assertTrue(got.equals(token) || got.endsWith(" " + token),
-        "expected the " + CREDHEADER + " header to carry " + token + ", got: \"" + got + "\"");
+    credentialIs(header, token, "");
+  }
+
+  static void credentialIs(String header, String token, String secret) {
+    assertEquals(credential(token, secret), header,
+        "expected the " + CREDHEADER + " header to carry " + token);
   }
 
   static Map<String, Object> map(Object... kv) {
@@ -372,6 +407,19 @@ public class SecretsFeatureTest {
     return map("kind", "memory", "name", name, "values", map(key, value));
   }
 
+  // Read from the config, never from a probe: an SDK whose config declares no
+  // auth places no credential, and these tests assert on the one it places.
+  // The auth-off test asserts it places none.
+  @BeforeEach
+  public void placesCredential(TestInfo test) {
+    if (test.getTestMethod().map(m -> m.getName().startsWith("authOff_")).orElse(false)) {
+      return;
+    }
+    Map<String, Object> options = Helpers.toMapAny(Config.sharedConfig().get("options"));
+    Assumptions.assumeTrue(null != options && options.containsKey("auth"),
+        "this SDK's config declares no auth, so it places no credential");
+  }
+
   // ------------------------------------------------------------------
   // The feature-inactive baseline: bit-identical behaviour.
 
@@ -442,6 +490,17 @@ public class SecretsFeatureTest {
     assertEquals("CHAINKEY02", requireFeature(client).credential());
     assertEquals("", client.optionsMap().get("apikey"),
         "the shared options map must stay unwritten");
+  }
+
+  @Test
+  public void active_aResolvedKeyIsPlacedAsPrepareAuthPlacesItTheSecretKept() {
+    Wire wire = new Wire();
+    Map<String, Object> opts = secretsOpts(List.of(memoryStore("envlike", "APIKEY", "ENVKEY04")));
+    opts.put("secret", "PASS01");
+    ElementdemoSDK client = liveClient(wire, opts);
+
+    driveEntityOp(client, wire);
+    credentialIs(wire.api().get(0).auth, "ENVKEY04", "PASS01");
   }
 
   @Test
@@ -967,6 +1026,8 @@ public class SecretsFeatureTest {
         "the refresh token is sent in the request body, got: " + wire.token().get(0).body);
     assertTrue(wire.token().get(0).body.startsWith("{"),
         "the token request body must be JSON, got: " + wire.token().get(0).body);
+    assertEquals("manual", wire.token().get(0).redirect,
+        "the exchange must ask its transport to follow no redirect");
 
     assertEquals(2, wire.api().size(), "expected the request to be retried exactly once");
     credentialIs(wire.api().get(0).auth, "ACCESS01");
@@ -975,6 +1036,21 @@ public class SecretsFeatureTest {
 
     assertTrue(Boolean.TRUE.equals(res.get("ok")),
         "the caller sees the successful retry: " + res.get("err"));
+  }
+
+  @Test
+  public void exchange_aTokenBoughtOnARefusalIsPlacedAsPrepareAuthPlacesIt() {
+    Wire wire = new Wire();
+    wire.apistatus = new ArrayList<>(List.of(401, 200));
+    Map<String, Object> opts = exchangeOpts();
+    opts.put("secret", "PASS01");
+    ElementdemoSDK client = liveClient(wire, opts);
+
+    client.direct(map("path", "/thing"));
+
+    assertEquals(2, wire.api().size(), "expected the request to be retried exactly once");
+    credentialIs(wire.api().get(0).auth, "ACCESS01", "PASS01");
+    credentialIs(wire.api().get(1).auth, "ACCESS02", "PASS01");
   }
 
   @Test
@@ -1058,5 +1134,252 @@ public class SecretsFeatureTest {
     assertEquals(0, wire.calls.size(), "test mode must not do IO");
     // A deterministic placeholder, so offline suites need no configuration.
     assertEquals("test-access_token", requireFeature(client).credential());
+  }
+
+  // Two real listeners and the feature's own HTTP client: a stub follows
+  // nothing. The origin answers the exchange as `answer` says and records
+  // what else it gets.
+  private static final class Origins {
+    final List<String> elsewhere = Collections.synchronizedList(new ArrayList<>());
+    final List<String> followed = Collections.synchronizedList(new ArrayList<>());
+    final java.util.concurrent.atomic.AtomicInteger exchanged =
+        new java.util.concurrent.atomic.AtomicInteger();
+    volatile Object[] answer = new Object[] {307, ""};
+    String origin;
+    String base;
+    String away;
+  }
+
+  private interface OriginsRun {
+    void run(Origins o) throws Exception;
+  }
+
+  private static void withOrigins(OriginsRun run) throws Exception {
+    Origins o = new Origins();
+
+    com.sun.net.httpserver.HttpServer other = com.sun.net.httpserver.HttpServer.create(
+        new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    other.createContext("/", (ex) -> {
+      String body = new String(ex.getRequestBody().readAllBytes(),
+          java.nio.charset.StandardCharsets.UTF_8);
+      o.elsewhere.add(ex.getRequestMethod() + " " + ex.getRequestURI().getRawPath() + " " + body);
+      byte[] out = "{\"access_token\":\"ELSEWHERE01\"}".getBytes();
+      ex.getResponseHeaders().set("Content-Type", "application/json");
+      ex.sendResponseHeaders(200, out.length);
+      ex.getResponseBody().write(out);
+      ex.close();
+    });
+    com.sun.net.httpserver.HttpServer origin = com.sun.net.httpserver.HttpServer.create(
+        new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    origin.createContext("/", (ex) -> {
+      String body = new String(ex.getRequestBody().readAllBytes(),
+          java.nio.charset.StandardCharsets.UTF_8);
+      String query = ex.getRequestURI().getRawQuery();
+      String path = ex.getRequestURI().getRawPath() + (query == null ? "" : "?" + query);
+      if ("/api/auth/token".equals(path)) {
+        o.exchanged.incrementAndGet();
+        Object[] answer = o.answer;
+        ex.getResponseHeaders().set("Location", (String) answer[1]);
+        ex.sendResponseHeaders((int) answer[0], -1);
+        ex.close();
+        return;
+      }
+      o.followed.add((ex.getRequestMethod() + " " + path + " " + body).trim());
+      byte[] out = "{\"access_token\":\"MOVED01\"}".getBytes();
+      ex.getResponseHeaders().set("Content-Type", "application/json");
+      ex.sendResponseHeaders(200, out.length);
+      ex.getResponseBody().write(out);
+      ex.close();
+    });
+    other.start();
+    origin.start();
+
+    o.origin = "http://127.0.0.1:" + origin.getAddress().getPort();
+    o.base = o.origin + "/api";
+    o.away = "http://127.0.0.1:" + other.getAddress().getPort() + "/api/auth/token";
+
+    try {
+      run.run(o);
+    }
+    finally {
+      origin.stop(0);
+      other.stop(0);
+    }
+  }
+
+  private static ElementdemoSDK redirectClient(Origins o, Map<String, Object> exchange) {
+    Map<String, Object> x = map("active", true, "refresh", "REFRESH01");
+    if (exchange != null) {
+      x.putAll(exchange);
+    }
+    Map<String, Object> opts = map(
+        "base", o.base,
+        "allow", map("op", "direct,graphql,load,list"),
+        "feature", map("secrets", map(
+            "active", true,
+            "name", "refresh_token",
+            "exchange", x)));
+    return withSecrets(opts, ElementdemoSDK::new);
+  }
+
+  // The error message of a direct call, or the result when there is none.
+  private static String directMessage(Map<String, Object>[] out, ElementdemoSDK client) {
+    try {
+      Map<String, Object> res = client.direct(map("path", "/thing"));
+      out[0] = res;
+      Object err = res == null ? null : res.get("err");
+      return String.valueOf(err instanceof Throwable ? ((Throwable) err).getMessage() : res);
+    }
+    catch (RuntimeException e) {
+      return String.valueOf(e.getMessage());
+    }
+  }
+
+  @Test
+  public void exchange_aRedirectAnsweringTheExchangeIsAFailureAndNothingFollowsIt() throws Exception {
+    withOrigins((o) -> {
+      Object[][] answers = {{307, o.away}, {308, o.away}, {302, o.away}, {307, "/api/moved/token"}};
+      List<String> allowed = new ArrayList<>();
+      int refused = 0;
+
+      for (Object[] a : answers) {
+        o.answer = a;
+        String message = directMessage(new Map[1], redirectClient(o, null));
+
+        if (message.contains("token exchange failed: " + a[0] + " from " + o.base + "/auth/token")) {
+          refused++;
+        }
+        else {
+          allowed.add(a[0] + " to " + a[1] + ": " + message);
+        }
+      }
+
+      System.out.println("secrets: exchange refused " + refused + " redirect(s), "
+          + (o.elsewhere.size() + o.followed.size()) + " followed");
+
+      assertEquals(List.of(), o.elsewhere, "the exchange reached another origin");
+      assertEquals(List.of(), o.followed, "a request followed a refused exchange");
+      assertEquals(List.of(), allowed, "a redirect was not a failed exchange");
+      assertEquals(answers.length, refused);
+    });
+  }
+
+  @Test
+  public void exchange_withTheOptionARedirectOnTheExchangesOwnOriginIsFollowedAndNoOther() throws Exception {
+    withOrigins((o) -> {
+      String sent = " {\"refresh_token\":\"REFRESH01\"}";
+      // Each case: the status, the Location, and the path the exchange is
+      // asked again at, or null where the redirect is refused.
+      Object[][] cases = {
+        {307, "/api/moved/token", "/api/moved/token"},
+        {308, o.origin + "/api/moved/token", "/api/moved/token"},
+        // A Location of a query alone keeps the path that answered.
+        {307, "?step=2", "/api/auth/token?step=2"},
+        {307, o.away, null},
+        {302, "/api/moved/token", null},
+        {307, "/api/auth/token", null},
+      };
+
+      List<String> wrong = new ArrayList<>();
+      int followed = 0;
+      int refused = 0;
+      int looped = 0;
+
+      for (Object[] c : cases) {
+        o.answer = new Object[] {c[0], c[1]};
+        o.followed.clear();
+        o.exchanged.set(0);
+
+        Map<String, Object>[] out = new Map[1];
+        String message = directMessage(out,
+            redirectClient(o, map("redirect", "same-origin")));
+        String seen = c[0] + " to " + c[1] + ": " + message + " " + o.followed;
+
+        if (c[2] != null) {
+          if (out[0] != null && Boolean.TRUE.equals(out[0].get("ok"))
+              && 2 == o.followed.size() && ("POST " + c[2] + sent).equals(o.followed.get(0))) {
+            followed++;
+          }
+          else {
+            wrong.add(seen);
+          }
+        }
+        else if (o.followed.isEmpty() && message.contains(
+            "token exchange failed: " + c[0] + " from " + o.base + "/auth/token")) {
+          refused++;
+        }
+        else {
+          wrong.add(seen);
+        }
+
+        if ("/api/auth/token".equals(c[1])) {
+          looped = o.exchanged.get();
+        }
+      }
+
+      System.out.println("secrets: exchange opt-in followed " + followed
+          + " redirect(s) on its own origin, refused " + refused + ", "
+          + o.elsewhere.size() + " elsewhere");
+
+      assertEquals(List.of(), o.elsewhere, "the exchange reached another origin");
+      assertEquals(List.of(), wrong);
+      assertEquals(3, followed);
+      assertEquals(3, refused);
+      // A redirect to itself stops at the hop limit.
+      assertEquals(6, looped);
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Off by the config where it declares no auth, else by `auth: null`:
+  // either way the feature places no credential, buys no token and retries
+  // nothing.
+
+  @Test
+  public void authOff_placesNoCredentialAndBuysNoToken() {
+    Map<String, Object> options = Helpers.toMapAny(Config.sharedConfig().get("options"));
+    boolean declared = null != options && options.containsKey("auth");
+    List<String> secrets = List.of("OFFKEY01", "OFFKEY02", "OFFREFRESH01", "ACCESS01");
+    java.util.function.Predicate<Call> carries = (call) ->
+        call.has || secrets.stream().anyMatch(call.values::contains);
+    List<Call> sent = new ArrayList<>();
+    int bought = 0;
+
+    Object[][] scenarios = {
+      {"a key the chain resolves", map(), secretsOpts(List.of(
+          memoryStore("envlike", "APIKEY", "OFFKEY01"))), List.of(200)},
+      {"an explicit apikey", map("apikey", "OFFKEY02"), secretsOpts(List.of()), List.of(200)},
+      {"a refusal", map(), secretsOpts(List.of(
+          memoryStore("envlike", "REFRESH_TOKEN", "OFFREFRESH01")),
+          "name", "refresh_token", "exchange", map("active", true)), List.of(401)},
+    };
+
+    for (Object[] scenario : scenarios) {
+      String what = (String) scenario[0];
+      Wire wire = new Wire();
+      wire.apistatus = new ArrayList<>((List<Integer>) scenario[3]);
+      Map<String, Object> opts = new LinkedHashMap<>((Map<String, Object>) scenario[1]);
+      opts.putAll((Map<String, Object>) scenario[2]);
+      if (declared) {
+        opts.put("auth", null);
+      }
+      ElementdemoSDK client = liveClient(wire, opts);
+
+      client.direct(map("path", "/thing"));
+
+      assertEquals(1, wire.api().size(), what + ": a request was retried with auth off");
+      assertEquals(0, wire.token().size(), what + ": a token was bought with auth off");
+      assertFalse(carries.test(wire.api().get(0)),
+          what + ": a credential was sent with auth off: " + wire.leak());
+      assertEquals("", requireFeature(client).credential(),
+          what + ": the feature resolved a credential with auth off");
+
+      sent.addAll(wire.api());
+      bought += wire.token().size();
+    }
+
+    System.out.println("secrets: auth off by " + (declared ? "option" : "config") + ": "
+        + sent.size() + " request(s), " + sent.stream().filter(carries).count()
+        + " credential(s), " + bought + " token(s)");
   }
 }

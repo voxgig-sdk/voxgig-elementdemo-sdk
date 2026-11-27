@@ -1,8 +1,8 @@
-# Elementdemo Golang SDK
+# Elementdemo Go SDK
 
 
 
-The Golang SDK for the Elementdemo API — an entity-oriented client using standard Go conventions. No generics required; data flows as `map[string]any`.
+The Go SDK for the Elementdemo API — an entity-oriented client using standard Go conventions. No generics required; data flows as `map[string]any`.
 
 It exposes the API as capitalised, semantic **Entities** — e.g. `client.Element(nil)` — each with the same small set of operations (`List`, `Load`, `Create`, `Update`, `Remove`) instead of raw URL paths and query strings. You call meaning, not endpoints, which keeps the cognitive load low.
 
@@ -29,8 +29,7 @@ go mod edit -replace github.com/voxgig-sdk/voxgig-elementdemo-sdk/go=../voxgig-e
 
 ## Tutorial: your first API call
 
-This tutorial walks through creating a client, listing entities, and
-loading a specific record.
+This tutorial walks through creating a client, listing entities, and loading a specific record.
 
 ### Quickstart
 
@@ -50,12 +49,15 @@ import (
 )
 
 func main() {
-    client := sdk.NewElementdemoSDK(map[string]any{
+    client, err := sdk.NewElementdemoSDK(map[string]any{
         "apikey": os.Getenv("ELEMENTDEMO_APIKEY"),
-    "server": map[string]any{
-        "account_id": "<account_id>",
-    },
+        "server": map[string]any{
+            "account_id": "<account_id>",
+        },
     })
+    if err != nil {
+        panic(err)
+    }
 
     // List element records — the value is a []any of entities, one per record.
     elements, err := client.Element(nil).List(nil, nil)
@@ -115,9 +117,9 @@ _ = seriess
 
 ```go
 result, err := client.Direct(map[string]any{
-    "path":   "/api/resource/{id}",
+    "path":   "/element/{element_id}",
     "method": "GET",
-    "params": map[string]any{"id": "example_id"},
+    "params": map[string]any{"element_id": "example_id"},
 })
 if err != nil {
     // handle err
@@ -134,9 +136,9 @@ For endpoints not covered by entity methods:
 
 ```go
 result, err := client.Direct(map[string]any{
-    "path":   "/api/resource/{id}",
+    "path":   "/element/{element_id}",
     "method": "GET",
-    "params": map[string]any{"id": "example"},
+    "params": map[string]any{"element_id": "example"},
 })
 if err != nil {
     panic(err)
@@ -152,9 +154,9 @@ if result["ok"] == true {
 
 ```go
 fetchdef, err := client.Prepare(map[string]any{
-    "path":   "/api/resource/{id}",
-    "method": "DELETE",
-    "params": map[string]any{"id": "example"},
+    "path":   "/element/{element_id}",
+    "method": "GET",
+    "params": map[string]any{"element_id": "example"},
 })
 if err != nil {
     panic(err)
@@ -200,12 +202,15 @@ mockFetch := func(url string, init map[string]any) (map[string]any, error) {
     }, nil
 }
 
-client := sdk.NewElementdemoSDK(map[string]any{
+client, err := sdk.NewElementdemoSDK(map[string]any{
     "base": "http://localhost:8080",
     "system": map[string]any{
         "fetch": (func(string, map[string]any) (map[string]any, error))(mockFetch),
     },
 })
+if err != nil {
+    panic(err)
+}
 ```
 
 ### Run live tests
@@ -215,7 +220,12 @@ Create a `.env.local` file at the project root:
 ```
 ELEMENTDEMO_TEST_LIVE=TRUE
 ELEMENTDEMO_APIKEY=<your-key>
+ELEMENTDEMO_SERVER_ACCOUNT_ID=<account_id>
 ```
+
+Each entity's tests also read `ELEMENTDEMO_TEST_<ENTITY>_ENTID`, with the
+entity's name in capitals: a JSON object of the ids of existing records, for
+the tests that do not create their own.
 
 Then run:
 
@@ -229,20 +239,26 @@ cd go && go test ./test/...
 ### NewElementdemoSDK
 
 ```go
-func NewElementdemoSDK(options map[string]any) *ElementdemoSDK
+func NewElementdemoSDK(options map[string]any) (*ElementdemoSDK, error)
 ```
 
 Creates a new SDK client.
 
+Construction refuses `options["server"]` without a value for `account_id`:
+it returns a nil client and an error whose code is `server_var_required`
+and whose message names the variable.
+
 | Option | Type | Description |
 | --- | --- | --- |
+| `"server"` | `map[string]any` | **Required.** Values for the server-URL variables: `account_id`. The API base URL is a template over them. |
 | `"apikey"` | `string` | API key for authentication. |
 | `"base"` | `string` | Base URL of the API server. |
 | `"prefix"` | `string` | URL path prefix prepended to all requests. |
 | `"suffix"` | `string` | URL path suffix appended to all requests. |
+| `"headers"` | `map[string]any` | Headers sent with every request. |
 | `"feature"` | `map[string]any` | Feature activation flags. |
-| `"extend"` | `[]any` | Additional Feature instances to load. |
-| `"system"` | `map[string]any` | System overrides (e.g. custom `"fetch"` function). |
+| `"extend"` | `[]any` | Additional feature instances to load. |
+| `"system"` | `map[string]any` | System overrides, such as a custom fetch function. |
 
 ### TestSDK
 
@@ -320,9 +336,9 @@ Only `Direct()` returns a response envelope — a `map[string]any` with
 | `"series_id"` | Chemical series this element belongs to. |
 | `"symbol"` | Chemical symbol. |
 
-Operations: Create, List, Load, Remove, Update.
+Operations: List, Load, Create, Update, Remove.
 
-API path: `/element/{element_id}/ionize`
+API path: `/element`
 
 #### Group
 
@@ -352,9 +368,9 @@ API path: `/group`
 | `"product"` | Primary decay product isotope, absent for stable isotopes. |
 | `"stable"` | True if the isotope is stable. |
 
-Operations: Create, List, Load, Remove, Update.
+Operations: List, Load, Create, Update, Remove.
 
-API path: `/element/{element_id}/isotope/{isotope_id}/decay`
+API path: `/element/{element_id}/isotope`
 
 #### Series
 
@@ -606,12 +622,11 @@ for _, item := range seriess.([]any) {
 
 ## Features
 
-This SDK ships 10 optional features. Each is **inactive until you
-switch it on**, so an SDK you have not configured behaves exactly as if none of
-them existed — no retries, no cache, no logging, no measurable overhead.
+This SDK ships 10 optional features.
+Each is **inactive until you switch it on**, so an SDK you have not
+configured behaves exactly as if none of them existed, with no measurable overhead.
 
-Activate a feature by name in the client options, alongside the options shown
-above:
+Activate a feature by name in the `feature` client option:
 
 | Feature | What it does |
 |---|---|
@@ -736,7 +751,7 @@ Secrets.
 |---|---|
 | `active` | `false` |
 | `cache` | `true` |
-| `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
+| `exchange` | `{active: false, method: 'POST', path: 'auth/token', redirect: 'refuse', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
 | `name` | `'apikey'` |
 | `providers` | `[]` |
 
@@ -787,16 +802,12 @@ feature hook before executing:
 PrePoint → PreSpec → PreRequest → PreResponse → PreResult → PreDone
 ```
 
-- **PrePoint**: Resolves which API endpoint to call based on the
-  operation name and entity configuration.
-- **PreSpec**: Builds the HTTP spec — URL, method, headers, body —
-  from the resolved point and the caller's parameters.
-- **PreRequest**: Sends the HTTP request. Features can intercept here
-  to replace the transport (as TestFeature does with mocks).
+- **PrePoint**: Resolves which API endpoint to call based on the operation name and entity configuration.
+- **PreSpec**: Builds the HTTP spec — URL, method, headers, body — from the resolved point and the caller's parameters.
+- **PreRequest**: Sends the HTTP request. Features can intercept here to replace the transport.
 - **PreResponse**: Parses the raw HTTP response.
 - **PreResult**: Extracts the business data from the parsed response.
-- **PreDone**: Final stage before returning to the caller. Entity
-  state (match, data) is updated here.
+- **PreDone**: Final stage before returning to the caller. Entity state (match, data) is updated here.
 
 If any stage errors, the pipeline short-circuits and the error surfaces
 to the caller — see [Error handling](#error-handling) for how that looks
@@ -828,7 +839,9 @@ were added, so later features can override earlier ones.
 
 The Go SDK uses `map[string]any` throughout rather than typed structs.
 This mirrors the dynamic nature of the API and keeps the SDK
-flexible — no code generation is needed when the API schema changes.
+flexible: code that works with the maps needs no regeneration when the
+API schema changes. The typed models in `entity/types.go` follow the
+schema only when the SDK is regenerated.
 
 An operation returns the entity, and its `Data()` returns the record. Use
 `core.ToMapAny()` to safely cast that record, or data nested in it, to
@@ -841,7 +854,7 @@ github.com/voxgig-sdk/voxgig-elementdemo-sdk/go/
 ├── elementdemo.go        # Root package — type aliases and constructors
 ├── core/               # SDK core — client, types, pipeline
 ├── entity/             # Entity implementations
-├── feature/            # Built-in features (Base, Test, Log)
+├── feature/            # Feature implementations
 ├── utility/            # Utility functions and struct library
 └── test/               # Test suites
 ```
@@ -869,7 +882,8 @@ but no stored state.
 ### Direct vs entity access
 
 The entity interface handles URL construction, parameter placement,
-and response parsing automatically. Use it for standard CRUD operations.
+and response parsing automatically. Use it for the operations each
+entity declares.
 
 `Direct()` gives full control over the HTTP request. Use it for
 non-standard endpoints, bulk operations, or any path not modelled as

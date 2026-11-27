@@ -33,9 +33,9 @@ class ElementdemoEntityBase {
         const featureHook = this._utility.featureHook;
         featureHook(this._entctx, 'PostConstructEntity');
     }
-    // True once `remove` has succeeded on this instance. `remove` resolves to
-    // the entity like every other operation, so this is how a caller tells a
-    // removed record from a live one.
+    // True once a remove has marked this instance deleted. A remove resolves
+    // to the entity like every other operation, so this is how a caller tells
+    // a removed record from a live one.
     markDeleted() {
         this._deleted = true;
     }
@@ -88,13 +88,6 @@ class ElementdemoEntityBase {
             data: this._data,
             ...(args || {}),
         }, this._entctx);
-        // Outbound: expose the caller's async-iterable payload so the request
-        // builder / transport can stream it as the request body.
-        if (null != callopts.body) {
-            ;
-            ctx.reqdata = { ...(ctx.reqdata || {}), body$: callopts.body };
-            ctx.stream_out = callopts.body;
-        }
         try {
             const failed = await this._streamSteps(ctx);
             const result = ctx.result;

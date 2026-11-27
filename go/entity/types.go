@@ -16,12 +16,12 @@ import (
 type Element struct {
 }
 
-// ElementLoadMatch is the typed request payload for Element.LoadTyped.
+// ElementLoadMatch is the typed request payload for ElementEntity.LoadTyped.
 type ElementLoadMatch struct {
 	Id string `json:"id"`
 }
 
-// ElementListMatch is the typed request payload for Element.ListTyped.
+// ElementListMatch is the typed request payload for ElementEntity.ListTyped.
 type ElementListMatch struct {
 	Block *string `json:"block,omitempty"`
 	Discovered *int `json:"discovered,omitempty"`
@@ -36,7 +36,7 @@ type ElementListMatch struct {
 	Symbol *string `json:"symbol,omitempty"`
 }
 
-// ElementCreateData is the typed request payload for Element.CreateTyped.
+// ElementCreateData is the typed request payload for ElementEntity.CreateTyped.
 type ElementCreateData struct {
 	Block string `json:"block"`
 	Discovered *int `json:"discovered,omitempty"`
@@ -51,7 +51,7 @@ type ElementCreateData struct {
 	Symbol string `json:"symbol"`
 }
 
-// ElementUpdateData is the typed request payload for Element.UpdateTyped.
+// ElementUpdateData is the typed request payload for ElementEntity.UpdateTyped.
 type ElementUpdateData struct {
 	Id string `json:"id"`
 	Block *string `json:"block,omitempty"`
@@ -66,7 +66,7 @@ type ElementUpdateData struct {
 	Symbol *string `json:"symbol,omitempty"`
 }
 
-// ElementRemoveMatch is the typed request payload for Element.RemoveTyped.
+// ElementRemoveMatch is the typed request payload for ElementEntity.RemoveTyped.
 type ElementRemoveMatch struct {
 	Id string `json:"id"`
 }
@@ -75,12 +75,12 @@ type ElementRemoveMatch struct {
 type Group struct {
 }
 
-// GroupLoadMatch is the typed request payload for Group.LoadTyped.
+// GroupLoadMatch is the typed request payload for GroupEntity.LoadTyped.
 type GroupLoadMatch struct {
 	Id string `json:"id"`
 }
 
-// GroupListMatch is the typed request payload for Group.ListTyped.
+// GroupListMatch is the typed request payload for GroupEntity.ListTyped.
 type GroupListMatch struct {
 	Cas *string `json:"cas,omitempty"`
 	Id *string `json:"id,omitempty"`
@@ -92,18 +92,18 @@ type GroupListMatch struct {
 type Isotope struct {
 }
 
-// IsotopeLoadMatch is the typed request payload for Isotope.LoadTyped.
+// IsotopeLoadMatch is the typed request payload for IsotopeEntity.LoadTyped.
 type IsotopeLoadMatch struct {
 	ElementId string `json:"element_id"`
 	Id string `json:"id"`
 }
 
-// IsotopeListMatch is the typed request payload for Isotope.ListTyped.
+// IsotopeListMatch is the typed request payload for IsotopeEntity.ListTyped.
 type IsotopeListMatch struct {
 	ElementId string `json:"element_id"`
 }
 
-// IsotopeCreateData is the typed request payload for Isotope.CreateTyped.
+// IsotopeCreateData is the typed request payload for IsotopeEntity.CreateTyped.
 type IsotopeCreateData struct {
 	ElementId string `json:"element_id"`
 	Abundance *float64 `json:"abundance,omitempty"`
@@ -117,7 +117,7 @@ type IsotopeCreateData struct {
 	Stable bool `json:"stable"`
 }
 
-// IsotopeUpdateData is the typed request payload for Isotope.UpdateTyped.
+// IsotopeUpdateData is the typed request payload for IsotopeEntity.UpdateTyped.
 type IsotopeUpdateData struct {
 	ElementId string `json:"element_id"`
 	Id string `json:"id"`
@@ -131,7 +131,7 @@ type IsotopeUpdateData struct {
 	Stable *bool `json:"stable,omitempty"`
 }
 
-// IsotopeRemoveMatch is the typed request payload for Isotope.RemoveTyped.
+// IsotopeRemoveMatch is the typed request payload for IsotopeEntity.RemoveTyped.
 type IsotopeRemoveMatch struct {
 	ElementId string `json:"element_id"`
 	Id string `json:"id"`
@@ -141,12 +141,12 @@ type IsotopeRemoveMatch struct {
 type Series struct {
 }
 
-// SeriesLoadMatch is the typed request payload for Series.LoadTyped.
+// SeriesLoadMatch is the typed request payload for SeriesEntity.LoadTyped.
 type SeriesLoadMatch struct {
 	Id string `json:"id"`
 }
 
-// SeriesListMatch is the typed request payload for Series.ListTyped.
+// SeriesListMatch is the typed request payload for SeriesEntity.ListTyped.
 type SeriesListMatch struct {
 	Color *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
@@ -168,7 +168,7 @@ func asMap(v any) map[string]any {
 
 // entityData unwraps an entity to its data map.
 //
-// Operations resolve to the ENTITY, not the raw data (see AGENTS.md), and an
+// Operations resolve to the ENTITY, not the raw data, and an
 // entity's fields are UNEXPORTED — marshalling one directly yields `{}`, so
 // every typed accessor would silently hand back a zero-valued struct. The
 // typed boundary therefore takes the data hop first.

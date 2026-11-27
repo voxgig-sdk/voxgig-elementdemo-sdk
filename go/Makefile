@@ -11,9 +11,8 @@ clean:
 
 # --- Release: tag for the Go module proxy (pkg.go.dev) --------------------
 # Go modules have no registry upload — publishing a version means pushing the
-# tag go/vX.Y.Z (this module is the go/ subdir, and Go's submodule-tag
-# convention is <subdir>/vX.Y.Z), which the module proxy + pkg.go.dev pick up on
-# first fetch. Run headless under the boru key vault, which injects the GitHub
+# release tag (Go's convention for a module in a subdirectory is
+# <subdir>/vX.Y.Z), which the module proxy + pkg.go.dev pick up on first fetch. Run headless under the boru key vault, which injects the GitHub
 # token so nothing lands on disk or argv:
 #   boru vault exec --for=github=<alias> -- make publish
 # boru `--dry-run` injects a filler token we detect to rehearse (no tag/push).
@@ -34,6 +33,7 @@ publish:
 	  echo "[dry-run] boru filler token detected: would tag $(TAG) for pkg.go.dev; nothing pushed."; \
 	  exit 0; \
 	fi; \
+	if [ -z "$(TAG)" ]; then echo "No release tag: the model cuts none for this package."; exit 0; fi; \
 	git tag -a "$(TAG)" -m "go v$(VERSION)"; \
 	url=$$(git remote get-url origin | sed -E 's#^git@github.com:#https://github.com/#'); \
 	if [ -n "$$token" ] && printf '%s' "$$url" | grep -q '^https://github.com/'; then \

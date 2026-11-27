@@ -20,7 +20,7 @@ import {
 } from '../../utility'
 
 
-loadEnvLocal(__dirname + '/../../../.env.local')
+loadEnvLocal(__dirname + '/../../../../.env.local')
 
 
 describe('GroupDirect', async () => {

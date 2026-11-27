@@ -4,7 +4,7 @@
 
 The Java SDK for the Elementdemo API — an entity-oriented client following idiomatic Java conventions.
 
-The SDK exposes the API as capitalised, semantic **Entities** — for example `client.element(null)` — each
+The SDK exposes the API as semantic **Entities** — for example `client.element(null)` — each
 carrying a small, uniform set of operations (`list`, `load`, `create`, `update`, `remove`) instead of raw URL
 paths and query strings. You work with named resources and verbs, which
 keeps the cognitive load low.
@@ -25,8 +25,7 @@ cd java && mvn install
 
 ## Tutorial: your first API call
 
-This tutorial walks through creating a client, listing entities, and
-loading a specific record.
+This tutorial walks through creating a client, listing entities, and loading a specific record.
 
 ### 1. Create a client
 
@@ -92,30 +91,33 @@ client.element(null).remove(Map.of("id", "example_id"), null);
 
 ## Error handling
 
-Entity operations reject on failure, so wrap them in `try` / `catch`:
+Entity operations throw a `RuntimeException` on failure, so wrap them in
+`try` / `catch`:
 
-```ts
+```java
 try {
-  const seriess = await client.Series().list()
-  console.log(seriess.map((item) => item.data()))
-} catch (err) {
-  console.error('list failed:', err)
+    List<?> seriess = (List<?>) client.series(null).list(null, null);
+    for (Object item : seriess) {
+        System.out.println(((SdkEntity) item).data());
+    }
+}
+catch (RuntimeException err) {
+    System.out.println("list failed: " + err.getMessage());
 }
 ```
 
-The low-level `direct()` method does **not** throw — it returns the
-result envelope. Branch on `ok`; on failure `status` holds the HTTP status
-(for error responses) and `err` holds the error:
+`direct()` does **not** throw — it
+returns the result map. Branch on `ok`; on failure `status` holds the HTTP
+status (for error responses) and `err` holds a transport error:
 
-```ts
-const result = await client.direct({
-  path: '/api/resource/{id}',
-  method: 'GET',
-  params: { id: 'example_id' },
-})
+```java
+Map<String, Object> result = client.direct(Map.of(
+    "path", "/element/{element_id}",
+    "method", "GET",
+    "params", Map.of("element_id", "example_id")));
 
-if (!result.ok) {
-  console.error('request failed:', result.status, result.err)
+if (!Boolean.TRUE.equals(result.get("ok"))) {
+    System.out.println("request failed: " + result.get("status") + " " + result.get("err"));
 }
 ```
 
@@ -128,9 +130,9 @@ For endpoints not covered by entity methods:
 
 ```java
 Map<String, Object> result = client.direct(Map.of(
-    "path", "/api/resource/{id}",
+    "path", "/element/{element_id}",
     "method", "GET",
-    "params", Map.of("id", "example")));
+    "params", Map.of("element_id", "example")));
 
 if (Boolean.TRUE.equals(result.get("ok"))) {
     System.out.println(result.get("status"));  // 200
@@ -149,9 +151,9 @@ else {
 ```java
 // prepare() returns the fetch definition and raises on error.
 Map<String, Object> fetchdef = client.prepare(Map.of(
-    "path", "/api/resource/{id}",
-    "method", "DELETE",
-    "params", Map.of("id", "example")));
+    "path", "/element/{element_id}",
+    "method", "GET",
+    "params", Map.of("element_id", "example")));
 
 System.out.println(fetchdef.get("url"));
 System.out.println(fetchdef.get("method"));
@@ -201,7 +203,12 @@ Create a `.env.local` file at the project root:
 ```
 ELEMENTDEMO_TEST_LIVE=TRUE
 ELEMENTDEMO_APIKEY=<your-key>
+ELEMENTDEMO_SERVER_ACCOUNT_ID=<account_id>
 ```
+
+Each entity's tests also read `ELEMENTDEMO_TEST_<ENTITY>_ENTID`, with the
+entity's name in capitals: a JSON object of the ids of existing records, for
+the tests that do not create their own.
 
 Then run:
 
@@ -222,13 +229,15 @@ Creates a new SDK client. `options` is a `Map<String, Object>`.
 
 | Option | Type | Description |
 | --- | --- | --- |
+| `server` | `Map` | **Required.** Values for the server-URL variables: `account_id`. The API base URL is a template over them. |
 | `apikey` | `String` | API key for authentication. |
 | `base` | `String` | Base URL of the API server. |
 | `prefix` | `String` | URL path prefix prepended to all requests. |
 | `suffix` | `String` | URL path suffix appended to all requests. |
+| `headers` | `Map` | Headers sent with every request. |
 | `feature` | `Map` | Feature activation flags. |
-| `extend` | `List` | Additional Feature instances to load. |
-| `system` | `Map` | System overrides (e.g. custom `fetch` function). |
+| `extend` | `List` | Additional feature instances to load. |
+| `system` | `Map` | System overrides, such as a custom fetch function. |
 
 ### testSDK
 
@@ -253,7 +262,7 @@ Creates a test-mode client with mock transport. Both arguments may be `null`.
 
 ### Entity interface
 
-All entities share the same interface.
+Each entity has only the operations its model declares; see its section below.
 
 | Method | Signature | Description |
 | --- | --- | --- |
@@ -304,9 +313,9 @@ On error, `ok` is `false` and `err` contains the error value.
 | `series_id` | Chemical series this element belongs to. |
 | `symbol` | Chemical symbol. |
 
-Operations: create, list, load, remove, update.
+Operations: list, load, create, update, remove.
 
-API path: `/element/{element_id}/ionize`
+API path: `/element`
 
 #### Group
 
@@ -336,9 +345,9 @@ API path: `/group`
 | `product` | Primary decay product isotope, absent for stable isotopes. |
 | `stable` | True if the isotope is stable. |
 
-Operations: create, list, load, remove, update.
+Operations: list, load, create, update, remove.
 
-API path: `/element/{element_id}/isotope/{isotope_id}/decay`
+API path: `/element/{element_id}/isotope`
 
 #### Series
 
@@ -366,11 +375,11 @@ Create an instance: `SdkEntity element = client.element(null);`
 
 | Method | Description |
 | --- | --- |
-| `create(data, null)` | Create a new entity with the given data. |
 | `list(null, null)` | List entities, optionally matching the given criteria. |
 | `load(match, null)` | Load a single entity by match criteria. |
-| `remove(match, null)` | Remove the matching entity. |
+| `create(data, null)` | Create a new entity with the given data. |
 | `update(data, null)` | Update an existing entity. |
+| `remove(match, null)` | Remove the matching entity. |
 
 #### Fields
 
@@ -457,11 +466,11 @@ Create an instance: `SdkEntity isotope = client.isotope(null);`
 
 | Method | Description |
 | --- | --- |
-| `create(data, null)` | Create a new entity with the given data. |
 | `list(null, null)` | List entities, optionally matching the given criteria. |
 | `load(match, null)` | Load a single entity by match criteria. |
-| `remove(match, null)` | Remove the matching entity. |
+| `create(data, null)` | Create a new entity with the given data. |
 | `update(data, null)` | Update an existing entity. |
+| `remove(match, null)` | Remove the matching entity. |
 
 #### Fields
 
@@ -538,12 +547,11 @@ Object seriesList = client.series(null).list(null, null);
 
 ## Features
 
-This SDK ships 10 optional features. Each is **inactive until you
-switch it on**, so an SDK you have not configured behaves exactly as if none of
-them existed — no retries, no cache, no logging, no measurable overhead.
+This SDK ships 10 optional features.
+Each is **inactive until you switch it on**, so an SDK you have not
+configured behaves exactly as if none of them existed, with no measurable overhead.
 
-Activate a feature by name in the client options, alongside the options shown
-above:
+Activate a feature by name in the `feature` client option:
 
 | Feature | What it does |
 |---|---|
@@ -668,7 +676,7 @@ Secrets.
 |---|---|
 | `active` | `false` |
 | `cache` | `true` |
-| `exchange` | `{active: false, method: 'POST', path: 'auth/token', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
+| `exchange` | `{active: false, method: 'POST', path: 'auth/token', redirect: 'refuse', refresh: '', request: 'refresh_token', response: 'access_token', retries: 1, statuses: [401]}` |
 | `name` | `'apikey'` |
 | `providers` | `[]` |
 
@@ -719,16 +727,12 @@ feature hook before executing:
 PrePoint → PreSpec → PreRequest → PreResponse → PreResult → PreDone
 ```
 
-- **PrePoint**: Resolves which API endpoint to call based on the
-  operation name and entity configuration.
-- **PreSpec**: Builds the HTTP spec — URL, method, headers, body —
-  from the resolved point and the caller's parameters.
-- **PreRequest**: Sends the HTTP request. Features can intercept here
-  to replace the transport (as TestFeature does with mocks).
+- **PrePoint**: Resolves which API endpoint to call based on the operation name and entity configuration.
+- **PreSpec**: Builds the HTTP spec — URL, method, headers, body — from the resolved point and the caller's parameters.
+- **PreRequest**: Sends the HTTP request. Features can intercept here to replace the transport.
 - **PreResponse**: Parses the raw HTTP response.
 - **PreResult**: Extracts the business data from the parsed response.
-- **PreDone**: Final stage before returning to the caller. Entity
-  state (match, data) is updated here.
+- **PreDone**: Final stage before returning to the caller. Entity state (match, data) is updated here.
 
 If any stage errors, the pipeline short-circuits and the error surfaces
 to the caller — see [Error handling](#error-handling) for how that looks
@@ -736,9 +740,9 @@ in this language.
 
 ### Features and hooks
 
-Features are the extension mechanism. A feature is an object with a
-`hooks` map. Each hook key is a pipeline stage name, and the value is
-a function that receives the context.
+Features are the extension mechanism. A feature is a Java class extending `BaseFeature`
+with hook methods named after pipeline stages (e.g. `prePoint`,
+`preSpec`). Each method receives the context.
 
 The SDK ships with built-in features:
 
@@ -774,7 +778,7 @@ java/
 ├── pom.xml                     -- Maven project (compiles core/, utility/, feature/, entity/)
 ├── core/                       -- Main SDK client, config, entity base, error type
 ├── entity/                     -- Entity implementations
-├── feature/                    -- Built-in features (Base, Test, Log, ...)
+├── feature/                    -- Feature implementations
 ├── utility/                    -- Utility functions and the vendored struct library
 └── test/                       -- JUnit test suites
 ```
@@ -786,14 +790,13 @@ when needed.
 ### Entity state
 
 Entity instances are stateful. After a successful `list`, the entity
-stores the returned data and match criteria internally. Subsequent
-calls on the same instance can rely on this state.
+stores the returned data and match criteria internally.
 
-```ts
-const series = client.Series()
-await series.list()
+```java
+SdkEntity series = client.series(null);
+series.list(null, null);
 
-// series.data() now returns the series data from the last `list`
+// series.data() now returns the series data from the last list
 // series.match() returns the last match criteria
 ```
 
@@ -803,12 +806,13 @@ but no stored state.
 ### Direct vs entity access
 
 The entity interface handles URL construction, parameter placement,
-and response parsing automatically. Use it for standard CRUD operations.
+and response parsing automatically. Use it for the operations each
+entity declares.
 
-The `direct` method gives full control over the HTTP request. Use it
-for non-standard endpoints, bulk operations, or any path not modelled
-as an entity. The `prepare` method is useful for debugging — it
-shows exactly what `direct` would send.
+`direct()` gives full control over the HTTP request. Use it for
+non-standard endpoints, bulk operations, or any path not modelled as
+an entity. `prepare()` builds the request without sending it — useful
+for debugging or custom transport.
 
 
 ## Full Reference

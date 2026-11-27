@@ -13,5 +13,6 @@ declare function cleanAdd(ctx: Context, value: any): void;
 declare function clean(ctx: Context, val: any): any;
 declare function setMessage(err: any, text: string): void;
 declare function cleanKey(ctx: Context, key: any): boolean;
+declare function cleanSecret(ctx: Context, key: any, value: any): boolean;
 declare function cleanAddSensitive(ctx: Context, val: any, under?: boolean, depth?: number, seen?: any[], parent?: string): void;
-export { clean, cleanAdd, cleanAddSensitive, cleanKey, makeCleanConfig, setMessage, splitvalues, };
+export { clean, cleanAdd, cleanAddSensitive, cleanKey, cleanSecret, makeCleanConfig, setMessage, splitvalues, };

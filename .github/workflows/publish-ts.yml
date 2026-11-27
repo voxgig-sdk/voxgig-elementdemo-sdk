@@ -18,9 +18,9 @@
 # THE FILENAME IS PART OF THAT CONFIGURATION. Renaming this file breaks
 # publishing until the npm side is updated to match.
 #
-# BY DISPATCH, deliberately. The deploy Makefile publishes with a
-# vault-injected token; a tag-triggered workflow racing it would publish one
-# version by two mechanisms. Releasing is an act someone performs and
+# BY DISPATCH, deliberately. While the registry is pending, the deploy
+# Makefile only cuts the git tag, and a tag-triggered workflow would turn
+# every tag it cuts into a publish. Releasing is an act someone performs and
 # watches.
 #
 # THREE JOBS, BECAUSE THEY NEED DIFFERENT PRIVILEGES. A dependency lifecycle

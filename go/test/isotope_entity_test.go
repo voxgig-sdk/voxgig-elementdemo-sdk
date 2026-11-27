@@ -379,7 +379,7 @@ func isotopeBasicSetup(extra map[string]any) *entityTestSetup {
 			},
 			extraOpts,
 		})
-		client = sdk.NewElementdemoSDK(core.ToMapAny(mergedOpts))
+		client = newClient(core.ToMapAny(mergedOpts))
 	}
 
 	live := env["ELEMENTDEMO_TEST_LIVE"] == "TRUE"

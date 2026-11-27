@@ -242,6 +242,22 @@ function skipWithout(name) {
                 await h.op({ op: 'load', path: '/a' }); // miss again
                 (0, node_assert_1.strictEqual)(rec.calls.length, 3);
             });
+            (0, node_test_1.test)('a body that declares another type than JSON passes by, unread', async () => {
+                const sent = [];
+                const rec = recordingServer((_n) => {
+                    const res = (0, harness_1.makeResponse)(200, undefined, { 'content-type': 'audio/wav' });
+                    res.text = async () => 'RIFF';
+                    sent.push(res);
+                    return res;
+                });
+                const h = (0, harness_1.makeClient)({ features: [{ name: 'cache' }], server: rec.server });
+                const a = await h.op({ op: 'load', path: '/w/1/audio' });
+                const b = await h.op({ op: 'load', path: '/w/1/audio' });
+                (0, node_assert_1.strictEqual)(rec.calls.length, 2, 'the body was stored');
+                (0, node_assert_1.strictEqual)(a.ctx.response, sent[0], 'the cache handed on a copy it had read');
+                (0, node_assert_1.strictEqual)(b.ctx.response, sent[1]);
+                (0, node_assert_1.strictEqual)(h.client._cache.bypass, 2);
+            });
         });
     // --- idempotency ----------------------------------------------------------
     if ((0, harness_1.hasFeature)('idempotency'))

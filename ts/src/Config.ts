@@ -183,6 +183,7 @@ class Config {
           "active": false,
           "method": "POST",
           "path": "auth/token",
+          "redirect": "refuse",
           "refresh": "",
           "request": "refresh_token",
           "response": "access_token",

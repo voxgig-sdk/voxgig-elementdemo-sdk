@@ -1,5 +1,8 @@
 declare const RAW_BODY = "$body";
 declare function isJsonMedia(type: any): boolean;
+declare function isTextMedia(type: any): boolean;
+declare function isBinaryResponse(point: any, type: any): boolean;
+declare function headerValue(headers: any, name: string): string;
 declare function acceptOf(point: any): string | undefined;
 declare function isRawRequest(point: any): boolean;
 declare function isJsonRequest(point: any): boolean;
@@ -8,4 +11,4 @@ declare function rawBody(reqdata: any): any;
 declare function isStream(value: any): boolean;
 declare function readStream(stream: any): Promise<Uint8Array>;
 declare function isRawValue(value: any): boolean;
-export { RAW_BODY, acceptOf, isJsonMedia, isJsonRequest, isRawRequest, isRawValue, isStream, mediaHeaders, rawBody, readStream, };
+export { RAW_BODY, acceptOf, headerValue, isBinaryResponse, isJsonMedia, isJsonRequest, isRawRequest, isRawValue, isStream, isTextMedia, mediaHeaders, rawBody, readStream, };

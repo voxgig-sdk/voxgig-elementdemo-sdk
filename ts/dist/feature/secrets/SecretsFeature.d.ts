@@ -5,6 +5,8 @@ declare class SecretsFeature extends BaseFeature {
     version: string;
     name: string;
     _client: any;
+    _declared: boolean;
+    _basic: boolean;
     _sekreto?: Sekreto;
     _secretname: string;
     _resolving?: Promise<void>;
@@ -14,6 +16,7 @@ declare class SecretsFeature extends BaseFeature {
     _buying?: Promise<string>;
     init(ctx: Context, fopts: FeatureOptions): void;
     sekreto(): any;
+    _authon(): boolean;
     _register(value: any): void;
     PreSpec(_ctx: Context): Promise<void>;
     resolve(): Promise<void>;
@@ -23,5 +26,6 @@ declare class SecretsFeature extends BaseFeature {
     _withRefresh(this: any, ctx: any, url: string, fetchdef: any, inner: any): Promise<any>;
     _spent(this: any, res: any): boolean;
     _reauth(this: any, fetchdef: any, token: string): void;
+    _pair(this: any, token: string): string;
 }
 export { SecretsFeature };

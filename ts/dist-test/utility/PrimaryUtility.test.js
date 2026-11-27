@@ -9,6 +9,7 @@ const node_assert_2 = __importDefault(require("node:assert"));
 const node_http_1 = __importDefault(require("node:http"));
 const omni_1 = require("../omni");
 const index_1 = require("./index");
+const __1 = require("../..");
 (0, node_test_1.describe)('PrimaryUtility', async () => {
     let spec;
     let runset;
@@ -111,7 +112,12 @@ const index_1 = require("./index");
         }
         return out;
     }
-    (0, node_test_1.test)('auth-basic', async () => {
+    // Read from the config, never from a probe: a probe that finds no
+    // credential is the regression this section exists to catch.
+    (0, node_test_1.test)('auth-basic', async (t) => {
+        if (null == __1.config.options?.auth) {
+            return t.skip("this SDK's config declares no auth, so it places no credential");
+        }
         const sdkopts = spec.prepareAuth?.DEF?.setup?.a || {};
         const authClient = index_1.SDK.test({}, sdkopts);
         const cred = credential();

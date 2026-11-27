@@ -3,7 +3,7 @@
 Idempotency (v0.0.1).
 
 A **feature** is a pipeline extension: an object of hooks that fire at named
-stages of every entity operation (load, list, create, update, patch, remove) and of
+stages of every entity operation (list, load, create, update, remove) and of
 the SDK/entity lifecycle. Features are how you inspect or modify the request
 pipeline without forking the SDK. This directory holds the **generated**
 runtime for the `idempotency` feature in the TypeScript target — do
@@ -39,8 +39,10 @@ later feature can override an earlier one.
   `.sdk/tm/ts/src/feature/idempotency/`, then regenerate.
 
 After any change: `cd ../../../../.sdk && npm run generate` (add
-`npm run build` first if you changed a component). If a regenerated file
-shows a literal `FEATURE_Name`/`ProjectName`, delete it and regenerate.
+`npm run build` first if you changed a component).
+Each `npm run generate` rewrites every file it generates, so an edit
+made to generated output is lost, and deletes the files it generated before
+and no longer emits. A target or a phase switched off is left as it was.
 
 To author a **new** feature, copy this one's model + template shape — see the
 [project guide](../../../../AGENTS.md) and the

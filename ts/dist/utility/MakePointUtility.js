@@ -20,6 +20,9 @@ function ownPoint(points) {
     }
     return best;
 }
+function sameAction(called, declared) {
+    return null == called ? null == declared : called === declared;
+}
 // The path parameters of a point that neither the call nor the entity gives a
 // value for, looked up as prepareParams looks them up.
 function unfilled(ctx, point) {
@@ -46,14 +49,16 @@ function makePoint(ctx) {
     if (0 === op.points.length) {
         return ctx.error('point_no_points', 'Operation "' + op.name + '" has no endpoint definitions.');
     }
-    // Choose the appropriate point based on the match or data.
-    if (1 === op.points.length) {
+    // Operation argument has priority, but also look in current data or match.
+    const reqselector = getprop(ctx, 'req' + op.input);
+    const selector = getprop(ctx, op.input);
+    // A lone point still needs the call's action to agree with its own; the
+    // selection below refuses a mismatch either way.
+    if (1 === op.points.length &&
+        sameAction(getprop(reqselector, '$action'), getprop(op.points[0].select, '$action'))) {
         ctx.point = op.points[0];
     }
     else {
-        // Operation argument has priority, but also look in current data or match.
-        const reqselector = getprop(ctx, 'req' + op.input);
-        const selector = getprop(ctx, op.input);
         let point;
         let matched = false;
         for (let i = 0; i < op.points.length; i++) {

@@ -1,6 +1,6 @@
 "use strict";
 // VENDORED: @voxgig/omni 0.1.5 (typescript/src/Runner.ts)
-// Source: https://github.com/voxgig/omni @ e9cb45a308a4da47ffdbc1b3149b9c59199190b2  [tag: sdk-20261016-0845-0]
+// Source: https://github.com/voxgig/omni @ ef55ad0fa48470146a81a1d652c859b03ebab6fc  [tag: sdk-20261125-1959-0]
 // License: MIT (c) voxgig - see repository LICENSE. Do not edit: resync from upstream.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UNDEFMARK = exports.NULLMARK = exports.EXISTSMARK = exports.OmniError = exports.CAPABILITIES = exports.SPECVERSION = void 0;

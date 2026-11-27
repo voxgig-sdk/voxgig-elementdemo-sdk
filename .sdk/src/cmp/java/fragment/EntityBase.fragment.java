@@ -35,9 +35,9 @@ public abstract class EntityBase implements SdkEntity {
   protected Map<String, Object> match = new LinkedHashMap<>();
   protected Context entctx;
 
-  // Every operation resolves to the entity; `remove` additionally marks
-  // it. The instance KEEPS the data it held — a caller can still read what
-  // was deleted — but it is no longer a live record. See AGENTS.md.
+  // Every operation resolves to the entity; a remove additionally marks it
+  // deleted. The instance KEEPS the data it held — a caller can still read
+  // what was deleted — but it is no longer a live record.
   private boolean deleted = false;
 
   public void markDeleted() {
@@ -150,9 +150,9 @@ public abstract class EntityBase implements SdkEntity {
       // instance, and the caller reaches the record through data(). Two
       // structural exceptions: `list` resolves to the ARRAY of entity
       // instances makeResult built, and a failed op with throwing disabled
-      // hands back the error payload unchanged. `remove` additionally marks
+      // hands back the error payload unchanged. A remove additionally marks
       // the entity deleted; it KEEPS its data, so a caller can still read
-      // what was removed. See AGENTS.md "Entity operations return ENTITIES".
+      // what was removed.
       String opname = ctx.op == null ? null : ctx.op.name;
 
       if (ctx.result != null && ctx.result.ok && !"list".equals(opname)) {
@@ -193,12 +193,11 @@ public abstract class EntityBase implements SdkEntity {
   /**
    * Streaming operations. Runs `action` through the full pipeline and
    * returns a Stream over result items, so the streaming feature's
-   * incremental output is reachable from a generated entity (a normal op
-   * call materialises the whole result). `callopts` parameterises the call:
+   * incremental output, when that feature is active, is reachable from a
+   * generated entity (a normal op call materialises the whole result).
+   * `callopts` parameterises the call:
    *   - inbound (download): iterate the yielded items/chunks (from the
    *     streaming feature when active, else the materialised items);
-   *   - outbound (upload): pass a streamable payload as callopts["body"] - it
-   *     is attached to the request so the transport can send it;
    *   - callopts["ctrl"] threads pipeline control and callopts["signal"] (a
    *     BooleanSupplier that returns true when aborted) is honoured between
    *     yields.
@@ -233,14 +232,6 @@ public abstract class EntityBase implements SdkEntity {
     }
 
     Context ctx = this.utility.makeContext.apply(ctxmap, this.entctx);
-
-    // Outbound: expose the caller's streamable payload so the request
-    // builder / transport can stream it as the request body.
-    Object body = callopts.get("body");
-    if (body != null) {
-      ctx.reqdata.put("body$", body);
-      ctx.ctrl.streamOut = body;
-    }
 
     // Run the same pipeline the op methods run.
     Object materialised = runOp(ctx, () -> {});

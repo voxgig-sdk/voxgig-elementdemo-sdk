@@ -218,6 +218,7 @@
           "name": "element",
           "op": {
             "create": {
+              "active": true,
               "input": "data",
               "name": "create",
               "points": [
@@ -320,6 +321,7 @@
               ]
             },
             "list": {
+              "active": true,
               "input": "data",
               "name": "list",
               "points": [
@@ -353,6 +355,7 @@
               ]
             },
             "load": {
+              "active": true,
               "input": "data",
               "name": "load",
               "points": [
@@ -408,6 +411,7 @@
               ]
             },
             "remove": {
+              "active": true,
               "input": "data",
               "name": "remove",
               "points": [
@@ -459,6 +463,7 @@
               ]
             },
             "update": {
+              "active": true,
               "input": "data",
               "name": "update",
               "points": [
@@ -577,6 +582,7 @@
           "name": "group",
           "op": {
             "list": {
+              "active": true,
               "input": "data",
               "name": "list",
               "points": [
@@ -610,6 +616,7 @@
               ]
             },
             "load": {
+              "active": true,
               "input": "data",
               "name": "load",
               "points": [
@@ -765,6 +772,7 @@
           "name": "isotope",
           "op": {
             "create": {
+              "active": true,
               "input": "data",
               "name": "create",
               "points": [
@@ -902,6 +910,7 @@
               ]
             },
             "list": {
+              "active": true,
               "input": "data",
               "name": "list",
               "points": [
@@ -956,6 +965,7 @@
               ]
             },
             "load": {
+              "active": true,
               "input": "data",
               "name": "load",
               "points": [
@@ -1026,6 +1036,7 @@
               ]
             },
             "remove": {
+              "active": true,
               "input": "data",
               "name": "remove",
               "points": [
@@ -1092,6 +1103,7 @@
               ]
             },
             "update": {
+              "active": true,
               "input": "data",
               "name": "update",
               "points": [
@@ -1228,6 +1240,7 @@
           "name": "series",
           "op": {
             "list": {
+              "active": true,
               "input": "data",
               "name": "list",
               "points": [
@@ -1261,6 +1274,7 @@
               ]
             },
             "load": {
+              "active": true,
               "input": "data",
               "name": "load",
               "points": [
@@ -1371,6 +1385,10 @@
               "active": true,
               "await": false
             },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": true,
               "await": false
@@ -1396,6 +1414,10 @@
               "await": false
             },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -1459,6 +1481,14 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": false,
               "await": false
@@ -1479,7 +1509,15 @@
               "active": false,
               "await": false
             },
+            "PreUnexpected": {
+              "active": false,
+              "await": false
+            },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -1557,6 +1595,14 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": true,
               "await": false
@@ -1577,7 +1623,15 @@
               "active": false,
               "await": false
             },
+            "PreUnexpected": {
+              "active": false,
+              "await": false
+            },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -1678,6 +1732,10 @@
             "SetData": {
               "active": false,
               "await": false
+            },
+            "SetMatch": {
+              "active": false,
+              "await": false
             }
           },
           "name": "metrics",
@@ -1748,6 +1806,14 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": true,
               "await": false
@@ -1768,7 +1834,15 @@
               "active": false,
               "await": false
             },
+            "PreUnexpected": {
+              "active": false,
+              "await": false
+            },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -1837,6 +1911,14 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": false,
               "await": false
@@ -1857,7 +1939,15 @@
               "active": false,
               "await": false
             },
+            "PreUnexpected": {
+              "active": false,
+              "await": false
+            },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -1937,6 +2027,14 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": false,
               "await": false
@@ -1957,7 +2055,15 @@
               "active": false,
               "await": false
             },
+            "PreUnexpected": {
+              "active": false,
+              "await": false
+            },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -2000,6 +2106,7 @@
                 "active": false,
                 "method": "POST",
                 "path": "auth/token",
+                "redirect": "refuse",
                 "refresh": "",
                 "request": "refresh_token",
                 "response": "access_token",
@@ -2056,6 +2163,14 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": false,
               "await": false
@@ -2076,7 +2191,15 @@
               "active": false,
               "await": false
             },
+            "PreUnexpected": {
+              "active": false,
+              "await": false
+            },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -3012,6 +3135,10 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
             "PrePoint": {
               "active": true,
               "await": false
@@ -3033,6 +3160,10 @@
               "await": false
             },
             "PreTarget": {
+              "active": false,
+              "await": false
+            },
+            "PreUnexpected": {
               "active": false,
               "await": false
             },
@@ -3109,6 +3240,14 @@
               "active": false,
               "await": false
             },
+            "PreDone": {
+              "active": false,
+              "await": false
+            },
+            "PrePoint": {
+              "active": false,
+              "await": false
+            },
             "PreRequest": {
               "active": false,
               "await": false
@@ -3129,7 +3268,15 @@
               "active": false,
               "await": false
             },
+            "PreUnexpected": {
+              "active": false,
+              "await": false
+            },
             "SetData": {
+              "active": false,
+              "await": false
+            },
+            "SetMatch": {
               "active": false,
               "await": false
             }
@@ -3587,6 +3734,7 @@
       },
       "publisher": {
         "name": "",
+        "official": false,
         "security": "",
         "url": ""
       },
@@ -3605,6 +3753,7 @@
           "comment": {
             "line": "#"
           },
+          "consumes": "",
           "deps": {},
           "ext": "sh",
           "feature": {
@@ -3638,6 +3787,7 @@
           },
           "provides": {},
           "publish": {
+            "recipe": true,
             "registry": {
               "active": false,
               "name": "",
@@ -3663,6 +3813,7 @@
           },
           "srcfeature": false,
           "superseded": [],
+          "surface": "",
           "title": "Bash"
         },
         "go": {
@@ -3675,6 +3826,7 @@
           "comment": {
             "line": "//"
           },
+          "consumes": "",
           "deps": {},
           "ext": "go",
           "feature": {
@@ -3705,6 +3857,7 @@
             "sekreto": true
           },
           "publish": {
+            "recipe": true,
             "registry": {
               "active": false,
               "name": "",
@@ -3733,7 +3886,8 @@
             "test/runner_test.go",
             "test/struct_runner_test.go"
           ],
-          "title": "Golang"
+          "surface": "",
+          "title": "Go"
         },
         "java": {
           "active": true,
@@ -3745,6 +3899,7 @@
           "comment": {
             "line": "//"
           },
+          "consumes": "",
           "deps": {},
           "ext": "java",
           "feature": {
@@ -3775,6 +3930,7 @@
             "sekreto": true
           },
           "publish": {
+            "recipe": false,
             "registry": {
               "active": false,
               "name": "maven-central",
@@ -3802,6 +3958,7 @@
           "superseded": [
             "test/StructRunner.java"
           ],
+          "surface": "",
           "title": "Java"
         },
         "py": {
@@ -3814,6 +3971,7 @@
           "comment": {
             "line": "#"
           },
+          "consumes": "",
           "deps": {
             "requests": {
               "active": true,
@@ -3848,6 +4006,7 @@
             "sekreto": true
           },
           "publish": {
+            "recipe": true,
             "registry": {
               "active": false,
               "name": "pypi",
@@ -3875,6 +4034,7 @@
           "superseded": [
             "test/struct_runner.py"
           ],
+          "surface": "",
           "title": "Python"
         },
         "ts": {
@@ -3887,6 +4047,7 @@
           "comment": {
             "line": "//"
           },
+          "consumes": "",
           "deps": {
             "@types/node": {
               "active": true,
@@ -3926,6 +4087,7 @@
             "sekreto": true
           },
           "publish": {
+            "recipe": true,
             "registry": {
               "active": false,
               "name": "npm",
@@ -3957,6 +4119,7 @@
             "src/feature/secrets/sekreto/provider/Registry.ts",
             "src/feature/secrets/sekreto/provider/http.ts"
           ],
+          "surface": "",
           "title": "TypeScript"
         }
       },

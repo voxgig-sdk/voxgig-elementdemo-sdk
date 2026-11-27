@@ -19,6 +19,7 @@ declare class Point {
         req: any;
         res: any;
     };
+    fields?: string[];
     constructor(altmap: Record<string, any>);
 }
 export { Point, };

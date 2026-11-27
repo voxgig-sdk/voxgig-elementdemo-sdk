@@ -2,28 +2,30 @@ import {
   cmp,
   File,
   Content,
-  isAuthSuppressed,
-  isHttpBasicAuth,
-  resolveAuthIn,
-  resolveAuthName,
+  fact,
 } from '@voxgig/sdkgen'
+
+import {
+  KIT,
+} from '@voxgig/apidef'
 
 
 // The canary sweep: every credential slot holds a distinctive value, every
 // diagnostic feature this SDK ships is switched on with a capturing sink, a
 // real operation runs through every outcome, and every string that leaves
-// the SDK is searched for the canaries and their encoded forms. It also
-// proves its own sensitivity: with clean switched off the canary MUST show.
+// is searched for the canaries and their encoded forms; a second sweep does
+// the same for a body of bytes. With clean off the canary MUST show.
 const TestClean = cmp(function TestClean(props: any) {
   const { model } = props.ctx$
+  const authFact = fact(model.main[KIT], 'auth')
   const { target } = props
 
   const auth = {
-    suppressed: isAuthSuppressed(model),
-    where: resolveAuthIn(model),
-    name: 'header' === resolveAuthIn(model)
-      ? resolveAuthName(model).toLowerCase() : resolveAuthName(model),
-    basic: isHttpBasicAuth(model),
+    suppressed: authFact.suppressed,
+    where: authFact.in,
+    name: 'header' === authFact.in
+      ? authFact.name.toLowerCase() : authFact.name,
+    basic: authFact.basic,
   }
 
   File({ name: 'test_clean.' + target.ext }, () => Content(render(model.const.Name, auth)))
@@ -37,9 +39,11 @@ function render(Name: string, auth: {
 
   return `# ${Name} SDK clean test
 #
-# The canary sweep: no credential leaves the SDK in any form.
+# The canary sweep: no credential leaves the SDK in any form, nor a body
+# of bytes.
 
 import base64
+import io
 import json
 import traceback
 from urllib.parse import quote
@@ -68,6 +72,8 @@ MASK = "[redacted]"
 
 NO_OP = "no operation of this SDK completes against a plain 200; nothing to sweep"
 
+NO_BINARY = "no operation of this SDK sends a binary body; nothing to sweep"
+
 
 def _b64(s):
     return base64.b64encode(s.encode("utf-8")).decode("ascii")
@@ -78,6 +84,46 @@ FORMS = []
 for _v in CANARY.values():
     FORMS.extend([_v, _b64(_v), quote(_v, safe="")])
 FORMS.append(_b64(CANARY["apikey"] + ":" + CANARY["secret"]))
+
+# The marker a body of bytes carries.
+CONTENT = "CANARY-CONTENT-b7n3v9x1c5"
+CONTENT_BYTES = CONTENT.encode("ascii")
+
+# The marker a response of bytes carries, as the default transport hands the
+# body on: read into text.
+RESPONSE = "CANARY-RESPONSE-k2m8q4w6z0"
+
+
+# A file object whose state is public: what a walk into it would copy.
+class _OpenFile:
+    def __init__(self, data):
+        self.data = data
+        self.at = 0
+
+    def read(self, size=-1):
+        out = self.data[self.at:]
+        self.at = len(self.data)
+        return out
+
+
+# A caller's own object, whose public attributes clean walks.
+class _Holder:
+    def __init__(self, label, image, source):
+        self.label = label
+        self.image = image
+        self.source = source
+
+
+# Every value this SDK accepts as a raw body.
+CARRIERS = {
+    "bytes": lambda: CONTENT_BYTES,
+    "bytearray": lambda: bytearray(CONTENT_BYTES),
+    "memoryview": lambda: memoryview(CONTENT_BYTES),
+    "str": lambda: CONTENT,
+    "file": lambda: io.BytesIO(CONTENT_BYTES),
+    "file:text": lambda: io.StringIO(CONTENT),
+    "file:open": lambda: _OpenFile(CONTENT_BYTES),
+}
 
 
 # Header maps keep the caller's spelling; the assertion should not care.
@@ -90,6 +136,23 @@ def _header(m, name):
 
 def _leaks(text):
     return [f for f in FORMS if f in text]
+
+
+# The forms bytes travel in once copied: the text, which is also how a
+# bytes object prints, a list of byte values, hex, base64.
+def _content_leaks(text, marker=CONTENT):
+    flat = "".join(text.split())
+    raw = marker.encode("ascii")
+    found = []
+    if marker in text:
+        found.append("text")
+    if ",".join(str(b) for b in raw) in flat:
+        found.append("byte values")
+    if raw.hex() in flat:
+        found.append("hex")
+    if base64.b64encode(raw).decode("ascii") in flat:
+        found.append("base64")
+    return found
 
 
 def _plain(v):
@@ -150,6 +213,35 @@ class _CaptureFeature(${Name}BaseFeature):
             self._sinks.extend(_forms("ctrl.err@PreUnexpected", ctx.ctrl.err))
 
 
+# Captures the request data as a hook would log it, cleaned: where a file
+# object stays once the spec holds what was read from it.
+class _DataCapture(${Name}BaseFeature):
+    def __init__(self, sinks):
+        super().__init__()
+        self.name = "datacapture"
+        self.version = "0.0.1"
+        self.active = True
+        self.seen = {}
+        self._sinks = sinks
+
+    def init(self, ctx, options):
+        pass
+
+    def _take(self, name, ctx):
+        cleaned = ctx.utility.clean(ctx, ctx.reqdata)
+        self.seen[name] = cleaned
+        self._sinks.extend(_forms("reqdata@" + name, cleaned))
+
+    def PreSpec(self, ctx):
+        self._take("PreSpec", ctx)
+
+    def PreRequest(self, ctx):
+        self._take("PreRequest", ctx)
+
+    def PreResponse(self, ctx):
+        self._take("PreResponse", ctx)
+
+
 def _response(status, data, headers=None):
     h = {"content-type": "application/json"}
     h.update(headers or {})
@@ -159,6 +251,19 @@ def _response(status, data, headers=None):
         "headers": h,
         "json": lambda: data,
         "body": json.dumps(data),
+    }
+
+
+# A response of bytes under the type it declares, as the default transport
+# hands one on: read into text, and marked as not read as JSON.
+def _bytes_response(status, ctype):
+    return {
+        "status": status,
+        "statusText": "OK" if status < 400 else "ERR",
+        "headers": {"content-type": ctype},
+        "json": lambda: None,
+        "body": RESPONSE,
+        "unreadable": True,
     }
 
 
@@ -185,6 +290,12 @@ SCENARIOS = [
     # The SDK's own error, its code quoting a registered value.
     ("coded", lambda url, fetchdef: (None, ${Name}Error("denied_" + CANARY["apikey"], "coded failure"))),
     ("notjson", lambda url, fetchdef: (_notjson(), None)),
+]
+
+VARIANTS = [
+    ("throw", lambda: {}),
+    ("explain", lambda: {"explain": {}}),
+    ("nothrow", lambda: {"throw": False, "explain": {}}),
 ]
 
 
@@ -244,17 +355,8 @@ def _make_sdk(respond, sinks, cleanopts=None, extra=None, auth=None):
     return _construct(opts)
 
 
-# The first operation that completes against a plain 200: with no
-# arguments, else with every path parameter its points declare filled in.
-def _usable_op():
-    def plain():
-        return _construct({
-            "apikey": CANARY["apikey"],
-            "utility": {"fetcher": lambda ctx, url, fetchdef: (_response(200, {"id": "i1"}), None)},
-        })
-
-    client = plain()
-    entities = (client.get_root_ctx().config or {}).get("entity") or {}
+# Each entity this client makes, by name: its accessor and an instance.
+def _accessors(client):
     found = {}
     for attr in dir(client):
         if not attr[:1].isupper():
@@ -272,6 +374,21 @@ def _usable_op():
         name = getname()
         if isinstance(name, str) and name != "":
             found[name] = (attr, ent)
+    return found
+
+
+# The first operation that completes against a plain 200: with no
+# arguments, else with every path parameter its points declare filled in.
+def _usable_op():
+    def plain():
+        return _construct({
+            "apikey": CANARY["apikey"],
+            "utility": {"fetcher": lambda ctx, url, fetchdef: (_response(200, {"id": "i1"}), None)},
+        })
+
+    client = plain()
+    entities = (client.get_root_ctx().config or {}).get("entity") or {}
+    found = _accessors(client)
 
     safe = {"list": 0, "load": 1}
     for name in sorted(found):
@@ -293,6 +410,40 @@ def _usable_op():
                 except Exception:
                     continue
     return None
+
+
+# The first operation with a point that sends a raw body the model marks
+# binary, with that point's path parameters filled in and its action named;
+# and the media type the point declares.
+def _binary_op():
+    client = _construct({"apikey": CANARY["apikey"]})
+    entities = (client.get_root_ctx().config or {}).get("entity") or {}
+    found = _accessors(client)
+    for name in sorted(found):
+        accessor, ent = found[name]
+        opdefs = (entities.get(name) or {}).get("op") or {}
+        for op in sorted(opdefs):
+            if not callable(getattr(ent, op, None)):
+                continue
+            for point in (opdefs.get(op) or {}).get("points") or []:
+                body = (point or {}).get("body") or {}
+                if "raw" != body.get("kind") or body.get("binary") is not True:
+                    continue
+                match = {}
+                for p in ((point or {}).get("args") or {}).get("params") or []:
+                    if isinstance((p or {}).get("name"), str):
+                        match[p["name"]] = "p1"
+                action = ((point or {}).get("select") or {}).get("$action")
+                if action is not None:
+                    match["$action"] = action
+                return (accessor, op, match), body.get("media")
+    return None
+
+
+def _with_body(target, body):
+    match = dict(target[2])
+    match["$body"] = body
+    return (target[0], target[1], match)
 
 
 # A feature that raises from inside the pipeline, quoting the request it
@@ -389,11 +540,7 @@ class TestClean:
         explains = {}
 
         for sname, respond in SCENARIOS:
-            for vname, make_ctrl in [
-                ("throw", lambda: {}),
-                ("explain", lambda: {"explain": {}}),
-                ("nothrow", lambda: {"throw": False, "explain": {}}),
-            ]:
+            for vname, make_ctrl in VARIANTS:
                 sdk = _make_sdk(respond, sinks)
                 ctrl = make_ctrl()
                 err = _drive(sdk, target, ctrl, sinks)
@@ -571,6 +718,173 @@ class TestClean:
             assert CANARY["apikey"] in text or \\
                 _b64(CANARY["apikey"] + ":" + CANARY["secret"]) in text, \\
                 "the raw spec should carry the credential when clean is off"
+
+    def test_no_body_of_bytes_leaves_the_sdk_in_any_form(self):
+        found = _binary_op()
+        if found is None:
+            pytest.skip(NO_BINARY)
+        target, media = found
+
+        sinks = []
+        sent = {}
+        errors = {}
+        explains = {}
+        logged = {}
+
+        for carrier, make in CARRIERS.items():
+            for sname, respond in SCENARIOS[:4]:
+                for vname, make_ctrl in VARIANTS:
+                    key = carrier + "/" + sname + "/" + vname
+
+                    # The transport is where the bytes are meant to arrive, whole.
+                    def seen(url, fetchdef, key=key, respond=respond):
+                        sent[key] = fetchdef.get("body")
+                        return respond(url, fetchdef)
+
+                    capture = _DataCapture(sinks)
+                    sdk = _make_sdk(seen, sinks, None, [capture])
+                    ctrl = make_ctrl()
+                    err = _drive(sdk, _with_body(target, make()), ctrl, sinks)
+                    if err is not None:
+                        errors[key] = err
+                    if ctrl.get("explain") is not None:
+                        explains[key] = ctrl["explain"]
+                    logged[key] = capture.seen.get("PreRequest")
+                    sinks.extend(_forms("sdk", sdk))
+
+        # Beside the operation: a sensitive name still masks, bytes a caller's
+        # own object holds are described, and a file object stays unread.
+        probe = _construct({"apikey": CANARY["apikey"]})
+        util = probe.get_utility()
+
+        def sending(body):
+            return util.make_context(
+                {"point": {"body": body}, "reqdata": {"$body": CONTENT}}, probe.get_root_ctx())
+
+        binary = {"kind": "raw", "binary": True, "media": media}
+        unread = io.BytesIO(CONTENT_BYTES)
+        ruled = util.clean(sending(binary), {
+            "note": CONTENT,
+            "apitoken": bytearray(CONTENT_BYTES),
+            "held": _Holder("l1", bytearray(CONTENT_BYTES), unread),
+        })
+        sinks.extend(_forms("rules", ruled))
+
+        leaked = [(name, _content_leaks(text)) for name, text in sinks]
+        leaked = [(name, found) for name, found in leaked if 0 < len(found)]
+
+        print("clean: content swept " + str(len(sinks)) + " surface(s), " + str(len(leaked)) + " leak(s)")
+
+        assert len(leaked) == 0, "a body of bytes leaked through: " + "; ".join(
+            name + " [" + ", ".join(found) + "]" for name, found in leaked)
+
+        # The request itself is untouched: what the transport was handed is the body.
+        for carrier in CARRIERS:
+            body = sent.get(carrier + "/notfound/throw")
+            assert body is not None, carrier + ": the transport was not handed a body"
+            text = body if isinstance(body, str) else bytes(body).decode("ascii")
+            assert text == CONTENT, carrier + ": the transport was handed something else"
+
+        # The positive half: where the body was, what describes it now is. A
+        # file object is read before the first attempt, so the spec holds what
+        # was read and the request data the file object.
+        desc = {"binary$": "bytes", "size": len(CONTENT_BYTES)}
+        stream = {"binary$": "stream"}
+        if isinstance(media, str):
+            desc["type"] = media
+            stream["type"] = media
+        for carrier in CARRIERS:
+            failed = errors.get(carrier + "/notfound/throw")
+            assert failed is not None, carrier + ": the 404 scenario must raise"
+            assert (failed.spec or {}).get("body") == desc, \\
+                carrier + ": the raised spec: " + repr(failed.spec)
+            explained = (explains.get(carrier + "/ok/explain") or {}).get("spec") or {}
+            assert explained.get("body") == desc, carrier + ": the explain record: " + repr(explained)
+            want = stream if carrier.startswith("file") else desc
+            data = logged.get(carrier + "/notfound/throw") or {}
+            assert data.get("$body") == want, carrier + ": the request data: " + repr(data)
+
+        assert ruled == {
+            "note": desc,
+            "apitoken": MASK,
+            "held": {
+                "label": "l1",
+                "image": {"binary$": "bytes", "size": len(CONTENT_BYTES)},
+                "source": {"binary$": "stream"},
+            },
+        }, ruled
+        assert 0 == unread.tell(), "a file object was read to be described"
+
+        # A raw body the model does not mark binary is text, and stays data;
+        # so does a string cleaned on its own.
+        texted = util.clean(sending({"kind": "raw", "media": "text/plain"}), {"note": CONTENT})
+        assert texted == {"note": CONTENT}, texted
+        assert util.clean(sending(binary), CONTENT) == CONTENT
+
+    def test_the_sweep_can_see_a_body_with_clean_switched_off(self):
+        found = _binary_op()
+        if found is None:
+            pytest.skip(NO_BINARY)
+        target = found[0]
+
+        for carrier, make in CARRIERS.items():
+            # A memoryview prints as its address: no surface shows its bytes.
+            if "memoryview" == carrier:
+                continue
+            sinks = []
+            sdk = _make_sdk(SCENARIOS[1][1], sinks, {"active": False})
+            err = _drive(sdk, _with_body(target, make()), {}, sinks)
+            assert err is not None, carrier + ": the 404 scenario must raise"
+            leaked = [name for name, text in sinks if 0 < len(_content_leaks(text))]
+            assert 0 < len(leaked), \\
+                carrier + ": with clean off, nothing showed the bytes: the sweep is blind"
+
+    def test_no_response_of_bytes_leaves_the_sdk_in_any_form(self):
+        target = _usable_op()
+        if target is None:
+            pytest.skip(NO_OP)
+
+        sinks = []
+        errors = {}
+
+        for status in [200, 404, 500]:
+            for vname, make_ctrl in VARIANTS:
+                def respond(url, fetchdef, status=status):
+                    return _bytes_response(status, "audio/wav"), None
+
+                sdk = _make_sdk(respond, sinks)
+                err = _drive(sdk, target, make_ctrl(), sinks)
+                if err is not None:
+                    errors[str(status) + "/" + vname] = err
+                sinks.extend(_forms("sdk", sdk))
+
+        leaked = [(name, _content_leaks(text, RESPONSE)) for name, text in sinks]
+        leaked = [(name, found) for name, found in leaked if 0 < len(found)]
+
+        print("clean: response swept " + str(len(sinks)) + " surface(s), " + str(len(leaked)) + " leak(s)")
+
+        assert len(leaked) == 0, "a response of bytes leaked through: " + "; ".join(
+            name + " [" + ", ".join(found) + "]" for name, found in leaked)
+
+        # The failure still names what it could not read.
+        failed = errors.get("200/throw")
+        assert failed is not None, "a response of bytes must fail the operation"
+        assert failed.code == "response_content_type", repr(failed)
+        assert "audio/wav" in str(failed), "the error does not name the type: " + str(failed)
+
+    def test_the_sweep_can_see_a_response(self):
+        target = _usable_op()
+        if target is None:
+            pytest.skip(NO_OP)
+
+        # Clean off leaves the response an object, printed as its address, so
+        # the sight is proved by a response of text, which clean leaves as it is.
+        sinks = []
+        sdk = _make_sdk(lambda url, fetchdef: (_bytes_response(200, "text/plain"), None), sinks)
+        err = _drive(sdk, target, {}, sinks)
+        assert err is not None, "a response that is not JSON must fail the operation"
+        leaked = [name for name, text in sinks if 0 < len(_content_leaks(text, RESPONSE))]
+        assert 0 < len(leaked), "a response of text showed nowhere: the sweep is blind"
 `
 }
 

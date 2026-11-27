@@ -11,7 +11,7 @@ main: kit: feature: test: {
   transport: 'base'
 
   config: {
-    # Test mode is not active by default, unlike most features
+    # Test mode is off until a client activates it
     options: active: false
   }
 

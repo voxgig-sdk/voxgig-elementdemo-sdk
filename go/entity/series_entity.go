@@ -81,7 +81,7 @@ func (e *SeriesEntity) MarkDeleted() {
 }
 
 
-// Deleted reports whether a successful Remove has resolved on this instance.
+// Deleted reports whether a remove has marked this instance deleted.
 func (e *SeriesEntity) Deleted() bool {
 	return e.deleted
 }
@@ -176,13 +176,6 @@ func (e *SeriesEntity) Stream(action string, args map[string]any, callopts map[s
 	utility := e.utility
 	ctx := utility.MakeContext(ctxmap, e.entctx)
 	ctx.Meta["stream"] = callopts
-
-	// Outbound: expose the caller's payload so the request builder / transport
-	// can stream it as the request body.
-	if body := callopts["body"]; body != nil {
-		ctx.Reqdata["body$"] = body
-		ctx.Meta["stream_out"] = body
-	}
 
 	send := func(item core.StreamItem) bool {
 		select {

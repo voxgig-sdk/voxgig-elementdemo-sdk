@@ -1,3 +1,4 @@
+// Package voxgigelementdemosdk: Unofficial generated Go SDK for the Periodic Table public API. Not affiliated with or endorsed by the upstream API provider.
 package voxgigelementdemosdk
 
 import (
@@ -93,8 +94,8 @@ var SharedConfig = core.SharedConfig
 // so these aliases let callers write `sdk.New()` / `sdk.Test()`
 // instead of `sdk.NewElementdemoSDK(nil)` / `sdk.TestSDK(nil, nil)`
 // for the common no-options case.
-func New() *ElementdemoSDK  { return NewElementdemoSDK(nil) }
-func Test() *ElementdemoSDK { return TestSDK(nil, nil) }
+func New() (*ElementdemoSDK, error) { return NewElementdemoSDK(nil) }
+func Test() *ElementdemoSDK          { return TestSDK(nil, nil) }
 var NewBaseFeature = feature.NewBaseFeature
 var NewDebugFeature = feature.NewDebugFeature
 var NewElementcardFeature = feature.NewElementcardFeature

@@ -9,6 +9,7 @@ func init() {
 func registerAll(u *core.Utility) {
 	u.Clean = cleanUtil
 	u.CleanAdd = cleanAddUtil
+	u.CleanSecret = cleanSecretUtil
 	u.CleanExplain = cleanExplain
 	u.Done = doneUtil
 	u.MakeError = makeErrorUtil
@@ -52,6 +53,11 @@ func overrideUtil(u *core.Utility, key string, val any) bool {
 	case "cleanAdd":
 		if fn, ok := val.(func(ctx *core.Context, val any)); ok {
 			u.CleanAdd = fn
+			return true
+		}
+	case "cleanSecret":
+		if fn, ok := val.(func(ctx *core.Context, key string, val any) bool); ok {
+			u.CleanSecret = fn
 			return true
 		}
 	case "cleanExplain":
@@ -105,8 +111,13 @@ func overrideUtil(u *core.Utility, key string, val any) bool {
 			return true
 		}
 	case "makeOptions":
-		if fn, ok := val.(func(ctx *core.Context) map[string]any); ok {
+		if fn, ok := val.(func(ctx *core.Context) (map[string]any, error)); ok {
 			u.MakeOptions = fn
+			return true
+		}
+		// A one-result override cannot refuse, so it keeps working wrapped.
+		if fn, ok := val.(func(ctx *core.Context) map[string]any); ok {
+			u.MakeOptions = func(ctx *core.Context) (map[string]any, error) { return fn(ctx), nil }
 			return true
 		}
 	case "makeRequest":

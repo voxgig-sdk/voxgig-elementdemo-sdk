@@ -1,6 +1,6 @@
 # Elementdemo Java — Agent Guide
 
-The Java client for the Elementdemo API. This directory is **generated** — do not edit it by hand; change the model/template/component in `.sdk/` and regenerate. See the [project guide](../AGENTS.md) for the full workflow and the aontu model language.
+The Java client for the Periodic Table API. This directory is **generated** — do not edit it by hand; change the model/template/component in `.sdk/` and regenerate. See the [project guide](../AGENTS.md) for the full workflow and the aontu model language.
 
 > Paths below (`.sdk/…`) are relative to the **project root** — one level up
 > from this `java/` directory.
@@ -12,6 +12,10 @@ cd ../.sdk
 npm run build        # only if you changed a component
 npm run generate     # refreshes this java/ directory
 ```
+
+Each `npm run generate` rewrites every file it generates, so an edit
+made to generated output is lost, and deletes the files it generated before
+and no longer emits. A target or a phase switched off is left as it was.
 
 Then build and test the generated output:
 
@@ -33,25 +37,28 @@ make test
 Decision rule: *same for every API → template; depends on the API →
 component.* After editing a component run `npm run build` before
 `npm run generate`; template-only edits just need `npm run generate`.
+`target add` and `feature add` copy templates and components into
+`.sdk/`, and merge toolchain updates into the copies this project has
+edited.
 
 ## Features in this target
 
-Each feature is a flat file in the `feature/` package. Its hooks and
-default activation come from `.sdk/model/feature/<name>.aontu`; customise
-the runtime under `.sdk/tm/java/feature/` and regenerate.
+Each feature's hooks and default activation come from
+`.sdk/model/feature/<name>.aontu`. Its runtime is generated from the template
+listed here: customise that and regenerate.
 
-| Feature | Runtime file | Active hooks |
+| Feature | Template | Active hooks |
 | --- | --- | --- |
-| **debug** — Debug capture | `feature/debug_feature.java` | `PreDone`, `PreRequest`, `PreResponse`, `PreUnexpected` |
-| **elementcard** — ASCII periodic-table tile for element-shaped results | `feature/elementcard_feature.java` | `PreResult` |
-| **idempotency** — Idempotency | `feature/idempotency_feature.java` | `PreRequest` |
-| **metrics** — Metrics | `feature/metrics_feature.java` | `PreDone`, `PrePoint`, `PreUnexpected` |
-| **paging** — Paging | `feature/paging_feature.java` | `PreRequest`, `PreResult` |
-| **ratelimit** — Rate limiting | `feature/ratelimit_feature.java` | — |
-| **retry** — Retry | `feature/retry_feature.java` | — |
-| **secrets** — Secrets | `feature/secrets_feature.java` | `PreSpec` |
-| **test** — Test transport | `feature/test_feature.java` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
-| **timeout** — Timeout | `feature/timeout_feature.java` | — |
+| **debug** — Debug capture | `.sdk/tm/java/feature/DebugFeature.java` | `PreDone`, `PreRequest`, `PreResponse`, `PreUnexpected` |
+| **elementcard** — ASCII periodic-table tile for element-shaped results | `.sdk/tm/java/feature/ElementcardFeature.java` | `PreResult` |
+| **idempotency** — Idempotency | `.sdk/tm/java/feature/IdempotencyFeature.java` | `PreRequest` |
+| **metrics** — Metrics | `.sdk/tm/java/feature/MetricsFeature.java` | `PreDone`, `PrePoint`, `PreUnexpected` |
+| **paging** — Paging | `.sdk/tm/java/feature/PagingFeature.java` | `PreRequest`, `PreResult` |
+| **ratelimit** — Rate limiting | `.sdk/tm/java/feature/RatelimitFeature.java` | — |
+| **retry** — Retry | `.sdk/tm/java/feature/RetryFeature.java` | — |
+| **secrets** — Secrets | `.sdk/tm/java/feature/SecretsFeature.java` | `PreSpec` |
+| **test** — Test transport | `.sdk/tm/java/feature/TestFeature.java` | `GetData`, `GetMatch`, `PostConstruct`, `PostConstructEntity`, `PrePoint`, `PreRequest`, `PreResponse`, `PreResult`, `PreSpec`, `SetData`, `SetMatch` |
+| **timeout** — Timeout | `.sdk/tm/java/feature/TimeoutFeature.java` | — |
 
 ---
 

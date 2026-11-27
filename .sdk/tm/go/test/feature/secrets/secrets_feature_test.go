@@ -2,12 +2,15 @@
 package secretstest
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -20,6 +23,16 @@ import (
 
 const envprefix = "PROJECTENV_TEST_SECRETS_"
 
+// skipWithoutAuth reads the config, never a probe: an SDK whose config
+// declares no auth places no credential, and these tests assert on the one
+// it places.
+func skipWithoutAuth(t *testing.T) {
+	t.Helper()
+	if options, _ := sdk.MakeConfig()["options"].(map[string]any); nil == options["auth"] {
+		t.Skip("this SDK's config declares no auth, so it places no credential")
+	}
+}
+
 // credheader is the header the credential travels in: the DEFAULT
 // client's auth.name, lower-cased as prepare_auth sends it. Read from a
 // default client because a test's `auth: nil` leaves no name to read.
@@ -31,16 +44,33 @@ var credheader = func() string {
 	return "authorization"
 }()
 
+// credform is the form prepare_auth writes, from the DEFAULT client's auth:
+// under Basic the token is the key half of the encoded pair, and a prefix is
+// space-joined.
+var credform = func() authform {
+	auth, _ := sdk.TestSDK(nil, nil).OptionsMap()["auth"].(map[string]any)
+	prefix, _ := auth["prefix"].(string)
+	basic, _ := auth["basic"].(bool)
+	return authform{prefix: prefix, basic: basic}
+}()
+
+type authform struct {
+	prefix string
+	basic  bool
+}
+
 // ---------------------------------------------------------------------
 // The recording transport: system.fetch for a LIVE client, scripting one
 // status per API call (the last repeating) and a token endpoint for the
 // exchange tests.
 
 type wirecall struct {
-	url  string
-	auth string
-	has  bool
-	body string
+	url      string
+	auth     string
+	has      bool
+	values   string
+	body     string
+	redirect string
 }
 
 type wire struct {
@@ -69,14 +99,20 @@ func (w *wire) fetch(url string, fetchdef map[string]any) (map[string]any, error
 
 	auth := ""
 	has := false
+	values := ""
 	if headers, is := fetchdef["headers"].(map[string]any); is {
 		if v, found := headers[credheader]; found {
 			auth, _ = v.(string)
 			has = true
 		}
+		for _, v := range headers {
+			values += fmt.Sprint(v) + "\n"
+		}
 	}
 	body, _ := fetchdef["body"].(string)
-	w.calls = append(w.calls, wirecall{url: url, auth: auth, has: has, body: body})
+	redirect, _ := fetchdef["redirect"].(string)
+	w.calls = append(w.calls,
+		wirecall{url: url, auth: auth, has: has, values: values, body: body, redirect: redirect})
 
 	if strings.HasSuffix(url, "/"+w.tokenpath) {
 		token := w.tokens[min(w.issued, len(w.tokens)-1)]
@@ -134,13 +170,28 @@ func (w *wire) token() []wirecall {
 // ---------------------------------------------------------------------
 // Support.
 
-// The credential header carries the SPEC's credential prefix (if any),
-// which a TEMPLATE cannot know - so assert on the CREDENTIAL and let the
-// prefix be whatever this SDK's API declares.
+// credential is the header value prepare_auth writes for a token.
+func credential(token string, secret string) string {
+	value := token
+	if credform.basic {
+		value = base64.StdEncoding.EncodeToString([]byte(token + ":" + secret))
+	}
+	if "" == credform.prefix {
+		return value
+	}
+	return credform.prefix + " " + value
+}
+
 func credentialIs(t *testing.T, header string, token string) {
 	t.Helper()
-	if header != token && !strings.HasSuffix(header, " "+token) {
-		t.Fatalf("expected the %s header to carry %s, got: %q", credheader, token, header)
+	pairedIs(t, header, token, "")
+}
+
+func pairedIs(t *testing.T, header string, token string, secret string) {
+	t.Helper()
+	if want := credential(token, secret); header != want {
+		t.Fatalf("expected the %s header to carry %s as %q, got: %q",
+			credheader, token, want, header)
 	}
 }
 
@@ -158,7 +209,11 @@ func secretsClient(w *wire, sdkopts map[string]any) *sdk.ElementdemoSDK {
 		if extend {
 			opts["extend"] = []any{feat.NewSecretsFeature()}
 		}
-		return sdk.NewElementdemoSDK(opts)
+		client, err := sdk.NewElementdemoSDK(opts)
+		if err != nil {
+			panic(err)
+		}
+		return client
 	})
 }
 
@@ -322,6 +377,7 @@ func driveEntityOp(t *testing.T, client *sdk.ElementdemoSDK, w *wire) {
 // The feature-inactive baseline: bit-identical behaviour.
 
 func TestSecretsInactive(t *testing.T) {
+	skipWithoutAuth(t)
 
 	t.Run("apikey option behaves exactly as before", func(t *testing.T) {
 		client := sdk.TestSDK(nil, map[string]any{"apikey": "OPTKEY01"})
@@ -355,6 +411,7 @@ func TestSecretsInactive(t *testing.T) {
 // Active: the provider chain, driven through real entity operations.
 
 func TestSecretsChain(t *testing.T) {
+	skipWithoutAuth(t)
 
 	t.Run("apikey option still wins over the chain", func(t *testing.T) {
 		os.Setenv(envprefix+"APIKEY", "ENVKEY01")
@@ -403,6 +460,20 @@ func TestSecretsChain(t *testing.T) {
 		if v, _ := client.OptionsMap()["apikey"].(string); "" != v {
 			t.Fatalf("the options map must stay unwritten (frozen after construction), got apikey=%q", v)
 		}
+	})
+
+	t.Run("a resolved key is placed as prepare_auth places it, the secret kept", func(t *testing.T) {
+		os.Setenv(envprefix+"APIKEY", "ENVKEY04")
+		defer os.Unsetenv(envprefix + "APIKEY")
+
+		w := makewire()
+		client := secretsClient(w, map[string]any{
+			"secret":  "PASS01",
+			"feature": secretsOpts(nil),
+		})
+
+		driveEntityOp(t, client, w)
+		pairedIs(t, w.api()[0].auth, "ENVKEY04", "PASS01")
 	})
 
 	t.Run("custom provider objects are accepted verbatim", func(t *testing.T) {
@@ -534,6 +605,7 @@ func TestSecretsChain(t *testing.T) {
 }
 
 func TestSecretsCachedMissIsReasked(t *testing.T) {
+	skipWithoutAuth(t)
 	var mu sync.Mutex
 	calls := 0
 
@@ -577,6 +649,7 @@ func TestSecretsCachedMissIsReasked(t *testing.T) {
 // The other half of the same rule: a HIT is still cached by default, so the
 // fix above must not turn every request into a chain walk.
 func TestSecretsCachedHitIsKept(t *testing.T) {
+	skipWithoutAuth(t)
 	var mu sync.Mutex
 	calls := 0
 
@@ -623,6 +696,7 @@ func (p *customProvider) Describe() string { return "custom:test" }
 // The access-token exchange.
 
 func TestSecretsExchange(t *testing.T) {
+	skipWithoutAuth(t)
 
 	t.Run("the refresh token buys an access token, and a spent one is rebought once", func(t *testing.T) {
 		os.Setenv(envprefix+"REFRESH_TOKEN", "REFRESH01")
@@ -647,6 +721,9 @@ func TestSecretsExchange(t *testing.T) {
 		if !strings.Contains(w.token()[0].body, "REFRESH01") {
 			t.Fatalf("the refresh token is sent in the request body, got %q", w.token()[0].body)
 		}
+		if "manual" != w.token()[0].redirect {
+			t.Fatalf("the exchange must ask for redirect manual, got %q", w.token()[0].redirect)
+		}
 
 		api := w.api()
 		if 2 != len(api) {
@@ -654,6 +731,31 @@ func TestSecretsExchange(t *testing.T) {
 		}
 		credentialIs(t, api[0].auth, "ACCESS01")
 		credentialIs(t, api[1].auth, "ACCESS02")
+	})
+
+	t.Run("a token bought on a refusal is placed as prepare_auth places it, the secret kept", func(t *testing.T) {
+		os.Setenv(envprefix+"REFRESH_TOKEN", "REFRESH01")
+		defer os.Unsetenv(envprefix + "REFRESH_TOKEN")
+
+		w := makewire()
+		w.apistatus = []int{401, 200}
+
+		client := secretsClient(w, map[string]any{
+			"secret": "PASS01",
+			"feature": secretsOpts(map[string]any{
+				"name":     "refresh_token",
+				"exchange": map[string]any{"active": true},
+			}),
+		})
+
+		driveEntityOp(t, client, w)
+
+		api := w.api()
+		if 2 != len(api) {
+			t.Fatalf("expected the request to be retried exactly once, got %d calls", len(api))
+		}
+		pairedIs(t, api[0].auth, "ACCESS01", "PASS01")
+		pairedIs(t, api[1].auth, "ACCESS02", "PASS01")
 	})
 
 	t.Run("auth nil buys no token at all", func(t *testing.T) {
@@ -723,6 +825,7 @@ func TestSecretsExchange(t *testing.T) {
 // JSON-hostile characters must arrive as that literal value. End to end
 // over real HTTP (httptest), token purchase and API call alike.
 func TestSecretsExchangeRawFetch(t *testing.T) {
+	skipWithoutAuth(t)
 	tricky := "re\"fresh\\to\nken"
 
 	var mu sync.Mutex
@@ -762,7 +865,11 @@ func TestSecretsExchangeRawFetch(t *testing.T) {
 		if extend {
 			opts["extend"] = []any{feat.NewSecretsFeature()}
 		}
-		return sdk.NewElementdemoSDK(opts)
+		client, err := sdk.NewElementdemoSDK(opts)
+		if err != nil {
+			panic(err)
+		}
+		return client
 	})
 
 	driveEntityOpUntil(t, client, "reached the httptest server", func() bool {
@@ -780,10 +887,232 @@ func TestSecretsExchangeRawFetch(t *testing.T) {
 	credentialIs(t, gotauth, "RAWTOK01")
 }
 
+// Real listeners and the raw fallback transport: a stub follows nothing.
+// redirectOrigins holds the real listeners: the origin answers the exchange
+// as `status` and `location` say and records what else it gets.
+type redirectOrigins struct {
+	mu        sync.Mutex
+	elsewhere []string
+	followed  []string
+	exchanged int
+	status    int
+	location  string
+	origin    string
+	base      string
+	away      string
+}
+
+func withOrigins(run func(o *redirectOrigins)) {
+	o := &redirectOrigins{}
+
+	other := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		body, _ := io.ReadAll(req.Body)
+		o.mu.Lock()
+		o.elsewhere = append(o.elsewhere, req.Method+" "+req.URL.Path+" "+string(body))
+		o.mu.Unlock()
+		res.Header().Set("content-type", "application/json")
+		res.Write([]byte(`{"access_token":"ELSEWHERE01"}`))
+	}))
+	defer other.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		body, _ := io.ReadAll(req.Body)
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		if "/api/auth/token" == req.URL.Path && "" == req.URL.RawQuery {
+			o.exchanged++
+			res.Header().Set("location", o.location)
+			res.WriteHeader(o.status)
+			return
+		}
+		o.followed = append(o.followed,
+			strings.TrimSpace(req.Method+" "+req.URL.RequestURI()+" "+string(body)))
+		res.Header().Set("content-type", "application/json")
+		res.Write([]byte(`{"access_token":"MOVED01"}`))
+	}))
+	defer origin.Close()
+
+	o.origin = origin.URL
+	o.base = origin.URL + "/api"
+	o.away = other.URL + "/api/auth/token"
+
+	run(o)
+}
+
+func (o *redirectOrigins) answer(status int, location string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.status = status
+	o.location = location
+	o.followed = []string{}
+	o.exchanged = 0
+}
+
+func redirectClient(o *redirectOrigins, extra map[string]any) *sdk.ElementdemoSDK {
+	exchange := map[string]any{"active": true, "refresh": "REFRESH01"}
+	for k, v := range extra {
+		exchange[k] = v
+	}
+	return withSecrets(func(extend bool) *sdk.ElementdemoSDK {
+		opts := map[string]any{
+			"base": o.base,
+			"feature": map[string]any{"secrets": map[string]any{
+				"active":   true,
+				"name":     "refresh_token",
+				"exchange": exchange,
+			}},
+		}
+		if extend {
+			opts["extend"] = []any{feat.NewSecretsFeature()}
+		}
+		client, err := sdk.NewElementdemoSDK(opts)
+		if err != nil {
+			panic(err)
+		}
+		return client
+	})
+}
+
+func TestSecretsExchangeRedirectRefused(t *testing.T) {
+	skipWithoutAuth(t)
+
+	t.Run("a redirect answering the exchange is a failure, and nothing follows it", func(t *testing.T) {
+		entity, opname := routableOp(t)
+
+		withOrigins(func(o *redirectOrigins) {
+			answers := []struct {
+				status   int
+				location string
+			}{{307, o.away}, {308, o.away}, {302, o.away}, {307, "/api/moved/token"}}
+
+			allowed := []string{}
+			refused := 0
+
+			for _, a := range answers {
+				o.answer(a.status, a.location)
+
+				message := fmt.Sprint(callNamedOp(redirectClient(o, nil), entity, opname))
+				if strings.Contains(message, "token exchange failed: "+
+					strconv.Itoa(a.status)+" from "+o.base+"/auth/token") {
+					refused++
+				} else {
+					allowed = append(allowed, fmt.Sprintf("%d to %s: %s", a.status, a.location, message))
+				}
+			}
+
+			o.mu.Lock()
+			defer o.mu.Unlock()
+			fmt.Printf("secrets: exchange refused %d redirect(s), %d followed\n",
+				refused, len(o.elsewhere)+len(o.followed))
+
+			if 0 != len(o.elsewhere) {
+				t.Errorf("the exchange reached another origin: %v", o.elsewhere)
+			}
+			if 0 != len(o.followed) {
+				t.Errorf("a request followed a refused exchange: %v", o.followed)
+			}
+			if 0 != len(allowed) {
+				t.Errorf("a redirect was not a failed exchange: %v", allowed)
+			}
+			if len(answers) != refused {
+				t.Errorf("expected %d refused exchanges, got %d", len(answers), refused)
+			}
+		})
+	})
+
+	t.Run("with the option, a redirect on the exchange's own origin is followed, and no other", func(t *testing.T) {
+		entity, opname := routableOp(t)
+
+		withOrigins(func(o *redirectOrigins) {
+			sent := ` {"refresh_token":"REFRESH01"}`
+			// Each case: the status, the Location, and the path the exchange is
+			// asked again at, or "" where the redirect is refused.
+			cases := []struct {
+				status   int
+				location string
+				path     string
+			}{
+				{307, "/api/moved/token", "/api/moved/token"},
+				{308, o.origin + "/api/moved/token", "/api/moved/token"},
+				// A Location of a query alone keeps the path that answered.
+				{307, "?step=2", "/api/auth/token?step=2"},
+				{307, o.away, ""},
+				{302, "/api/moved/token", ""},
+				{307, "/api/auth/token", ""},
+			}
+
+			wrong := []string{}
+			followed, refused, looped := 0, 0, 0
+
+			for _, c := range cases {
+				o.answer(c.status, c.location)
+
+				result := callNamedOp(redirectClient(o, map[string]any{"redirect": "same-origin"}),
+					entity, opname)
+				message := fmt.Sprint(result)
+
+				o.mu.Lock()
+				seen := fmt.Sprintf("%d to %s: %s %v", c.status, c.location, message, o.followed)
+				if "" != c.path {
+					if nil == result && 2 == len(o.followed) && "POST "+c.path+sent == o.followed[0] {
+						followed++
+					} else {
+						wrong = append(wrong, seen)
+					}
+				} else if 0 == len(o.followed) && strings.Contains(message,
+					"token exchange failed: "+strconv.Itoa(c.status)+" from "+o.base+"/auth/token") {
+					refused++
+				} else {
+					wrong = append(wrong, seen)
+				}
+				if "/api/auth/token" == c.location {
+					looped = o.exchanged
+				}
+				o.mu.Unlock()
+			}
+
+			o.mu.Lock()
+			defer o.mu.Unlock()
+			fmt.Printf("secrets: exchange opt-in followed %d redirect(s) on its own origin, refused %d, %d elsewhere\n",
+				followed, refused, len(o.elsewhere))
+
+			if 0 != len(o.elsewhere) {
+				t.Errorf("the exchange reached another origin: %v", o.elsewhere)
+			}
+			if 0 != len(wrong) {
+				t.Errorf("unexpected outcomes: %v", wrong)
+			}
+			if 3 != followed {
+				t.Errorf("expected 3 followed, got %d", followed)
+			}
+			if 3 != refused {
+				t.Errorf("expected 3 refused, got %d", refused)
+			}
+			if 6 != looped {
+				t.Errorf("expected the exchange asked 6 times, got %d", looped)
+			}
+		})
+	})
+}
+
+// callNamedOp drives one operation and returns its error result.
+func callNamedOp(client *sdk.ElementdemoSDK, entity string, opname string) any {
+	accessor := reflect.ValueOf(client).MethodByName(exported(entity))
+	ent := accessor.Call([]reflect.Value{reflect.Zero(accessor.Type().In(0))})[0]
+	op := ent.MethodByName(opname)
+	in := make([]reflect.Value, op.Type().NumIn())
+	for i := range in {
+		in[i] = reflect.Zero(op.Type().In(i))
+	}
+	out := op.Call(in)
+	return out[len(out)-1].Interface()
+}
+
 // With `cache: false`, a provider that answered once and then reports a
 // MISS (a revoked secret) must RETRACT the credential the feature wrote -
 // prepareAuth must stop transmitting it.
 func TestSecretsUncachedMissRetracts(t *testing.T) {
+	skipWithoutAuth(t)
 	var mu sync.Mutex
 	have := true
 
@@ -827,6 +1156,7 @@ func TestSecretsUncachedMissRetracts(t *testing.T) {
 // This is the pin that Direct gets the chain credential (and the same
 // fail-closed refusal) without any entity pipeline involved.
 func TestSecretsDirectPath(t *testing.T) {
+	skipWithoutAuth(t)
 	os.Setenv(envprefix+"APIKEY", "DIRECTKEY01")
 	defer os.Unsetenv(envprefix + "APIKEY")
 
@@ -873,6 +1203,7 @@ func TestSecretsDirectPath(t *testing.T) {
 }
 
 func TestSecretsMalformedProviderEntry(t *testing.T) {
+	skipWithoutAuth(t)
 	// A kind NAME where a provider or spec belongs.
 	malformed := []any{"hashicorp"}
 	const notaprovider = "not a provider or a provider spec"
@@ -982,6 +1313,7 @@ func TestSecretsMalformedProviderEntry(t *testing.T) {
 // SUCCEEDS reopens it and every waiting operation goes out with the FRESH
 // credential - never the stale pre-failure header, and never nothing.
 func TestSecretsGateRecovery(t *testing.T) {
+	skipWithoutAuth(t)
 	entity, opname := routableOp(t)
 
 	var mu sync.Mutex
@@ -1044,4 +1376,111 @@ func TestSecretsGateRecovery(t *testing.T) {
 	if 2 != len(w.api()) {
 		t.Fatalf("recovery must let both operations out, saw %d", len(w.api()))
 	}
+}
+
+// authoff is off by the config where it declares no auth, else by `auth:
+// nil`: either way the feature places no credential, buys no token and
+// retries nothing.
+func authoff() (string, map[string]any) {
+	if options, _ := sdk.MakeConfig()["options"].(map[string]any); nil == options["auth"] {
+		return "config", map[string]any{}
+	}
+	return "option", map[string]any{"auth": nil}
+}
+
+func TestAuthOff(t *testing.T) {
+	by, off := authoff()
+	secrets := []string{"OFFKEY01", "OFFKEY02", "OFFREFRESH01", "ACCESS01"}
+	sent := []wirecall{}
+	bought := 0
+
+	// The header prepare_auth writes, or any header holding one of the secrets.
+	carries := func(call wirecall) bool {
+		if call.has {
+			return true
+		}
+		for _, secret := range secrets {
+			if strings.Contains(call.values, secret) {
+				return true
+			}
+		}
+		return false
+	}
+
+	offclient := func(w *wire, sdkopts map[string]any, fopts map[string]any) *sdk.ElementdemoSDK {
+		opts := map[string]any{"feature": secretsOpts(fopts)}
+		for k, v := range sdkopts {
+			opts[k] = v
+		}
+		for k, v := range off {
+			opts[k] = v
+		}
+		return secretsClient(w, opts)
+	}
+
+	record := func(w *wire) {
+		sent = append(sent, w.api()...)
+		bought += len(w.token())
+	}
+
+	t.Run("a key the chain resolves is not placed", func(t *testing.T) {
+		os.Setenv(envprefix+"APIKEY", "OFFKEY01")
+		defer os.Unsetenv(envprefix + "APIKEY")
+
+		w := makewire()
+		client := offclient(w, nil, nil)
+		driveEntityOp(t, client, w)
+		record(w)
+
+		if carries(w.api()[0]) {
+			t.Fatalf("a credential was sent with auth off: %q", w.api()[0].values)
+		}
+		if v := secretsFeatureOf(client).Credential(); "" != v {
+			t.Fatalf("the feature resolved a credential with auth off: %q", v)
+		}
+	})
+
+	t.Run("an explicit apikey is not placed", func(t *testing.T) {
+		w := makewire()
+		client := offclient(w, map[string]any{"apikey": "OFFKEY02"}, nil)
+		driveEntityOp(t, client, w)
+		record(w)
+
+		if carries(w.api()[0]) {
+			t.Fatalf("a credential was sent with auth off: %q", w.api()[0].values)
+		}
+	})
+
+	t.Run("a refusal buys no token and is not retried", func(t *testing.T) {
+		os.Setenv(envprefix+"REFRESH_TOKEN", "OFFREFRESH01")
+		defer os.Unsetenv(envprefix + "REFRESH_TOKEN")
+
+		w := makewire()
+		w.apistatus = []int{401}
+		client := offclient(w, nil, map[string]any{
+			"name":     "refresh_token",
+			"exchange": map[string]any{"active": true},
+		})
+		driveEntityOp(t, client, w)
+		record(w)
+
+		if 0 != len(w.token()) {
+			t.Fatalf("a token was bought with auth off (%d purchases)", len(w.token()))
+		}
+		if 1 != len(w.api()) {
+			t.Fatalf("a refusal was retried with auth off (%d calls)", len(w.api()))
+		}
+		if carries(w.api()[0]) {
+			t.Fatalf("a credential was sent with auth off: %q", w.api()[0].values)
+		}
+	})
+
+	credentials := 0
+	for _, call := range sent {
+		if carries(call) {
+			credentials++
+		}
+	}
+	fmt.Printf("secrets: auth off by %s: %d request(s), %d credential(s), %d token(s)\n",
+		by, len(sent), credentials, bought)
 }
